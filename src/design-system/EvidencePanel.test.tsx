@@ -44,4 +44,17 @@ describe('EvidencePanel', () => {
     await userEvent.keyboard('{Escape}');
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('draws the confidence ring proportional to the confidence value', () => {
+    render(<EvidencePanel data={sampleData} onClose={vi.fn()} />);
+
+    const ring = document.querySelector('circle.confidence-arc');
+    expect(ring).not.toBeNull();
+    // sampleData.confidence is 0.81; circumference = 2*PI*24 ≈ 150.8,
+    // dasharray's "filled" length should be ~81% of that (rounded to 1 decimal, so a
+    // small floating-point tolerance is needed).
+    const dasharray = ring!.getAttribute('stroke-dasharray');
+    const [filled] = dasharray!.split(' ').map(Number);
+    expect(filled).toBeCloseTo(2 * Math.PI * 24 * 0.81, 0);
+  });
 });

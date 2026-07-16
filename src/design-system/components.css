@@ -94,3 +94,5 @@
 .evidence-record .tag { font-family: 'IBM Plex Sans', sans-serif; font-size: 10.5px; color: var(--muted); }
 
 .main-single { grid-area: main; overflow: hidden; }
+
+.confidence-meta { display: flex; flex-direction: column; gap: 2px; }
