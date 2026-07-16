@@ -4,6 +4,7 @@ import { AuthProvider } from '../auth/AuthContext';
 import { LoginScreen } from '../auth/LoginScreen';
 import { ProtectedRoute } from './ProtectedRoute';
 import { Rail } from './Rail';
+import { Header } from './Header';
 import { ScreenPlaceholder } from './ScreenPlaceholder';
 
 const queryClient = new QueryClient();
@@ -33,7 +34,10 @@ function AuthenticatedShell() {
           path="/command-center"
           element={
             <ProtectedRoute allowedRoles={['DISTRICT_SUPERVISOR', 'SCRB_ANALYST', 'POLICYMAKER']}>
-              <ScreenPlaceholder title="Command Center" />
+              <>
+                <Header title="Command Center" />
+                <ScreenPlaceholder title="Command Center" />
+              </>
             </ProtectedRoute>
           }
         />
@@ -41,7 +45,10 @@ function AuthenticatedShell() {
           path="/case-explorer"
           element={
             <ProtectedRoute allowedRoles={['INVESTIGATOR', 'STATION_SUPERVISOR']}>
-              <ScreenPlaceholder title="Case Explorer" />
+              <>
+                <Header title="Case Explorer" />
+                <ScreenPlaceholder title="Case Explorer" />
+              </>
             </ProtectedRoute>
           }
         />
@@ -49,7 +56,10 @@ function AuthenticatedShell() {
           path="/network"
           element={
             <ProtectedRoute allowedRoles={['DISTRICT_SUPERVISOR', 'SCRB_ANALYST']}>
-              <ScreenPlaceholder title="Network / Link Analysis" />
+              <>
+                <Header title="Network / Link Analysis" />
+                <ScreenPlaceholder title="Network / Link Analysis" />
+              </>
             </ProtectedRoute>
           }
         />
@@ -57,7 +67,10 @@ function AuthenticatedShell() {
           path="/sociological"
           element={
             <ProtectedRoute allowedRoles={['DISTRICT_SUPERVISOR', 'SCRB_ANALYST', 'POLICYMAKER']}>
-              <ScreenPlaceholder title="Sociological & Predictive" />
+              <>
+                <Header title="Sociological & Predictive" />
+                <ScreenPlaceholder title="Sociological & Predictive" />
+              </>
             </ProtectedRoute>
           }
         />
@@ -65,7 +78,10 @@ function AuthenticatedShell() {
           path="/admin"
           element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
-              <ScreenPlaceholder title="Admin / Audit" />
+              <>
+                <Header title="Admin / Audit" />
+                <ScreenPlaceholder title="Admin / Audit" />
+              </>
             </ProtectedRoute>
           }
         />

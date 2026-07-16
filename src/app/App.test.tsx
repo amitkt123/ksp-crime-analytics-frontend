@@ -19,6 +19,6 @@ describe('App', () => {
     });
 
     render(<App />);
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Admin / Audit' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Admin / Audit' })).toBeInTheDocument());
   });
 });

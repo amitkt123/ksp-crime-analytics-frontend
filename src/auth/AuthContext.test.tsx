@@ -48,4 +48,15 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('token')).toHaveTextContent('none');
     expect(sessionStorage.getItem('ksp-auth')).toBeNull();
   });
+
+  it('recovers from corrupted sessionStorage instead of crashing', () => {
+    sessionStorage.setItem('ksp-auth', 'not valid json');
+
+    render(<AuthProvider><TestConsumer /></AuthProvider>);
+
+    expect(screen.getByTestId('token')).toHaveTextContent('none');
+    expect(screen.getByTestId('roles')).toHaveTextContent('');
+    expect(screen.getByTestId('username')).toHaveTextContent('none');
+    expect(sessionStorage.getItem('ksp-auth')).toBeNull();
+  });
 });

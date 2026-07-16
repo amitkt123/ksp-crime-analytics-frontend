@@ -18,7 +18,12 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 function readStoredAuth(): AuthState {
   const raw = sessionStorage.getItem(STORAGE_KEY);
   if (!raw) return { token: null, roles: [], username: null };
-  return JSON.parse(raw) as AuthState;
+  try {
+    return JSON.parse(raw) as AuthState;
+  } catch {
+    sessionStorage.removeItem(STORAGE_KEY);
+    return { token: null, roles: [], username: null };
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
