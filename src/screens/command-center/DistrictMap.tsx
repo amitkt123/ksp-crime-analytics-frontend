@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import type { DistrictBoundaryFeatureCollection, DistrictSummaryResponse } from '../../api/geoApi';
 
 interface DistrictMapProps {
@@ -48,7 +49,9 @@ export function DistrictMap({ boundaries, districtSummaries, onDistrictSelect }:
         source: 'districts',
         paint: {
           'fill-color': ['interpolate', ['linear'], ['get', 'caseCount'], 0, '#b7d3f6', maxCount, '#104281'],
-          'fill-outline-color': 'var(--line)',
+          // MapLibre's style validator rejects CSS var() -- must be a literal color.
+          // Matches --line's light-theme value in tokens.css.
+          'fill-outline-color': '#D8DEEA',
         },
       });
       map.on('click', 'district-fill', (e) => {

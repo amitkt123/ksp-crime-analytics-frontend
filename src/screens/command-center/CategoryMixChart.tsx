@@ -25,7 +25,7 @@ export function CategoryMixChart({ categoryMix }: CategoryMixChartProps) {
       <div className="cat-legend">
         {sorted.map((slice) => (
           <span key={slice.crimeHeadId} className="cat-legend-item">
-            <span className="cat-swatch" style={{ background: `var(--cat-${CRIME_HEAD_SLOT[slice.crimeHeadId] ?? 1})` }} />
+            <span className="cat-swatch" style={{ background: `var(--cat-${CRIME_HEAD_SLOT[slice.crimeHeadId] ?? 5})` }} />
             {slice.crimeGroupName}
           </span>
         ))}
@@ -39,7 +39,7 @@ export function CategoryMixChart({ categoryMix }: CategoryMixChartProps) {
                 className="cat-bar-fill"
                 style={{
                   width: `${total === 0 ? 0 : (slice.count / total) * 100}%`,
-                  background: `var(--cat-${CRIME_HEAD_SLOT[slice.crimeHeadId] ?? 1})`,
+                  background: `var(--cat-${CRIME_HEAD_SLOT[slice.crimeHeadId] ?? 5})`,
                 }}
               />
             </div>
