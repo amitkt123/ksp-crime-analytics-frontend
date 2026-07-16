@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { useMe } from '../api/meApi';
 import { ThemeToggle } from '../design-system/ThemeToggle';
 
 interface HeaderProps {
@@ -8,7 +9,9 @@ interface HeaderProps {
 }
 
 export function Header({ title, children }: HeaderProps) {
-  const { username, roles } = useAuth();
+  const { token, username, roles } = useAuth();
+  const { data: me } = useMe(token);
+  const rankAndUnit = me?.rank && me?.unit ? `${me.rank} · ${me.unit}` : roles.join(', ');
 
   return (
     <header className="header">
@@ -22,7 +25,7 @@ export function Header({ title, children }: HeaderProps) {
           <div className="role-avatar">{initials(username)}</div>
           <div className="role-text">
             <span className="name">{username}</span>
-            <span className="rank">{roles.join(', ')}</span>
+            <span className="rank">{rankAndUnit}</span>
           </div>
         </div>
       </div>
