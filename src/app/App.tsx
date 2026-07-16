@@ -6,6 +6,7 @@ import { ProtectedRoute } from './ProtectedRoute';
 import { Rail } from './Rail';
 import { Header } from './Header';
 import { ScreenPlaceholder } from './ScreenPlaceholder';
+import { CommandCenterScreen } from '../screens/command-center/CommandCenterScreen';
 
 const queryClient = new QueryClient();
 
@@ -34,10 +35,7 @@ function AuthenticatedShell() {
           path="/command-center"
           element={
             <ProtectedRoute allowedRoles={['DISTRICT_SUPERVISOR', 'SCRB_ANALYST', 'POLICYMAKER']}>
-              <>
-                <Header title="Command Center" />
-                <ScreenPlaceholder title="Command Center" />
-              </>
+              <CommandCenterScreen />
             </ProtectedRoute>
           }
         />
