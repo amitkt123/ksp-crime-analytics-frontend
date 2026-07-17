@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from './client';
+import type { KpiResponse, CategorySliceResponse } from './commandCenterApi';
 
 export interface DistrictSummaryResponse {
   districtId: number;
@@ -11,6 +12,11 @@ export interface StationSummaryResponse {
   unitId: number;
   unitName: string;
   caseCount: number;
+}
+
+export interface DistrictDetailResponse {
+  kpi: KpiResponse;
+  categoryMix: CategorySliceResponse[];
 }
 
 export interface DistrictBoundaryFeatureCollection {
@@ -32,6 +38,10 @@ export function getDistrictBoundaries(token: string | null): Promise<DistrictBou
 
 export function getStationSummaries(token: string | null, districtId: number): Promise<StationSummaryResponse[]> {
   return apiFetch<StationSummaryResponse[]>(`/api/geo/districts/${districtId}/stations`, {}, token);
+}
+
+export function getDistrictDetail(token: string | null, districtId: number): Promise<DistrictDetailResponse> {
+  return apiFetch<DistrictDetailResponse>(`/api/geo/districts/${districtId}/summary`, {}, token);
 }
 
 export function useDistrictSummaries(token: string | null) {
@@ -56,6 +66,15 @@ export function useStationSummaries(token: string | null, districtId: number | n
   return useQuery({
     queryKey: ['geo-station-summaries', districtId],
     queryFn: () => getStationSummaries(token, districtId as number),
+    staleTime: 60_000,
+    enabled: token != null && districtId != null,
+  });
+}
+
+export function useDistrictDetail(token: string | null, districtId: number | null) {
+  return useQuery({
+    queryKey: ['geo-district-detail', districtId],
+    queryFn: () => getDistrictDetail(token, districtId as number),
     staleTime: 60_000,
     enabled: token != null && districtId != null,
   });
