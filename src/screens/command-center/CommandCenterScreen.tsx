@@ -2,7 +2,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { Header } from '../../app/Header';
 import { useCommandCenterSummary } from '../../api/commandCenterApi';
-import { useDistrictSummaries, useDistrictBoundaries, useStationSummaries } from '../../api/geoApi';
+import { useDistrictSummaries, useDistrictBoundaries, useStationSummaries, useDistrictDetail } from '../../api/geoApi';
 import { useEmergingAlerts } from '../../api/alertsApi';
 import { DistrictMap } from './DistrictMap';
 import { StationDrilldownList } from './StationDrilldownList';
@@ -16,12 +16,14 @@ export function CommandCenterScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
   const isPolicymaker = roles.includes('POLICYMAKER');
   const selectedDistrictId = searchParams.get('district') ? Number(searchParams.get('district')) : null;
+  const districtDrilldownId = isPolicymaker ? null : selectedDistrictId;
 
   const summaryQuery = useCommandCenterSummary(token);
   const districtSummariesQuery = useDistrictSummaries(token);
   const boundariesQuery = useDistrictBoundaries(token);
   const alertsQuery = useEmergingAlerts(token);
-  const stationSummariesQuery = useStationSummaries(token, isPolicymaker ? null : selectedDistrictId);
+  const stationSummariesQuery = useStationSummaries(token, districtDrilldownId);
+  const districtDetailQuery = useDistrictDetail(token, districtDrilldownId);
 
   function selectDistrict(districtId: number) {
     if (isPolicymaker) return;
@@ -114,7 +116,12 @@ export function CommandCenterScreen() {
               </div>
             </div>
           </div>
-          <DistrictMap boundaries={boundaries} districtSummaries={districtSummaries} onDistrictSelect={selectDistrict} />
+          <DistrictMap
+            boundaries={boundaries}
+            districtSummaries={districtSummaries}
+            selectedDistrictId={districtDrilldownId}
+            onDistrictSelect={selectDistrict}
+          />
           <SparklineStrip
             stateCaseVolumeWeekly={summary.stateCaseVolumeWeekly}
             crimesAgainstPropertyWeekly={summary.crimesAgainstPropertyWeekly}
@@ -123,15 +130,35 @@ export function CommandCenterScreen() {
         </section>
         <aside className="pane side-pane" aria-label="State KPIs and emerging alerts">
           {selectedDistrictId && !isPolicymaker ? (
-            stationSummariesQuery.data ? (
-              <StationDrilldownList
-                districtName={selectedDistrictName}
-                stations={stationSummariesQuery.data}
-                onBack={clearDistrict}
-              />
-            ) : (
-              <p>Loading stations…</p>
-            )
+            <>
+              {districtDetailQuery.isError ? (
+                <p role="alert">
+                  Couldn't load district details.{' '}
+                  <button onClick={() => districtDetailQuery.refetch()}>Retry</button>
+                </p>
+              ) : districtDetailQuery.data ? (
+                <>
+                  <KpiPanel kpi={districtDetailQuery.data.kpi} scopeLabel="District case count" />
+                  <section>
+                    <h3>
+                      Case category mix <span className="count">30-day window</span>
+                    </h3>
+                    <CategoryMixChart categoryMix={districtDetailQuery.data.categoryMix} />
+                  </section>
+                </>
+              ) : (
+                <p>Loading district details…</p>
+              )}
+              {stationSummariesQuery.data ? (
+                <StationDrilldownList
+                  districtName={selectedDistrictName}
+                  stations={stationSummariesQuery.data}
+                  onBack={clearDistrict}
+                />
+              ) : (
+                <p>Loading stations…</p>
+              )}
+            </>
           ) : (
             <>
               <KpiPanel kpi={summary.kpi} />
