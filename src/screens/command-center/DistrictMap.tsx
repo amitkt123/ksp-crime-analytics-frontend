@@ -9,8 +9,15 @@ interface DistrictMapProps {
   districtSummaries: DistrictSummaryResponse[];
   selectedDistrictId: number | null;
   onDistrictSelect: (districtId: number) => void;
+  onBack: () => void;
 }
 
+const DEFAULT_OUTLINE_COLOR = ['case', ['boolean', ['feature-state', 'hover'], false], '#2a78d6', '#D8DEEA'];
+
+// Dims (rather than filters out) every district but the selected one -- the state
+// shape stays visible and its other districts stay clickable, so zooming into one
+// district never loses the surrounding geographic context or the ability to jump
+// straight to a neighboring district.
 function applyDistrictSelection(
   map: InstanceType<typeof maplibregl.Map>,
   boundaries: DistrictBoundaryFeatureCollection,
@@ -19,10 +26,22 @@ function applyDistrictSelection(
   if (selectedDistrictId != null) {
     const feature = boundaries.features.find((f) => f.properties.districtId === selectedDistrictId);
     if (!feature) return;
-    map.setFilter('district-fill', ['==', ['get', 'districtId'], selectedDistrictId]);
+    map.setPaintProperty('district-fill', 'fill-opacity', [
+      'case',
+      ['==', ['get', 'districtId'], selectedDistrictId],
+      1,
+      0.15,
+    ]);
+    map.setPaintProperty('district-fill', 'fill-outline-color', [
+      'case',
+      ['==', ['get', 'districtId'], selectedDistrictId],
+      '#2a78d6',
+      '#D8DEEA',
+    ]);
     map.fitBounds(geometryBounds(feature.geometry), { padding: 40 });
   } else {
-    map.setFilter('district-fill', null);
+    map.setPaintProperty('district-fill', 'fill-opacity', 1);
+    map.setPaintProperty('district-fill', 'fill-outline-color', DEFAULT_OUTLINE_COLOR);
     map.fitBounds(featureCollectionBounds(boundaries), { padding: 40 });
   }
 }
@@ -32,12 +51,14 @@ function applyDistrictSelection(
 // DistrictBoundaryService) rendered as a MapLibre vector fill layer. Matches the design
 // spec's "why MapLibre over Mapbox" reasoning: the demo must not depend on an external
 // service staying up during judging.
-export function DistrictMap({ boundaries, districtSummaries, selectedDistrictId, onDistrictSelect }: DistrictMapProps) {
+export function DistrictMap({ boundaries, districtSummaries, selectedDistrictId, onDistrictSelect, onBack }: DistrictMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<InstanceType<typeof maplibregl.Map> | null>(null);
   const loadedRef = useRef(false);
   const selectedDistrictIdRef = useRef(selectedDistrictId);
   const onDistrictSelectRef = useRef(onDistrictSelect);
+  const popupRef = useRef<InstanceType<typeof maplibregl.Popup> | null>(null);
+  const hoveredIdRef = useRef<number | null>(null);
   // Kept in refs, not effect deps -- onDistrictSelect's identity changes on every
   // CommandCenterScreen render (it closes over react-router's setSearchParams, whose
   // identity changes with the URL), which would otherwise tear down and recreate the
@@ -86,8 +107,8 @@ export function DistrictMap({ boundaries, districtSummaries, selectedDistrictId,
         },
       });
 
-      let hoveredId: number | null = null;
       const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false });
+      popupRef.current = popup;
 
       map.on('mousemove', 'district-fill', (e) => {
         if (selectedDistrictIdRef.current != null) return;
@@ -95,9 +116,9 @@ export function DistrictMap({ boundaries, districtSummaries, selectedDistrictId,
         const districtId = feature?.properties?.districtId;
         if (typeof districtId !== 'number') return;
 
-        if (hoveredId !== districtId) {
-          if (hoveredId != null) map.removeFeatureState({ source: 'districts', id: hoveredId });
-          hoveredId = districtId;
+        if (hoveredIdRef.current !== districtId) {
+          if (hoveredIdRef.current != null) map.removeFeatureState({ source: 'districts', id: hoveredIdRef.current });
+          hoveredIdRef.current = districtId;
           map.setFeatureState({ source: 'districts', id: districtId }, { hover: true });
           map.getCanvas().style.cursor = 'pointer';
         }
@@ -109,8 +130,8 @@ export function DistrictMap({ boundaries, districtSummaries, selectedDistrictId,
       });
 
       map.on('mouseleave', 'district-fill', () => {
-        if (hoveredId != null) map.removeFeatureState({ source: 'districts', id: hoveredId });
-        hoveredId = null;
+        if (hoveredIdRef.current != null) map.removeFeatureState({ source: 'districts', id: hoveredIdRef.current });
+        hoveredIdRef.current = null;
         map.getCanvas().style.cursor = '';
         popup.remove();
       });
@@ -133,15 +154,43 @@ export function DistrictMap({ boundaries, districtSummaries, selectedDistrictId,
 
   useEffect(() => {
     if (!loadedRef.current || !mapRef.current) return;
-    applyDistrictSelection(mapRef.current, boundaries, selectedDistrictId);
+    const map = mapRef.current;
+    if (selectedDistrictId != null) {
+      // The breadcrumb overlay now shows the selected district's name/case count --
+      // a leftover hover popup from the click that made the selection would duplicate it.
+      popupRef.current?.remove();
+      if (hoveredIdRef.current != null) {
+        map.removeFeatureState({ source: 'districts', id: hoveredIdRef.current });
+        hoveredIdRef.current = null;
+        map.getCanvas().style.cursor = '';
+      }
+    }
+    applyDistrictSelection(map, boundaries, selectedDistrictId);
   }, [selectedDistrictId, boundaries]);
 
+  const selectedDistrict =
+    selectedDistrictId != null ? districtSummaries.find((d) => d.districtId === selectedDistrictId) : undefined;
+
   return (
-    <div
-      ref={containerRef}
-      className="map-card"
-      role="img"
-      aria-label="Map of Karnataka's districts shaded by case count"
-    />
+    <div className="map-card">
+      <div
+        ref={containerRef}
+        className="map-canvas"
+        role="img"
+        aria-label="Map of Karnataka's districts shaded by case count"
+      />
+      {selectedDistrict && (
+        <div className="map-breadcrumb">
+          <div className="breadcrumb">
+            <button className="breadcrumb-back" onClick={onBack}>
+              State
+            </button>
+            <span className="sep">›</span>
+            <b>{selectedDistrict.districtName}</b>
+            <span className="map-breadcrumb-count">{selectedDistrict.caseCount.toLocaleString()} cases</span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
