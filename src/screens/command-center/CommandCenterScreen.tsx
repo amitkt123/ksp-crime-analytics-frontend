@@ -111,9 +111,6 @@ export function CommandCenterScreen() {
           <div className="pane-head">
             <div>
               <h2>Karnataka — case density by district</h2>
-              <div className="breadcrumb">
-                <b>{selectedDistrictName || 'State'}</b>
-              </div>
             </div>
           </div>
           <DistrictMap
@@ -121,6 +118,7 @@ export function CommandCenterScreen() {
             districtSummaries={districtSummaries}
             selectedDistrictId={districtDrilldownId}
             onDistrictSelect={selectDistrict}
+            onBack={clearDistrict}
           />
           <SparklineStrip
             stateCaseVolumeWeekly={summary.stateCaseVolumeWeekly}

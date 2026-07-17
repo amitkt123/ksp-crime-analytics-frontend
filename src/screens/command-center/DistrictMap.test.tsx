@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { DistrictBoundaryFeatureCollection, DistrictSummaryResponse } from '../../api/geoApi';
 
 interface FakeMapEvent {
@@ -18,6 +19,7 @@ const { FakeMap, FakePopup } = vi.hoisted(() => {
     featureStates = new Map<number, Record<string, unknown>>();
     lastFilter: unknown;
     lastFitBounds: { bounds: unknown; options: unknown } | undefined;
+    paintProperties: Record<string, unknown> = {};
 
     constructor(options: unknown) {
       this.options = options;
@@ -47,6 +49,10 @@ const { FakeMap, FakePopup } = vi.hoisted(() => {
 
     setFilter(_layerId: string, filter: unknown) {
       this.lastFilter = filter;
+    }
+
+    setPaintProperty(_layerId: string, name: string, value: unknown) {
+      this.paintProperties[name] = value;
     }
 
     fitBounds(bounds: unknown, options: unknown) {
@@ -137,6 +143,7 @@ describe('DistrictMap', () => {
         districtSummaries={districtSummaries}
         selectedDistrictId={null}
         onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
       />,
     );
 
@@ -160,6 +167,7 @@ describe('DistrictMap', () => {
         districtSummaries={districtSummaries}
         selectedDistrictId={null}
         onDistrictSelect={onDistrictSelect}
+        onBack={vi.fn()}
       />,
     );
 
@@ -176,6 +184,7 @@ describe('DistrictMap', () => {
         districtSummaries={districtSummaries}
         selectedDistrictId={null}
         onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
       />,
     );
 
@@ -200,6 +209,7 @@ describe('DistrictMap', () => {
         districtSummaries={districtSummaries}
         selectedDistrictId={null}
         onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
       />,
     );
 
@@ -222,6 +232,7 @@ describe('DistrictMap', () => {
         districtSummaries={districtSummaries}
         selectedDistrictId={3}
         onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
       />,
     );
 
@@ -234,28 +245,37 @@ describe('DistrictMap', () => {
     expect(map.featureStates.size).toBe(0);
   });
 
-  it('filters to and fits bounds on the selected district', () => {
+  it('dims every district but the selected one and fits bounds on it, without filtering the rest out', () => {
     render(
       <DistrictMap
         boundaries={boundariesWithGeometry}
         districtSummaries={districtSummaries}
         selectedDistrictId={3}
         onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
       />,
     );
 
     const map = FakeMap.instances[0];
-    expect(map.lastFilter).toEqual(['==', ['get', 'districtId'], 3]);
+    expect(map.paintProperties['fill-opacity']).toEqual(['case', ['==', ['get', 'districtId'], 3], 1, 0.15]);
+    expect(map.paintProperties['fill-outline-color']).toEqual([
+      'case',
+      ['==', ['get', 'districtId'], 3],
+      '#2a78d6',
+      '#D8DEEA',
+    ]);
     expect(map.lastFitBounds?.bounds).toEqual([[76, 11], [76.5, 11.5]]);
+    expect(map.lastFilter).toBeUndefined();
   });
 
-  it('resets the filter and fits the full extent when selection clears', () => {
+  it('resets opacity/outline and fits the full extent when selection clears', () => {
     const { rerender } = render(
       <DistrictMap
         boundaries={boundariesWithGeometry}
         districtSummaries={districtSummaries}
         selectedDistrictId={3}
         onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
       />,
     );
 
@@ -265,11 +285,62 @@ describe('DistrictMap', () => {
         districtSummaries={districtSummaries}
         selectedDistrictId={null}
         onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
       />,
     );
 
     const map = FakeMap.instances[0];
-    expect(map.lastFilter).toBeNull();
+    expect(map.paintProperties['fill-opacity']).toBe(1);
+    expect(map.paintProperties['fill-outline-color']).toEqual([
+      'case',
+      ['boolean', ['feature-state', 'hover'], false],
+      '#2a78d6',
+      '#D8DEEA',
+    ]);
     expect(map.lastFitBounds?.bounds).toEqual([[76, 11], [78, 13]]);
+  });
+
+  it('shows a breadcrumb with the selected district name and case count, absent when nothing is selected', () => {
+    const { rerender } = render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={null}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText('Mysuru')).not.toBeInTheDocument();
+
+    rerender(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Mysuru')).toBeInTheDocument();
+    expect(screen.getByText('120 cases')).toBeInTheDocument();
+  });
+
+  it('calls onBack when the breadcrumb "State" link is clicked', async () => {
+    const onBack = vi.fn();
+    render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        onDistrictSelect={vi.fn()}
+        onBack={onBack}
+      />,
+    );
+
+    await userEvent.click(screen.getByText('State'));
+
+    expect(onBack).toHaveBeenCalled();
   });
 });
