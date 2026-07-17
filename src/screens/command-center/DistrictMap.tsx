@@ -1,13 +1,20 @@
 import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import type { DistrictBoundaryFeatureCollection, DistrictSummaryResponse } from '../../api/geoApi';
+import type {
+  DistrictBoundaryFeatureCollection,
+  DistrictSummaryResponse,
+  StationBoundaryFeatureCollection,
+  StationSummaryResponse,
+} from '../../api/geoApi';
 import { geometryBounds, featureCollectionBounds } from './geoBounds';
 
 interface DistrictMapProps {
   boundaries: DistrictBoundaryFeatureCollection;
   districtSummaries: DistrictSummaryResponse[];
   selectedDistrictId: number | null;
+  stationBoundaries?: StationBoundaryFeatureCollection | null;
+  stationSummaries?: StationSummaryResponse[];
   onDistrictSelect: (districtId: number) => void;
   onBack: () => void;
 }
@@ -51,7 +58,15 @@ function applyDistrictSelection(
 // DistrictBoundaryService) rendered as a MapLibre vector fill layer. Matches the design
 // spec's "why MapLibre over Mapbox" reasoning: the demo must not depend on an external
 // service staying up during judging.
-export function DistrictMap({ boundaries, districtSummaries, selectedDistrictId, onDistrictSelect, onBack }: DistrictMapProps) {
+export function DistrictMap({
+  boundaries,
+  districtSummaries,
+  selectedDistrictId,
+  stationBoundaries = null,
+  stationSummaries = [],
+  onDistrictSelect,
+  onBack,
+}: DistrictMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<InstanceType<typeof maplibregl.Map> | null>(null);
   const loadedRef = useRef(false);
@@ -59,6 +74,7 @@ export function DistrictMap({ boundaries, districtSummaries, selectedDistrictId,
   const onDistrictSelectRef = useRef(onDistrictSelect);
   const popupRef = useRef<InstanceType<typeof maplibregl.Popup> | null>(null);
   const hoveredIdRef = useRef<number | null>(null);
+  const hoveredStationIdRef = useRef<number | null>(null);
   // Kept in refs, not effect deps -- onDistrictSelect's identity changes on every
   // CommandCenterScreen render (it closes over react-router's setSearchParams, whose
   // identity changes with the URL), which would otherwise tear down and recreate the
@@ -167,6 +183,82 @@ export function DistrictMap({ boundaries, districtSummaries, selectedDistrictId,
     }
     applyDistrictSelection(map, boundaries, selectedDistrictId);
   }, [selectedDistrictId, boundaries]);
+
+  // A separate effect (not folded into the one above) because it reacts to different
+  // inputs -- station data can load/change independently of the selection itself.
+  // Re-runs whenever `boundaries` changes too, since that's what remounts the map
+  // (see the main useEffect's dependency array) and the stations layer would otherwise
+  // be lost on the new map instance.
+  useEffect(() => {
+    if (!loadedRef.current || !mapRef.current) return;
+    const map = mapRef.current;
+
+    if (map.getLayer('station-fill')) map.removeLayer('station-fill');
+    if (map.getSource('stations')) map.removeSource('stations');
+
+    if (!stationBoundaries) return;
+
+    const caseCountByUnit = new Map(stationSummaries.map((s) => [s.unitId, s.caseCount]));
+    const enrichedFeatures = stationBoundaries.features.map((feature) => ({
+      ...feature,
+      properties: {
+        ...feature.properties,
+        caseCount: caseCountByUnit.get(feature.properties.unitId) ?? null,
+      },
+    }));
+    const maxCount = Math.max(1, ...enrichedFeatures.map((f) => f.properties.caseCount ?? 0));
+
+    map.addSource('stations', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: enrichedFeatures },
+      promoteId: 'unitId',
+    });
+    map.addLayer({
+      id: 'station-fill',
+      type: 'fill',
+      source: 'stations',
+      paint: {
+        'fill-color': [
+          'case',
+          ['==', ['get', 'caseCount'], null],
+          '#D8DEEA',
+          ['interpolate', ['linear'], ['get', 'caseCount'], 0, '#b7d3f6', maxCount, '#104281'],
+        ],
+        'fill-outline-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#2a78d6', '#ffffff'],
+      },
+    });
+
+    map.on('mousemove', 'station-fill', (e) => {
+      const feature = e.features?.[0];
+      const unitId = feature?.properties?.unitId;
+      if (typeof unitId !== 'number') return;
+
+      if (hoveredStationIdRef.current !== unitId) {
+        if (hoveredStationIdRef.current != null) {
+          map.removeFeatureState({ source: 'stations', id: hoveredStationIdRef.current });
+        }
+        hoveredStationIdRef.current = unitId;
+        map.setFeatureState({ source: 'stations', id: unitId }, { hover: true });
+        map.getCanvas().style.cursor = 'pointer';
+      }
+
+      const caseCount = feature!.properties!.caseCount;
+      const label = typeof caseCount === 'number' ? `${caseCount} cases` : 'No case data';
+      popupRef.current
+        ?.setLngLat(e.lngLat)
+        .setHTML(`<strong>${feature!.properties!.unitName}</strong><br/>${label}`)
+        .addTo(map);
+    });
+
+    map.on('mouseleave', 'station-fill', () => {
+      if (hoveredStationIdRef.current != null) {
+        map.removeFeatureState({ source: 'stations', id: hoveredStationIdRef.current });
+      }
+      hoveredStationIdRef.current = null;
+      map.getCanvas().style.cursor = '';
+      popupRef.current?.remove();
+    });
+  }, [stationBoundaries, stationSummaries, boundaries]);
 
   const selectedDistrict =
     selectedDistrictId != null ? districtSummaries.find((d) => d.districtId === selectedDistrictId) : undefined;
