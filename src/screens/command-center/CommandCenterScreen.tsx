@@ -2,7 +2,13 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { Header } from '../../app/Header';
 import { useCommandCenterSummary } from '../../api/commandCenterApi';
-import { useDistrictSummaries, useDistrictBoundaries, useStationSummaries, useDistrictDetail } from '../../api/geoApi';
+import {
+  useDistrictSummaries,
+  useDistrictBoundaries,
+  useStationSummaries,
+  useDistrictDetail,
+  useStationBoundaries,
+} from '../../api/geoApi';
 import { useEmergingAlerts } from '../../api/alertsApi';
 import { DistrictMap } from './DistrictMap';
 import { StationDrilldownList } from './StationDrilldownList';
@@ -24,6 +30,7 @@ export function CommandCenterScreen() {
   const alertsQuery = useEmergingAlerts(token);
   const stationSummariesQuery = useStationSummaries(token, districtDrilldownId);
   const districtDetailQuery = useDistrictDetail(token, districtDrilldownId);
+  const stationBoundariesQuery = useStationBoundaries(token, districtDrilldownId);
 
   function selectDistrict(districtId: number) {
     if (isPolicymaker) return;
@@ -117,6 +124,8 @@ export function CommandCenterScreen() {
             boundaries={boundaries}
             districtSummaries={districtSummaries}
             selectedDistrictId={districtDrilldownId}
+            stationBoundaries={stationBoundariesQuery.data ?? null}
+            stationSummaries={stationSummariesQuery.data ?? []}
             onDistrictSelect={selectDistrict}
             onBack={clearDistrict}
           />
