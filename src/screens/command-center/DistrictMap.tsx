@@ -42,6 +42,7 @@ export function DistrictMap({ boundaries, districtSummaries, onDistrictSelect }:
       map.addSource('districts', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: enrichedFeatures },
+        promoteId: 'districtId',
       });
       map.addLayer({
         id: 'district-fill',
@@ -50,10 +51,40 @@ export function DistrictMap({ boundaries, districtSummaries, onDistrictSelect }:
         paint: {
           'fill-color': ['interpolate', ['linear'], ['get', 'caseCount'], 0, '#b7d3f6', maxCount, '#104281'],
           // MapLibre's style validator rejects CSS var() -- must be a literal color.
-          // Matches --line's light-theme value in tokens.css.
-          'fill-outline-color': '#D8DEEA',
+          // '#D8DEEA' matches --line, '#2a78d6' matches --real, both light-theme
+          // literals from tokens.css.
+          'fill-outline-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#2a78d6', '#D8DEEA'],
         },
       });
+
+      let hoveredId: number | null = null;
+      const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false });
+
+      map.on('mousemove', 'district-fill', (e) => {
+        const feature = e.features?.[0];
+        const districtId = feature?.properties?.districtId;
+        if (typeof districtId !== 'number') return;
+
+        if (hoveredId !== districtId) {
+          if (hoveredId != null) map.removeFeatureState({ source: 'districts', id: hoveredId });
+          hoveredId = districtId;
+          map.setFeatureState({ source: 'districts', id: districtId }, { hover: true });
+          map.getCanvas().style.cursor = 'pointer';
+        }
+
+        popup
+          .setLngLat(e.lngLat)
+          .setHTML(`<strong>${feature!.properties!.district}</strong><br/>${feature!.properties!.caseCount} cases`)
+          .addTo(map);
+      });
+
+      map.on('mouseleave', 'district-fill', () => {
+        if (hoveredId != null) map.removeFeatureState({ source: 'districts', id: hoveredId });
+        hoveredId = null;
+        map.getCanvas().style.cursor = '';
+        popup.remove();
+      });
+
       map.on('click', 'district-fill', (e) => {
         const districtId = e.features?.[0]?.properties?.districtId;
         if (typeof districtId === 'number') onDistrictSelect(districtId);

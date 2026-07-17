@@ -4,19 +4,24 @@ import type { DistrictBoundaryFeatureCollection, DistrictSummaryResponse } from 
 
 interface FakeMapEvent {
   features?: Array<{ properties: Record<string, unknown> }>;
+  lngLat?: { lng: number; lat: number };
 }
 
 // vi.mock factories are hoisted above all other top-level statements (including
 // class declarations physically earlier in the file), so FakeMap must be defined
 // inside vi.hoisted() to avoid a temporal-dead-zone ReferenceError when the
 // factory below references it.
-const { FakeMap } = vi.hoisted(() => {
+const { FakeMap, FakePopup } = vi.hoisted(() => {
   class FakeMap {
     static instances: FakeMap[] = [];
     sources: Record<string, unknown> = {};
     layers: unknown[] = [];
     handlers: Record<string, (e: FakeMapEvent) => void> = {};
     options: unknown;
+    canvas: { style: Record<string, string> } = { style: {} };
+    featureStates = new Map<number, Record<string, unknown>>();
+    lastFilter: unknown;
+    lastFitBounds: { bounds: unknown; options: unknown } | undefined;
 
     constructor(options: unknown) {
       this.options = options;
@@ -40,16 +45,69 @@ const { FakeMap } = vi.hoisted(() => {
       this.layers.push(layer);
     }
 
+    getCanvas() {
+      return this.canvas;
+    }
+
+    setFilter(_layerId: string, filter: unknown) {
+      this.lastFilter = filter;
+    }
+
+    fitBounds(bounds: unknown, options: unknown) {
+      this.lastFitBounds = { bounds, options };
+    }
+
+    setFeatureState(target: { id: number }, state: Record<string, unknown>) {
+      this.featureStates.set(target.id, { ...this.featureStates.get(target.id), ...state });
+    }
+
+    removeFeatureState(target: { id: number }) {
+      this.featureStates.delete(target.id);
+    }
+
     remove() {}
   }
-  return { FakeMap };
+
+  class FakePopup {
+    static instances: FakePopup[] = [];
+    lngLat: unknown;
+    html = '';
+    addedToMap: unknown = null;
+    removed = false;
+
+    constructor() {
+      FakePopup.instances.push(this);
+    }
+
+    setLngLat(lngLat: unknown) {
+      this.lngLat = lngLat;
+      return this;
+    }
+
+    setHTML(html: string) {
+      this.html = html;
+      return this;
+    }
+
+    addTo(map: unknown) {
+      this.addedToMap = map;
+      return this;
+    }
+
+    remove() {
+      this.removed = true;
+    }
+  }
+
+  return { FakeMap, FakePopup };
 });
 
-// The real maplibre-gl default export is a namespace object whose `.Map` property
-// is the constructor (verified against the installed maplibre-gl package) -- not
-// the constructor itself -- so the mock mirrors that shape to match how
-// DistrictMap.tsx actually calls `new maplibregl.Map(...)`.
-vi.mock('maplibre-gl', () => ({ default: { Map: FakeMap } }));
+// The real maplibre-gl default export is a namespace object whose `.Map`/`.Popup`
+// properties are the constructors (verified against the installed maplibre-gl
+// package) -- not the constructors themselves -- so the mock mirrors that shape
+// to match how DistrictMap.tsx actually calls `new maplibregl.Map(...)` and
+// `new maplibregl.Popup(...)`.
+vi.mock('maplibre-gl', () => ({ default: { Map: FakeMap, Popup: FakePopup } }));
 
 import { DistrictMap } from './DistrictMap';
 
@@ -68,6 +126,7 @@ const districtSummaries: DistrictSummaryResponse[] = [
 describe('DistrictMap', () => {
   beforeEach(() => {
     FakeMap.instances = [];
+    FakePopup.instances = [];
   });
 
   it('adds a districts source with case counts merged into each feature, and a choropleth fill layer', () => {
@@ -93,5 +152,37 @@ describe('DistrictMap', () => {
     map.handlers['click:district-fill']({ features: [{ properties: { districtId: 3 } }] });
 
     expect(onDistrictSelect).toHaveBeenCalledWith(3);
+  });
+
+  it('highlights the hovered district and shows a tooltip with its name and case count', () => {
+    render(<DistrictMap boundaries={boundaries} districtSummaries={districtSummaries} onDistrictSelect={vi.fn()} />);
+
+    const map = FakeMap.instances[0];
+    map.handlers['mousemove:district-fill']({
+      features: [{ properties: { districtId: 3, district: 'Mysuru', caseCount: 120 } }],
+      lngLat: { lng: 76.6, lat: 12.3 },
+    });
+
+    expect(map.featureStates.get(3)).toEqual({ hover: true });
+    expect(map.getCanvas().style.cursor).toBe('pointer');
+    const popup = FakePopup.instances[0];
+    expect(popup.html).toContain('Mysuru');
+    expect(popup.html).toContain('120');
+    expect(popup.addedToMap).toBe(map);
+  });
+
+  it('clears the highlight and tooltip on mouseleave', () => {
+    render(<DistrictMap boundaries={boundaries} districtSummaries={districtSummaries} onDistrictSelect={vi.fn()} />);
+
+    const map = FakeMap.instances[0];
+    map.handlers['mousemove:district-fill']({
+      features: [{ properties: { districtId: 3, district: 'Mysuru', caseCount: 120 } }],
+      lngLat: { lng: 76.6, lat: 12.3 },
+    });
+    map.handlers['mouseleave:district-fill']({});
+
+    expect(map.featureStates.has(3)).toBe(false);
+    expect(map.getCanvas().style.cursor).toBe('');
+    expect(FakePopup.instances[0].removed).toBe(true);
   });
 });
