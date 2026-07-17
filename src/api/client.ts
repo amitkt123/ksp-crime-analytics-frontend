@@ -1,3 +1,11 @@
+import { getMockResponse } from './mockData';
+
+const MOCK_FLAG = 'ksp-mock';
+
+function mockModeEnabled(): boolean {
+  return typeof window !== 'undefined' && window.sessionStorage.getItem(MOCK_FLAG) === '1';
+}
+
 export class ApiError extends Error {
   status: number;
 
@@ -15,6 +23,11 @@ export async function apiFetch<T>(
   options: RequestInit = {},
   token?: string | null,
 ): Promise<T> {
+  if (mockModeEnabled()) {
+    const mock = await getMockResponse(path, options);
+    if (mock !== undefined) return mock as T;
+  }
+
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
   if (token) {
