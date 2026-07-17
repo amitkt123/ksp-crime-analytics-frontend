@@ -7,8 +7,10 @@ import {
   getDistrictSummaries,
   getDistrictBoundaries,
   getStationSummaries,
+  getStationBoundaries,
   getDistrictDetail,
   useDistrictSummaries,
+  useStationBoundaries,
   useDistrictDetail,
   type DistrictSummaryResponse,
   type DistrictDetailResponse,
@@ -96,5 +98,34 @@ describe('useDistrictDetail', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(sampleDetail);
+  });
+});
+
+describe('getStationBoundaries', () => {
+  it('fetches /api/geo/districts/{id}/stations/boundaries with the auth token', async () => {
+    const boundaries = { type: 'FeatureCollection' as const, features: [] };
+    const apiFetchSpy = vi.spyOn(client, 'apiFetch').mockResolvedValue(boundaries);
+    const result = await getStationBoundaries('test-token', 3);
+    expect(apiFetchSpy).toHaveBeenCalledWith('/api/geo/districts/3/stations/boundaries', {}, 'test-token');
+    expect(result).toEqual(boundaries);
+  });
+});
+
+describe('useStationBoundaries', () => {
+  it('returns the fetched station boundaries once loaded', async () => {
+    const boundaries = {
+      type: 'FeatureCollection' as const,
+      features: [{ type: 'Feature' as const, properties: { unitId: 1, unitName: 'Cowlbazar PS' }, geometry: {} }],
+    };
+    vi.spyOn(client, 'apiFetch').mockResolvedValue(boundaries);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    function wrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    }
+
+    const { result } = renderHook(() => useStationBoundaries('test-token', 3), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(boundaries);
   });
 });
