@@ -29,4 +29,17 @@ describe('KpiPanel', () => {
 
     expect(screen.getByText(/▼ 2\.5% vs\. prior 30 days/)).toBeInTheDocument();
   });
+
+  it('defaults the first tile label to "State case count"', () => {
+    render(<KpiPanel kpi={sampleKpi} />);
+
+    expect(screen.getByText('State case count')).toBeInTheDocument();
+  });
+
+  it('renders a custom scope label when provided', () => {
+    render(<KpiPanel kpi={sampleKpi} scopeLabel="District case count" />);
+
+    expect(screen.getByText('District case count')).toBeInTheDocument();
+    expect(screen.queryByText('State case count')).not.toBeInTheDocument();
+  });
 });

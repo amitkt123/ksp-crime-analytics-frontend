@@ -4,19 +4,20 @@ import type { DistrictBoundaryFeatureCollection, DistrictSummaryResponse } from 
 
 interface FakeMapEvent {
   features?: Array<{ properties: Record<string, unknown> }>;
+  lngLat?: { lng: number; lat: number };
 }
 
-// vi.mock factories are hoisted above all other top-level statements (including
-// class declarations physically earlier in the file), so FakeMap must be defined
-// inside vi.hoisted() to avoid a temporal-dead-zone ReferenceError when the
-// factory below references it.
-const { FakeMap } = vi.hoisted(() => {
+const { FakeMap, FakePopup } = vi.hoisted(() => {
   class FakeMap {
     static instances: FakeMap[] = [];
     sources: Record<string, unknown> = {};
     layers: unknown[] = [];
     handlers: Record<string, (e: FakeMapEvent) => void> = {};
     options: unknown;
+    canvas: { style: Record<string, string> } = { style: {} };
+    featureStates = new Map<number, Record<string, unknown>>();
+    lastFilter: unknown;
+    lastFitBounds: { bounds: unknown; options: unknown } | undefined;
 
     constructor(options: unknown) {
       this.options = options;
@@ -40,16 +41,64 @@ const { FakeMap } = vi.hoisted(() => {
       this.layers.push(layer);
     }
 
+    getCanvas() {
+      return this.canvas;
+    }
+
+    setFilter(_layerId: string, filter: unknown) {
+      this.lastFilter = filter;
+    }
+
+    fitBounds(bounds: unknown, options: unknown) {
+      this.lastFitBounds = { bounds, options };
+    }
+
+    setFeatureState(target: { id: number }, state: Record<string, unknown>) {
+      this.featureStates.set(target.id, { ...this.featureStates.get(target.id), ...state });
+    }
+
+    removeFeatureState(target: { id: number }) {
+      this.featureStates.delete(target.id);
+    }
+
     remove() {}
   }
-  return { FakeMap };
+
+  class FakePopup {
+    static instances: FakePopup[] = [];
+    lngLat: unknown;
+    html = '';
+    addedToMap: unknown = null;
+    removed = false;
+
+    constructor() {
+      FakePopup.instances.push(this);
+    }
+
+    setLngLat(lngLat: unknown) {
+      this.lngLat = lngLat;
+      return this;
+    }
+
+    setHTML(html: string) {
+      this.html = html;
+      return this;
+    }
+
+    addTo(map: unknown) {
+      this.addedToMap = map;
+      return this;
+    }
+
+    remove() {
+      this.removed = true;
+    }
+  }
+
+  return { FakeMap, FakePopup };
 });
 
-// The real maplibre-gl default export is a namespace object whose `.Map` property
-// is the constructor (verified against the installed maplibre-gl package) -- not
-// the constructor itself -- so the mock mirrors that shape to match how
-// DistrictMap.tsx actually calls `new maplibregl.Map(...)`.
-vi.mock('maplibre-gl', () => ({ default: { Map: FakeMap } }));
+vi.mock('maplibre-gl', () => ({ default: { Map: FakeMap, Popup: FakePopup } }));
 
 import { DistrictMap } from './DistrictMap';
 
@@ -65,13 +114,31 @@ const districtSummaries: DistrictSummaryResponse[] = [
   { districtId: 3, districtName: 'Mysuru', caseCount: 120 },
 ];
 
+const geometryBengaluru = { type: 'Polygon', coordinates: [[[77, 12], [78, 12], [78, 13], [77, 13], [77, 12]]] };
+const geometryMysuru = { type: 'Polygon', coordinates: [[[76, 11], [76.5, 11], [76.5, 11.5], [76, 11.5], [76, 11]]] };
+const boundariesWithGeometry: DistrictBoundaryFeatureCollection = {
+  type: 'FeatureCollection',
+  features: [
+    { type: 'Feature', properties: { districtId: 1, district: 'Bengaluru Urban' }, geometry: geometryBengaluru },
+    { type: 'Feature', properties: { districtId: 3, district: 'Mysuru' }, geometry: geometryMysuru },
+  ],
+};
+
 describe('DistrictMap', () => {
   beforeEach(() => {
     FakeMap.instances = [];
+    FakePopup.instances = [];
   });
 
   it('adds a districts source with case counts merged into each feature, and a choropleth fill layer', () => {
-    render(<DistrictMap boundaries={boundaries} districtSummaries={districtSummaries} onDistrictSelect={vi.fn()} />);
+    render(
+      <DistrictMap
+        boundaries={boundaries}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={null}
+        onDistrictSelect={vi.fn()}
+      />,
+    );
 
     const map = FakeMap.instances[0];
     const source = map.sources['districts'] as { data: DistrictBoundaryFeatureCollection };
@@ -87,11 +154,122 @@ describe('DistrictMap', () => {
 
   it('calls onDistrictSelect with the clicked district id', () => {
     const onDistrictSelect = vi.fn();
-    render(<DistrictMap boundaries={boundaries} districtSummaries={districtSummaries} onDistrictSelect={onDistrictSelect} />);
+    render(
+      <DistrictMap
+        boundaries={boundaries}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={null}
+        onDistrictSelect={onDistrictSelect}
+      />,
+    );
 
     const map = FakeMap.instances[0];
     map.handlers['click:district-fill']({ features: [{ properties: { districtId: 3 } }] });
 
     expect(onDistrictSelect).toHaveBeenCalledWith(3);
+  });
+
+  it('highlights the hovered district and shows a tooltip with its name and case count', () => {
+    render(
+      <DistrictMap
+        boundaries={boundaries}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={null}
+        onDistrictSelect={vi.fn()}
+      />,
+    );
+
+    const map = FakeMap.instances[0];
+    map.handlers['mousemove:district-fill']({
+      features: [{ properties: { districtId: 3, district: 'Mysuru', caseCount: 120 } }],
+      lngLat: { lng: 76.6, lat: 12.3 },
+    });
+
+    expect(map.featureStates.get(3)).toEqual({ hover: true });
+    expect(map.getCanvas().style.cursor).toBe('pointer');
+    const popup = FakePopup.instances[0];
+    expect(popup.html).toContain('Mysuru');
+    expect(popup.html).toContain('120');
+    expect(popup.addedToMap).toBe(map);
+  });
+
+  it('clears the highlight and tooltip on mouseleave', () => {
+    render(
+      <DistrictMap
+        boundaries={boundaries}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={null}
+        onDistrictSelect={vi.fn()}
+      />,
+    );
+
+    const map = FakeMap.instances[0];
+    map.handlers['mousemove:district-fill']({
+      features: [{ properties: { districtId: 3, district: 'Mysuru', caseCount: 120 } }],
+      lngLat: { lng: 76.6, lat: 12.3 },
+    });
+    map.handlers['mouseleave:district-fill']({});
+
+    expect(map.featureStates.has(3)).toBe(false);
+    expect(map.getCanvas().style.cursor).toBe('');
+    expect(FakePopup.instances[0].removed).toBe(true);
+  });
+
+  it('does not highlight on hover while a district is already selected', () => {
+    render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        onDistrictSelect={vi.fn()}
+      />,
+    );
+
+    const map = FakeMap.instances[0];
+    map.handlers['mousemove:district-fill']({
+      features: [{ properties: { districtId: 1, district: 'Bengaluru Urban', caseCount: 500 } }],
+      lngLat: { lng: 77.5, lat: 12.5 },
+    });
+
+    expect(map.featureStates.size).toBe(0);
+  });
+
+  it('filters to and fits bounds on the selected district', () => {
+    render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        onDistrictSelect={vi.fn()}
+      />,
+    );
+
+    const map = FakeMap.instances[0];
+    expect(map.lastFilter).toEqual(['==', ['get', 'districtId'], 3]);
+    expect(map.lastFitBounds?.bounds).toEqual([[76, 11], [76.5, 11.5]]);
+  });
+
+  it('resets the filter and fits the full extent when selection clears', () => {
+    const { rerender } = render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        onDistrictSelect={vi.fn()}
+      />,
+    );
+
+    rerender(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={null}
+        onDistrictSelect={vi.fn()}
+      />,
+    );
+
+    const map = FakeMap.instances[0];
+    expect(map.lastFilter).toBeNull();
+    expect(map.lastFitBounds?.bounds).toEqual([[76, 11], [78, 13]]);
   });
 });

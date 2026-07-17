@@ -2,11 +2,29 @@ import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { DistrictBoundaryFeatureCollection, DistrictSummaryResponse } from '../../api/geoApi';
+import { geometryBounds, featureCollectionBounds } from './geoBounds';
 
 interface DistrictMapProps {
   boundaries: DistrictBoundaryFeatureCollection;
   districtSummaries: DistrictSummaryResponse[];
+  selectedDistrictId: number | null;
   onDistrictSelect: (districtId: number) => void;
+}
+
+function applyDistrictSelection(
+  map: InstanceType<typeof maplibregl.Map>,
+  boundaries: DistrictBoundaryFeatureCollection,
+  selectedDistrictId: number | null,
+) {
+  if (selectedDistrictId != null) {
+    const feature = boundaries.features.find((f) => f.properties.districtId === selectedDistrictId);
+    if (!feature) return;
+    map.setFilter('district-fill', ['==', ['get', 'districtId'], selectedDistrictId]);
+    map.fitBounds(geometryBounds(feature.geometry), { padding: 40 });
+  } else {
+    map.setFilter('district-fill', null);
+    map.fitBounds(featureCollectionBounds(boundaries), { padding: 40 });
+  }
 }
 
 // No basemap tiles, no external tile server/token -- just the real district boundary
@@ -14,8 +32,18 @@ interface DistrictMapProps {
 // DistrictBoundaryService) rendered as a MapLibre vector fill layer. Matches the design
 // spec's "why MapLibre over Mapbox" reasoning: the demo must not depend on an external
 // service staying up during judging.
-export function DistrictMap({ boundaries, districtSummaries, onDistrictSelect }: DistrictMapProps) {
+export function DistrictMap({ boundaries, districtSummaries, selectedDistrictId, onDistrictSelect }: DistrictMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<InstanceType<typeof maplibregl.Map> | null>(null);
+  const loadedRef = useRef(false);
+  const selectedDistrictIdRef = useRef(selectedDistrictId);
+  const onDistrictSelectRef = useRef(onDistrictSelect);
+  // Kept in refs, not effect deps -- onDistrictSelect's identity changes on every
+  // CommandCenterScreen render (it closes over react-router's setSearchParams, whose
+  // identity changes with the URL), which would otherwise tear down and recreate the
+  // whole map every time a district is selected, defeating the fitBounds animation below.
+  onDistrictSelectRef.current = onDistrictSelect;
+  selectedDistrictIdRef.current = selectedDistrictId;
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -37,11 +65,13 @@ export function DistrictMap({ boundaries, districtSummaries, onDistrictSelect }:
       center: [76.5, 15.3],
       zoom: 5.5,
     });
+    mapRef.current = map;
 
     map.on('load', () => {
       map.addSource('districts', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: enrichedFeatures },
+        promoteId: 'districtId',
       });
       map.addLayer({
         id: 'district-fill',
@@ -50,18 +80,61 @@ export function DistrictMap({ boundaries, districtSummaries, onDistrictSelect }:
         paint: {
           'fill-color': ['interpolate', ['linear'], ['get', 'caseCount'], 0, '#b7d3f6', maxCount, '#104281'],
           // MapLibre's style validator rejects CSS var() -- must be a literal color.
-          // Matches --line's light-theme value in tokens.css.
-          'fill-outline-color': '#D8DEEA',
+          // '#D8DEEA' matches --line, '#2a78d6' matches --real, both light-theme
+          // literals from tokens.css.
+          'fill-outline-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#2a78d6', '#D8DEEA'],
         },
       });
+
+      let hoveredId: number | null = null;
+      const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false });
+
+      map.on('mousemove', 'district-fill', (e) => {
+        if (selectedDistrictIdRef.current != null) return;
+        const feature = e.features?.[0];
+        const districtId = feature?.properties?.districtId;
+        if (typeof districtId !== 'number') return;
+
+        if (hoveredId !== districtId) {
+          if (hoveredId != null) map.removeFeatureState({ source: 'districts', id: hoveredId });
+          hoveredId = districtId;
+          map.setFeatureState({ source: 'districts', id: districtId }, { hover: true });
+          map.getCanvas().style.cursor = 'pointer';
+        }
+
+        popup
+          .setLngLat(e.lngLat)
+          .setHTML(`<strong>${feature!.properties!.district}</strong><br/>${feature!.properties!.caseCount} cases`)
+          .addTo(map);
+      });
+
+      map.on('mouseleave', 'district-fill', () => {
+        if (hoveredId != null) map.removeFeatureState({ source: 'districts', id: hoveredId });
+        hoveredId = null;
+        map.getCanvas().style.cursor = '';
+        popup.remove();
+      });
+
       map.on('click', 'district-fill', (e) => {
         const districtId = e.features?.[0]?.properties?.districtId;
-        if (typeof districtId === 'number') onDistrictSelect(districtId);
+        if (typeof districtId === 'number') onDistrictSelectRef.current(districtId);
       });
+
+      loadedRef.current = true;
+      applyDistrictSelection(map, boundaries, selectedDistrictIdRef.current);
     });
 
-    return () => map.remove();
-  }, [boundaries, districtSummaries, onDistrictSelect]);
+    return () => {
+      loadedRef.current = false;
+      mapRef.current = null;
+      map.remove();
+    };
+  }, [boundaries, districtSummaries]);
+
+  useEffect(() => {
+    if (!loadedRef.current || !mapRef.current) return;
+    applyDistrictSelection(mapRef.current, boundaries, selectedDistrictId);
+  }, [selectedDistrictId, boundaries]);
 
   return (
     <div

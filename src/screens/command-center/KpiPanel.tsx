@@ -2,13 +2,14 @@ import type { KpiResponse } from '../../api/commandCenterApi';
 
 interface KpiPanelProps {
   kpi: KpiResponse;
+  scopeLabel?: string;
 }
 
-export function KpiPanel({ kpi }: KpiPanelProps) {
+export function KpiPanel({ kpi, scopeLabel = 'State case count' }: KpiPanelProps) {
   return (
     <section className="kpi-grid">
       <div className="kpi-tile">
-        <span className="eyebrow">State case count</span>
+        <span className="eyebrow">{scopeLabel}</span>
         <div className="figure mono">{kpi.stateCaseCount.toLocaleString()}</div>
         <Delta value={kpi.stateCaseCountDeltaPct} suffix="% vs. prior 30 days" />
       </div>
