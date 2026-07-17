@@ -2,11 +2,29 @@ import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { DistrictBoundaryFeatureCollection, DistrictSummaryResponse } from '../../api/geoApi';
+import { geometryBounds, featureCollectionBounds } from './geoBounds';
 
 interface DistrictMapProps {
   boundaries: DistrictBoundaryFeatureCollection;
   districtSummaries: DistrictSummaryResponse[];
+  selectedDistrictId: number | null;
   onDistrictSelect: (districtId: number) => void;
+}
+
+function applyDistrictSelection(
+  map: InstanceType<typeof maplibregl.Map>,
+  boundaries: DistrictBoundaryFeatureCollection,
+  selectedDistrictId: number | null,
+) {
+  if (selectedDistrictId != null) {
+    const feature = boundaries.features.find((f) => f.properties.districtId === selectedDistrictId);
+    if (!feature) return;
+    map.setFilter('district-fill', ['==', ['get', 'districtId'], selectedDistrictId]);
+    map.fitBounds(geometryBounds(feature.geometry), { padding: 40 });
+  } else {
+    map.setFilter('district-fill', null);
+    map.fitBounds(featureCollectionBounds(boundaries), { padding: 40 });
+  }
 }
 
 // No basemap tiles, no external tile server/token -- just the real district boundary
@@ -14,8 +32,18 @@ interface DistrictMapProps {
 // DistrictBoundaryService) rendered as a MapLibre vector fill layer. Matches the design
 // spec's "why MapLibre over Mapbox" reasoning: the demo must not depend on an external
 // service staying up during judging.
-export function DistrictMap({ boundaries, districtSummaries, onDistrictSelect }: DistrictMapProps) {
+export function DistrictMap({ boundaries, districtSummaries, selectedDistrictId, onDistrictSelect }: DistrictMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<InstanceType<typeof maplibregl.Map> | null>(null);
+  const loadedRef = useRef(false);
+  const selectedDistrictIdRef = useRef(selectedDistrictId);
+  const onDistrictSelectRef = useRef(onDistrictSelect);
+  // Kept in refs, not effect deps -- onDistrictSelect's identity changes on every
+  // CommandCenterScreen render (it closes over react-router's setSearchParams, whose
+  // identity changes with the URL), which would otherwise tear down and recreate the
+  // whole map every time a district is selected, defeating the fitBounds animation below.
+  onDistrictSelectRef.current = onDistrictSelect;
+  selectedDistrictIdRef.current = selectedDistrictId;
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -37,6 +65,7 @@ export function DistrictMap({ boundaries, districtSummaries, onDistrictSelect }:
       center: [76.5, 15.3],
       zoom: 5.5,
     });
+    mapRef.current = map;
 
     map.on('load', () => {
       map.addSource('districts', {
@@ -61,6 +90,7 @@ export function DistrictMap({ boundaries, districtSummaries, onDistrictSelect }:
       const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false });
 
       map.on('mousemove', 'district-fill', (e) => {
+        if (selectedDistrictIdRef.current != null) return;
         const feature = e.features?.[0];
         const districtId = feature?.properties?.districtId;
         if (typeof districtId !== 'number') return;
@@ -87,12 +117,24 @@ export function DistrictMap({ boundaries, districtSummaries, onDistrictSelect }:
 
       map.on('click', 'district-fill', (e) => {
         const districtId = e.features?.[0]?.properties?.districtId;
-        if (typeof districtId === 'number') onDistrictSelect(districtId);
+        if (typeof districtId === 'number') onDistrictSelectRef.current(districtId);
       });
+
+      loadedRef.current = true;
+      applyDistrictSelection(map, boundaries, selectedDistrictIdRef.current);
     });
 
-    return () => map.remove();
-  }, [boundaries, districtSummaries, onDistrictSelect]);
+    return () => {
+      loadedRef.current = false;
+      mapRef.current = null;
+      map.remove();
+    };
+  }, [boundaries, districtSummaries]);
+
+  useEffect(() => {
+    if (!loadedRef.current || !mapRef.current) return;
+    applyDistrictSelection(mapRef.current, boundaries, selectedDistrictId);
+  }, [selectedDistrictId, boundaries]);
 
   return (
     <div
