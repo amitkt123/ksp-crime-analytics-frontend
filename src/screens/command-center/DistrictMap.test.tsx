@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { DistrictBoundaryFeatureCollection, DistrictSummaryResponse } from '../../api/geoApi';
+import type {
+  DistrictBoundaryFeatureCollection,
+  DistrictSummaryResponse,
+  StationBoundaryFeatureCollection,
+  StationSummaryResponse,
+} from '../../api/geoApi';
 
 interface FakeMapEvent {
   features?: Array<{ properties: Record<string, unknown> }>;
@@ -67,6 +72,22 @@ const { FakeMap, FakePopup } = vi.hoisted(() => {
       this.featureStates.delete(target.id);
     }
 
+    getLayer(id: string) {
+      return (this.layers as Array<{ id: string }>).find((l) => l.id === id);
+    }
+
+    getSource(id: string) {
+      return this.sources[id];
+    }
+
+    removeLayer(id: string) {
+      this.layers = (this.layers as Array<{ id: string }>).filter((l) => l.id !== id);
+    }
+
+    removeSource(id: string) {
+      delete this.sources[id];
+    }
+
     remove() {}
   }
 
@@ -129,6 +150,18 @@ const boundariesWithGeometry: DistrictBoundaryFeatureCollection = {
     { type: 'Feature', properties: { districtId: 3, district: 'Mysuru' }, geometry: geometryMysuru },
   ],
 };
+
+const stationBoundaries: StationBoundaryFeatureCollection = {
+  type: 'FeatureCollection',
+  features: [
+    { type: 'Feature', properties: { unitId: 301, unitName: 'Mysuru City PS' }, geometry: {} },
+    { type: 'Feature', properties: { unitId: 302, unitName: 'Mysuru Rural PS' }, geometry: {} },
+  ],
+};
+const stationSummaries: StationSummaryResponse[] = [
+  { unitId: 301, unitName: 'Mysuru City PS', caseCount: 80 },
+  { unitId: 302, unitName: 'Mysuru Rural PS', caseCount: 40 },
+];
 
 describe('DistrictMap', () => {
   beforeEach(() => {
@@ -342,5 +375,151 @@ describe('DistrictMap', () => {
     await userEvent.click(screen.getByText('State'));
 
     expect(onBack).toHaveBeenCalled();
+  });
+
+  it('adds a stations source scoped to the district with case counts joined by unitId', () => {
+    render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        stationBoundaries={stationBoundaries}
+        stationSummaries={stationSummaries}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    const map = FakeMap.instances[0];
+    const source = map.getSource('stations') as { data: StationBoundaryFeatureCollection };
+    const properties = source.data.features.map((f) => f.properties);
+    expect(properties).toEqual([
+      { unitId: 301, unitName: 'Mysuru City PS', caseCount: 80 },
+      { unitId: 302, unitName: 'Mysuru Rural PS', caseCount: 40 },
+    ]);
+    expect(map.getLayer('station-fill')).toBeDefined();
+  });
+
+  it('marks a station with no matching case-count row as unmatched (null caseCount)', () => {
+    render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        stationBoundaries={stationBoundaries}
+        stationSummaries={[stationSummaries[0]]}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    const map = FakeMap.instances[0];
+    const source = map.getSource('stations') as { data: StationBoundaryFeatureCollection };
+    const unmatched = source.data.features.find((f) => f.properties.unitId === 302);
+    expect((unmatched?.properties as { caseCount: number | null }).caseCount).toBeNull();
+  });
+
+  it('removes the stations layer and source when station boundaries are cleared', () => {
+    const { rerender } = render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        stationBoundaries={stationBoundaries}
+        stationSummaries={stationSummaries}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    rerender(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={null}
+        stationBoundaries={null}
+        stationSummaries={[]}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    const map = FakeMap.instances[0];
+    expect(map.getLayer('station-fill')).toBeUndefined();
+    expect(map.getSource('stations')).toBeUndefined();
+  });
+
+  it('highlights the hovered station and shows a tooltip with its name and case count', () => {
+    render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        stationBoundaries={stationBoundaries}
+        stationSummaries={stationSummaries}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    const map = FakeMap.instances[0];
+    map.handlers['mousemove:station-fill']({
+      features: [{ properties: { unitId: 302, unitName: 'Mysuru Rural PS', caseCount: 40 } }],
+      lngLat: { lng: 76.6, lat: 12.3 },
+    });
+
+    expect(map.featureStates.get(302)).toEqual({ hover: true });
+    expect(map.getCanvas().style.cursor).toBe('pointer');
+    const popup = FakePopup.instances[0];
+    expect(popup.html).toContain('Mysuru Rural PS');
+    expect(popup.html).toContain('40 cases');
+  });
+
+  it('shows "No case data" for a hovered station with no matching case-count row', () => {
+    render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        stationBoundaries={stationBoundaries}
+        stationSummaries={[]}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    const map = FakeMap.instances[0];
+    map.handlers['mousemove:station-fill']({
+      features: [{ properties: { unitId: 301, unitName: 'Mysuru City PS', caseCount: null } }],
+      lngLat: { lng: 76.6, lat: 12.3 },
+    });
+
+    const popup = FakePopup.instances[0];
+    expect(popup.html).toContain('No case data');
+  });
+
+  it('clears the station highlight and tooltip on mouseleave', () => {
+    render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        stationBoundaries={stationBoundaries}
+        stationSummaries={stationSummaries}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    const map = FakeMap.instances[0];
+    map.handlers['mousemove:station-fill']({
+      features: [{ properties: { unitId: 302, unitName: 'Mysuru Rural PS', caseCount: 40 } }],
+      lngLat: { lng: 76.6, lat: 12.3 },
+    });
+    map.handlers['mouseleave:station-fill']({});
+
+    expect(map.featureStates.has(302)).toBe(false);
+    expect(map.getCanvas().style.cursor).toBe('');
+    expect(FakePopup.instances[0].removed).toBe(true);
   });
 });

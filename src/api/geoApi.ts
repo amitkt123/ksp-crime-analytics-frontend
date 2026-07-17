@@ -28,6 +28,15 @@ export interface DistrictBoundaryFeatureCollection {
   }>;
 }
 
+export interface StationBoundaryFeatureCollection {
+  type: 'FeatureCollection';
+  features: Array<{
+    type: 'Feature';
+    properties: { unitId: number; unitName: string };
+    geometry: Record<string, unknown>;
+  }>;
+}
+
 export function getDistrictSummaries(token: string | null): Promise<DistrictSummaryResponse[]> {
   return apiFetch<DistrictSummaryResponse[]>('/api/geo/districts', {}, token);
 }
@@ -38,6 +47,10 @@ export function getDistrictBoundaries(token: string | null): Promise<DistrictBou
 
 export function getStationSummaries(token: string | null, districtId: number): Promise<StationSummaryResponse[]> {
   return apiFetch<StationSummaryResponse[]>(`/api/geo/districts/${districtId}/stations`, {}, token);
+}
+
+export function getStationBoundaries(token: string | null, districtId: number): Promise<StationBoundaryFeatureCollection> {
+  return apiFetch<StationBoundaryFeatureCollection>(`/api/geo/districts/${districtId}/stations/boundaries`, {}, token);
 }
 
 export function getDistrictDetail(token: string | null, districtId: number): Promise<DistrictDetailResponse> {
@@ -66,6 +79,15 @@ export function useStationSummaries(token: string | null, districtId: number | n
   return useQuery({
     queryKey: ['geo-station-summaries', districtId],
     queryFn: () => getStationSummaries(token, districtId as number),
+    staleTime: 60_000,
+    enabled: token != null && districtId != null,
+  });
+}
+
+export function useStationBoundaries(token: string | null, districtId: number | null) {
+  return useQuery({
+    queryKey: ['geo-station-boundaries', districtId],
+    queryFn: () => getStationBoundaries(token, districtId as number),
     staleTime: 60_000,
     enabled: token != null && districtId != null,
   });

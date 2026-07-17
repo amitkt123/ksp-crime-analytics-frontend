@@ -10,8 +10,17 @@ import * as alertsApiModule from '../../api/alertsApi';
 import * as meApiModule from '../../api/meApi';
 
 vi.mock('./DistrictMap', () => ({
-  DistrictMap: ({ onDistrictSelect }: { onDistrictSelect: (id: number) => void }) => (
-    <button onClick={() => onDistrictSelect(3)}>Select Mysuru</button>
+  DistrictMap: ({
+    onDistrictSelect,
+    stationBoundaries,
+  }: {
+    onDistrictSelect: (id: number) => void;
+    stationBoundaries: unknown;
+  }) => (
+    <>
+      <button onClick={() => onDistrictSelect(3)}>Select Mysuru</button>
+      {stationBoundaries ? <p>Station boundaries loaded</p> : null}
+    </>
   ),
 }));
 
@@ -32,6 +41,7 @@ const districts = [
   { districtId: 3, districtName: 'Mysuru', caseCount: 120 },
 ];
 const boundaries = { type: 'FeatureCollection' as const, features: [] };
+const stationBoundaries = { type: 'FeatureCollection' as const, features: [] };
 const alerts: alertsApiModule.EmergingAlertResponse[] = [];
 const stations = [{ unitId: 300, unitName: 'Mysuru Commissioner Office', caseCount: 120 }];
 const districtDetail: geoApiModule.DistrictDetailResponse = {
@@ -76,6 +86,11 @@ describe('CommandCenterScreen', () => {
     vi.spyOn(geoApiModule, 'useDistrictDetail').mockReturnValue(
       mockSuccess<geoApiModule.DistrictDetailResponse>(undefined as unknown as geoApiModule.DistrictDetailResponse),
     );
+    vi.spyOn(geoApiModule, 'useStationBoundaries').mockReturnValue(
+      mockSuccess<geoApiModule.StationBoundaryFeatureCollection>(
+        undefined as unknown as geoApiModule.StationBoundaryFeatureCollection,
+      ),
+    );
     vi.spyOn(alertsApiModule, 'useEmergingAlerts').mockReturnValue(mockSuccess(alerts));
 
     renderScreen();
@@ -97,6 +112,7 @@ describe('CommandCenterScreen', () => {
     vi.spyOn(geoApiModule, 'useDistrictBoundaries').mockReturnValue(mockSuccess(boundaries));
     vi.spyOn(geoApiModule, 'useStationSummaries').mockReturnValue(mockSuccess(stations));
     vi.spyOn(geoApiModule, 'useDistrictDetail').mockReturnValue(mockSuccess(districtDetail));
+    vi.spyOn(geoApiModule, 'useStationBoundaries').mockReturnValue(mockSuccess(stationBoundaries));
     vi.spyOn(alertsApiModule, 'useEmergingAlerts').mockReturnValue(mockSuccess(alerts));
 
     renderScreen();
@@ -106,6 +122,7 @@ describe('CommandCenterScreen', () => {
     await waitFor(() => expect(screen.getByText('Mysuru Commissioner Office')).toBeInTheDocument());
     expect(screen.getByText('District case count')).toBeInTheDocument();
     expect(screen.getByText('480')).toBeInTheDocument();
+    expect(await screen.findByText('Station boundaries loaded')).toBeInTheDocument();
   });
 
   it('disables the district selector for a Policymaker', async () => {
@@ -123,6 +140,11 @@ describe('CommandCenterScreen', () => {
     );
     vi.spyOn(geoApiModule, 'useDistrictDetail').mockReturnValue(
       mockSuccess<geoApiModule.DistrictDetailResponse>(undefined as unknown as geoApiModule.DistrictDetailResponse),
+    );
+    vi.spyOn(geoApiModule, 'useStationBoundaries').mockReturnValue(
+      mockSuccess<geoApiModule.StationBoundaryFeatureCollection>(
+        undefined as unknown as geoApiModule.StationBoundaryFeatureCollection,
+      ),
     );
     vi.spyOn(alertsApiModule, 'useEmergingAlerts').mockReturnValue(mockSuccess(alerts));
 
@@ -150,6 +172,7 @@ describe('CommandCenterScreen', () => {
       isSuccess: false,
       refetch,
     } as unknown as UseQueryResult<geoApiModule.DistrictDetailResponse, Error>);
+    vi.spyOn(geoApiModule, 'useStationBoundaries').mockReturnValue(mockSuccess(stationBoundaries));
     vi.spyOn(alertsApiModule, 'useEmergingAlerts').mockReturnValue(mockSuccess(alerts));
 
     renderScreen();

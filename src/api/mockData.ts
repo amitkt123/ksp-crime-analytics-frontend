@@ -2,6 +2,8 @@
 // Lets Command Center render fully populated without a live backend. Not wired into any
 // production path -- safe to leave in.
 
+import { STATIONS_BY_DISTRICT } from './generatedStationFixtures';
+
 // districtId assignments here match the ones baked into
 // public/data/karnataka-districts.geojson (alphabetical order) so boundaries and
 // summaries join correctly. Real district shapes, sourced from
@@ -46,6 +48,17 @@ function loadBoundaries(): Promise<unknown> {
     boundariesPromise = fetch('/data/karnataka-districts.geojson').then((r) => r.json());
   }
   return boundariesPromise;
+}
+
+const stationBoundaryPromises = new Map<number, Promise<unknown>>();
+function loadStationBoundaries(districtId: number): Promise<unknown> {
+  if (!stationBoundaryPromises.has(districtId)) {
+    stationBoundaryPromises.set(
+      districtId,
+      fetch(`/data/stations/${districtId}.geojson`).then((r) => r.json()),
+    );
+  }
+  return stationBoundaryPromises.get(districtId)!;
 }
 
 function weeklySeries(base: number, weeks = 12) {
@@ -121,16 +134,24 @@ const MOCK_ME = {
   roles: ['SCRB_ANALYST'],
 };
 
+// Real KGIS station names/ids (see src/api/generatedStationFixtures.ts), each given a
+// deterministic proportional share of the district's case count -- no Math.random(), so
+// results (and tests) are stable across runs.
 function mockStations(districtId: number) {
   const district = MOCK_DISTRICTS.find((d) => d.districtId === districtId);
   const base = district?.caseCount ?? 100;
-  const name = district?.districtName ?? 'District';
-  return [
-    { unitId: districtId * 10 + 1, unitName: `${name} Town PS`, caseCount: Math.round(base * 0.4) },
-    { unitId: districtId * 10 + 2, unitName: `${name} Rural PS`, caseCount: Math.round(base * 0.25) },
-    { unitId: districtId * 10 + 3, unitName: `${name} East PS`, caseCount: Math.round(base * 0.2) },
-    { unitId: districtId * 10 + 4, unitName: `${name} West PS`, caseCount: Math.round(base * 0.15) },
-  ];
+  const roster = STATIONS_BY_DISTRICT[districtId] ?? [];
+  if (roster.length === 0) return [];
+
+  const share = base / roster.length;
+  return roster.map((station, index) => {
+    const wobble = 1 + (((index % 3) - 1) * 0.2); // cycles 0.8, 1.0, 1.2
+    return {
+      unitId: station.unitId,
+      unitName: station.unitName,
+      caseCount: Math.max(1, Math.round(share * wobble)),
+    };
+  });
 }
 
 function mockDistrictDetail(districtId: number) {
@@ -161,6 +182,9 @@ export async function getMockResponse(path: string, options: RequestInit): Promi
 
   const stationMatch = path.match(/^\/api\/geo\/districts\/(\d+)\/stations$/);
   if (stationMatch) return mockStations(Number(stationMatch[1]));
+
+  const stationBoundariesMatch = path.match(/^\/api\/geo\/districts\/(\d+)\/stations\/boundaries$/);
+  if (stationBoundariesMatch) return loadStationBoundaries(Number(stationBoundariesMatch[1]));
 
   const districtDetailMatch = path.match(/^\/api\/geo\/districts\/(\d+)\/summary$/);
   if (districtDetailMatch) return mockDistrictDetail(Number(districtDetailMatch[1]));
