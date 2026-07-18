@@ -24,7 +24,7 @@ export async function apiFetch<T>(
   token?: string | null,
 ): Promise<T> {
   if (mockModeEnabled()) {
-    const mock = await getMockResponse(path, options);
+    const mock = await getMockResponse(path, options, token);
     if (mock !== undefined) return mock as T;
   }
 

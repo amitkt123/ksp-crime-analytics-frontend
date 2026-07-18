@@ -97,3 +97,46 @@ describe('getMockResponse station boundaries', () => {
     expect(result).toEqual(fixture);
   });
 });
+
+describe('getMockResponse auth login personas', () => {
+  it('returns the Investigator role and a distinct token for the investigator demo persona', async () => {
+    const result = await getMockResponse('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'demo.investigator', password: 'x' }),
+    });
+    expect(result).toEqual({ token: 'mock-token-investigator', roles: ['INVESTIGATOR'] });
+  });
+
+  it('returns the Station Supervisor role and a distinct token for the supervisor demo persona', async () => {
+    const result = await getMockResponse('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'demo.supervisor', password: 'x' }),
+    });
+    expect(result).toEqual({ token: 'mock-token-supervisor', roles: ['STATION_SUPERVISOR'] });
+  });
+
+  it('falls back to the SCRB Analyst persona for any other username', async () => {
+    const result = await getMockResponse('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'demo.analyst', password: 'x' }),
+    });
+    expect(result).toEqual({ token: 'mock-token', roles: ['SCRB_ANALYST'] });
+  });
+});
+
+describe('getMockResponse /api/me by persona', () => {
+  it('returns the investigator profile with a real station unitId for the investigator token', async () => {
+    const result = await getMockResponse('/api/me', { method: 'GET' }, 'mock-token-investigator');
+    expect(result).toMatchObject({ roles: ['INVESTIGATOR'], unitId: 176, unit: 'Whitefield PS' });
+  });
+
+  it('returns the supervisor profile with a real station unitId for the supervisor token', async () => {
+    const result = await getMockResponse('/api/me', { method: 'GET' }, 'mock-token-supervisor');
+    expect(result).toMatchObject({ roles: ['STATION_SUPERVISOR'], unitId: 176, unit: 'Whitefield PS' });
+  });
+
+  it('returns the default SCRB Analyst profile with unitId null for the default token', async () => {
+    const result = await getMockResponse('/api/me', { method: 'GET' }, 'mock-token');
+    expect(result).toMatchObject({ roles: ['SCRB_ANALYST'], unitId: null });
+  });
+});

@@ -6,6 +6,7 @@ export interface MeResponse {
   firstName: string;
   rank: string | null;
   unit: string | null;
+  unitId: number | null;
   roles: string[];
 }
 

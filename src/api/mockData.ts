@@ -166,8 +166,45 @@ const MOCK_ME = {
   firstName: 'Demo',
   rank: 'SCRB Analyst',
   unit: 'State Crime Records Bureau',
+  unitId: null as number | null,
   roles: ['SCRB_ANALYST'],
 };
+
+// Distinct demo personas so mock mode can actually reach /case-explorer -- the real
+// backend issues one token per user; here the token itself encodes which demo persona
+// is "logged in" so /api/me (which has no other way to know who's asking) can look up
+// the right profile.
+const MOCK_ME_INVESTIGATOR = {
+  username: 'demo.investigator',
+  firstName: 'Demo',
+  rank: 'Investigator',
+  unit: 'Whitefield PS',
+  unitId: 176,
+  roles: ['INVESTIGATOR'],
+};
+
+const MOCK_ME_SUPERVISOR = {
+  username: 'demo.supervisor',
+  firstName: 'Demo',
+  rank: 'Station Supervisor',
+  unit: 'Whitefield PS',
+  unitId: 176,
+  roles: ['STATION_SUPERVISOR'],
+};
+
+const DEMO_LOGINS: Record<string, { token: string; roles: string[] }> = {
+  'demo.investigator': { token: 'mock-token-investigator', roles: ['INVESTIGATOR'] },
+  'demo.supervisor': { token: 'mock-token-supervisor', roles: ['STATION_SUPERVISOR'] },
+};
+
+const MOCK_ME_BY_TOKEN: Record<string, typeof MOCK_ME> = {
+  'mock-token-investigator': MOCK_ME_INVESTIGATOR,
+  'mock-token-supervisor': MOCK_ME_SUPERVISOR,
+};
+
+function mockLogin(username: string): { token: string; roles: string[] } {
+  return DEMO_LOGINS[username] ?? { token: 'mock-token', roles: ['SCRB_ANALYST'] };
+}
 
 // Real KGIS station names/ids (see src/api/generatedStationFixtures.ts), each given a
 // deterministic proportional share of the district's case count -- no Math.random(), so
@@ -205,11 +242,16 @@ function mockDistrictDetail(districtId: number) {
   };
 }
 
-export async function getMockResponse(path: string, options: RequestInit): Promise<unknown | undefined> {
+export async function getMockResponse(
+  path: string,
+  options: RequestInit,
+  token?: string | null,
+): Promise<unknown | undefined> {
   if (path === '/api/auth/login' && options.method === 'POST') {
-    return { token: 'mock-token', roles: ['SCRB_ANALYST'] };
+    const { username } = JSON.parse((options.body as string) ?? '{}');
+    return mockLogin(username);
   }
-  if (path === '/api/me') return MOCK_ME;
+  if (path === '/api/me') return MOCK_ME_BY_TOKEN[token ?? ''] ?? MOCK_ME;
   if (path === '/api/command-center/summary') return MOCK_SUMMARY;
   if (path === '/api/alerts/emerging') return MOCK_ALERTS;
   if (path === '/api/geo/districts') return MOCK_DISTRICTS;
