@@ -259,12 +259,10 @@ table.case-table a:hover { text-decoration: underline; }
 
 .map-empty-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; color: var(--muted-2); }
 
-/* ---- hotspot density strip ---- */
-.map-strip { height: 150px; flex-shrink: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
-.map-strip svg { width: 100%; height: 100%; display: block; }
-.hotspot-dot { fill: var(--real); opacity: 0.55; }
-.map-strip-label { position: absolute; top: 12px; left: 14px; }
-.map-strip-label .title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px; margin-top: 2px; }
+/* ---- case view tabs ---- */
+.view-tabs { display: flex; gap: 4px; }
+.view-tab { font: inherit; font-size: 12.5px; padding: 6px 14px; border: 1px solid var(--line); background: var(--panel); color: var(--muted-2); border-radius: 7px; cursor: pointer; }
+.view-tab.active { background: var(--real); color: #ffffff; border-color: var(--real); }
 
 /* ---- interactive chronological timeline ---- */
 .case-timeline-steps { list-style: none; margin: 8px 0 0; padding: 0; position: relative; }

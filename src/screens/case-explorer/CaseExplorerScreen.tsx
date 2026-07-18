@@ -4,6 +4,7 @@ import { Header } from '../../app/Header';
 import { useMe } from '../../api/meApi';
 import { useCases, type CaseFilters, type CaseStatus } from '../../api/caseApi';
 import { CaseList } from './CaseList';
+import { CaseHeatmapView } from './CaseHeatmapView';
 
 const CRIME_TYPE_OPTIONS: Array<{ crimeSubHeadId: number; crimeSubHeadName: string }> = [
   { crimeSubHeadId: 101, crimeSubHeadName: 'Theft of Motor Vehicle' },
@@ -20,6 +21,7 @@ export function CaseExplorerScreen() {
   const [status, setStatus] = useState<CaseStatus | ''>('');
   const [crimeSubHeadId, setCrimeSubHeadId] = useState<number | ''>('');
   const [q, setQ] = useState('');
+  const [view, setView] = useState<'list' | 'map'>('list');
 
   const unitId = meQuery.data?.unitId ?? null;
   const filters: CaseFilters = {
@@ -90,15 +92,39 @@ export function CaseExplorerScreen() {
           </select>
           <input
             type="search"
-            placeholder="Search case number or name"
+            placeholder="Search crime no., case number, or name"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             aria-label="Search cases"
           />
         </div>
       </Header>
-      <main className="main-single">
-        <CaseList cases={casesQuery.data ?? []} />
+      <main className="main-single explorer-pane">
+        <div className="view-tabs" role="tablist" aria-label="Case view">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'list'}
+            className={`view-tab${view === 'list' ? ' active' : ''}`}
+            onClick={() => setView('list')}
+          >
+            List
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'map'}
+            className={`view-tab${view === 'map' ? ' active' : ''}`}
+            onClick={() => setView('map')}
+          >
+            Map
+          </button>
+        </div>
+        {view === 'list' ? (
+          <CaseList cases={casesQuery.data ?? []} />
+        ) : (
+          <CaseHeatmapView cases={casesQuery.data ?? []} />
+        )}
       </main>
     </>
   );

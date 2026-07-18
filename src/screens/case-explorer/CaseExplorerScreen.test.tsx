@@ -6,6 +6,47 @@ import type { UseQueryResult } from '@tanstack/react-query';
 import * as AuthContextModule from '../../auth/AuthContext';
 import * as meApiModule from '../../api/meApi';
 import * as caseApiModule from '../../api/caseApi';
+
+const { FakeMap } = vi.hoisted(() => {
+  class FakeMap {
+    static instances: FakeMap[] = [];
+    constructor(_options: unknown) {
+      FakeMap.instances.push(this);
+    }
+    on(event: string, handler: unknown) {
+      if (typeof handler === 'function' && event === 'load') (handler as () => void)();
+    }
+    addSource() {}
+    addLayer() {}
+    getSource() {
+      return { setData: () => {} };
+    }
+    getCanvas() {
+      return { style: {} };
+    }
+    fitBounds() {}
+    remove() {}
+  }
+  return { FakeMap };
+});
+vi.mock('maplibre-gl', () => ({
+  default: {
+    Map: FakeMap,
+    Popup: class {
+      setLngLat() {
+        return this;
+      }
+      setHTML() {
+        return this;
+      }
+      addTo() {
+        return this;
+      }
+      remove() {}
+    },
+  },
+}));
+
 import { CaseExplorerScreen } from './CaseExplorerScreen';
 
 function mockSuccess<T>(data: T) {
@@ -106,5 +147,23 @@ describe('CaseExplorerScreen', () => {
     renderScreen();
 
     expect(await screen.findByText('No cases match these filters.')).toBeInTheDocument();
+  });
+
+  it('defaults to the list view and switches to the map view on tab click', async () => {
+    mockAuth();
+    vi.spyOn(caseApiModule, 'useCases').mockReturnValue(
+      mockSuccess([{ ...cases[0], location: { lat: 12.9, lng: 77.5 } }]),
+    );
+
+    renderScreen();
+
+    expect(await screen.findByText('276/2026')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'List' })).toHaveAttribute('aria-selected', 'true');
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Map' }));
+
+    expect(screen.getByRole('tab', { name: 'Map' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('img', { name: 'Heatmap of case locations' })).toBeInTheDocument();
+    expect(screen.queryByText('276/2026')).not.toBeInTheDocument();
   });
 });
