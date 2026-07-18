@@ -24,8 +24,16 @@ const detail: caseApiModule.CaseDetailResponse = {
   crimeSubHeadName: 'Chain Snatching',
   status: 'under_investigation',
   firDate: '2026-05-26',
+  crimeNumber: 'FIR-2026-KA-17600',
+  gravity: 'serious',
   narrative: 'Chain Snatching reported to Whitefield PS.',
   parties: [
+    {
+      role: 'complainant',
+      name: { masked: 'N***** S****', real: 'Nagaraj Setty' },
+      phone: { masked: '98******01', real: '9810000001' },
+      address: { masked: '**********, Karnataka', real: '45 Church Street, Karnataka' },
+    },
     {
       role: 'victim',
       name: { masked: 'R***** K****', real: 'Ramesh Kumar' },
@@ -37,6 +45,18 @@ const detail: caseApiModule.CaseDetailResponse = {
     { status: 'registered', timestamp: '2026-05-26', note: 'FIR registered.' },
     { status: 'under_investigation', timestamp: '2026-05-29', note: 'Investigation taken up by the station.' },
   ],
+  arrests: [{ arrestDate: '2026-05-31', custodyStatus: 'Judicial custody' }],
+  chargesheet: { filedDate: '2026-06-13', sectionsApplied: '379, 411 IPC', court: 'JMFC Court, Bengaluru Urban' },
+};
+
+const explanation: caseApiModule.CaseExplanationResponse = {
+  claim: 'Chain Snatching case 276/2026 at Whitefield PS shares its crime sub-head with 2 other cases.',
+  confidence: 0.7,
+  confidenceLabel: 'Pattern confidence',
+  method: 'Insight & Explanation Agent · case similarity within unit',
+  baseline: 'Same crime sub-head, same station, most recent 6 cases',
+  generatedAt: '2026-05-29',
+  records: ['277/2026'],
 };
 
 function mockAuth() {
@@ -63,28 +83,82 @@ function renderScreen() {
 }
 
 describe('CaseDetailScreen', () => {
-  it('renders facts, a masked party, and the timeline once the case loads', () => {
+  it('renders facts, crime number, gravity, grouped parties, and the timeline once the case loads', () => {
     mockAuth();
     vi.spyOn(caseApiModule, 'useCaseDetail').mockReturnValue(mockSuccess(detail));
+    vi.spyOn(caseApiModule, 'useCaseExplanation').mockReturnValue(
+      mockSuccess(undefined as unknown as caseApiModule.CaseExplanationResponse),
+    );
 
     renderScreen();
 
     expect(screen.getAllByText('276/2026').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Under Investigation').length).toBeGreaterThan(0);
+    expect(screen.getByText('FIR-2026-KA-17600')).toBeInTheDocument();
+    expect(screen.getByText('Serious')).toBeInTheDocument();
+    expect(screen.getByText('Complainant')).toBeInTheDocument();
+    expect(screen.getByText('Victim')).toBeInTheDocument();
+    expect(screen.queryByText('Accused')).not.toBeInTheDocument();
+    expect(screen.getByText('N***** S****')).toBeInTheDocument();
     expect(screen.getByText('R***** K****')).toBeInTheDocument();
-    expect(screen.queryByText('Ramesh Kumar')).not.toBeInTheDocument();
-    expect(screen.getByText('FIR registered.')).toBeInTheDocument();
+    expect(screen.queryByText('Nagaraj Setty')).not.toBeInTheDocument();
     expect(screen.getByText('Investigation taken up by the station.')).toBeInTheDocument();
   });
 
   it('reveals the real value when a PII field is toggled', async () => {
     mockAuth();
     vi.spyOn(caseApiModule, 'useCaseDetail').mockReturnValue(mockSuccess(detail));
+    vi.spyOn(caseApiModule, 'useCaseExplanation').mockReturnValue(
+      mockSuccess(undefined as unknown as caseApiModule.CaseExplanationResponse),
+    );
 
     renderScreen();
     await userEvent.click(screen.getAllByRole('button', { name: 'Reveal' })[0]);
 
-    expect(screen.getByText('Ramesh Kumar')).toBeInTheDocument();
+    expect(screen.getByText('Nagaraj Setty')).toBeInTheDocument();
+  });
+
+  it('renders arrests and chargesheet sections when present', () => {
+    mockAuth();
+    vi.spyOn(caseApiModule, 'useCaseDetail').mockReturnValue(mockSuccess(detail));
+    vi.spyOn(caseApiModule, 'useCaseExplanation').mockReturnValue(
+      mockSuccess(undefined as unknown as caseApiModule.CaseExplanationResponse),
+    );
+
+    renderScreen();
+
+    expect(screen.getByText('Judicial custody')).toBeInTheDocument();
+    expect(screen.getByText('379, 411 IPC')).toBeInTheDocument();
+    expect(screen.getByText('JMFC Court, Bengaluru Urban')).toBeInTheDocument();
+  });
+
+  it('omits arrests and chargesheet sections when the case has neither', () => {
+    mockAuth();
+    vi.spyOn(caseApiModule, 'useCaseDetail').mockReturnValue(
+      mockSuccess({ ...detail, arrests: undefined, chargesheet: undefined }),
+    );
+    vi.spyOn(caseApiModule, 'useCaseExplanation').mockReturnValue(
+      mockSuccess(undefined as unknown as caseApiModule.CaseExplanationResponse),
+    );
+
+    renderScreen();
+
+    expect(screen.queryByText('Arrests')).not.toBeInTheDocument();
+    expect(screen.queryByText('Chargesheet')).not.toBeInTheDocument();
+  });
+
+  it('opens the evidence panel with the case explanation when "Explain this case" is clicked', async () => {
+    mockAuth();
+    vi.spyOn(caseApiModule, 'useCaseDetail').mockReturnValue(mockSuccess(detail));
+    vi.spyOn(caseApiModule, 'useCaseExplanation').mockReturnValue(mockSuccess(explanation));
+
+    renderScreen();
+    expect(screen.queryByRole('dialog', { name: 'Evidence panel' })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Explain this case' }));
+
+    expect(screen.getByRole('dialog', { name: 'Evidence panel' })).toBeInTheDocument();
+    expect(screen.getByText(explanation.claim)).toBeInTheDocument();
   });
 
   it('shows an alert and retry button when the query fails', () => {
@@ -96,6 +170,9 @@ describe('CaseDetailScreen', () => {
       isSuccess: false,
       refetch: vi.fn(),
     } as unknown as UseQueryResult<caseApiModule.CaseDetailResponse, Error>);
+    vi.spyOn(caseApiModule, 'useCaseExplanation').mockReturnValue(
+      mockSuccess(undefined as unknown as caseApiModule.CaseExplanationResponse),
+    );
 
     renderScreen();
 
@@ -109,6 +186,9 @@ describe('CaseDetailScreen', () => {
         caseApiModule.CaseDetailResponse,
         Error
       >,
+    );
+    vi.spyOn(caseApiModule, 'useCaseExplanation').mockReturnValue(
+      mockSuccess(undefined as unknown as caseApiModule.CaseExplanationResponse),
     );
 
     renderScreen();

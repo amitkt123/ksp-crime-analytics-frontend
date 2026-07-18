@@ -3,6 +3,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { Header } from '../../app/Header';
 import { useMe } from '../../api/meApi';
 import { useCases, type CaseFilters, type CaseStatus } from '../../api/caseApi';
+import { useStationBoundaries } from '../../api/geoApi';
 import { CaseList } from './CaseList';
 import { CaseHeatmapView } from './CaseHeatmapView';
 
@@ -24,12 +25,15 @@ export function CaseExplorerScreen() {
   const [view, setView] = useState<'list' | 'map'>('list');
 
   const unitId = meQuery.data?.unitId ?? null;
+  const districtId = meQuery.data?.districtId ?? null;
   const filters: CaseFilters = {
     status: status || undefined,
     crimeSubHeadId: crimeSubHeadId || undefined,
     q: q || undefined,
   };
   const casesQuery = useCases(token, unitId, filters);
+  const stationBoundariesQuery = useStationBoundaries(token, districtId);
+  const stationBoundary = stationBoundariesQuery.data?.features.find((f) => f.properties.unitId === unitId) ?? null;
 
   const isLoading = meQuery.isLoading || casesQuery.isLoading;
   const isError = meQuery.isError || casesQuery.isError;
@@ -123,7 +127,7 @@ export function CaseExplorerScreen() {
         {view === 'list' ? (
           <CaseList cases={casesQuery.data ?? []} />
         ) : (
-          <CaseHeatmapView cases={casesQuery.data ?? []} />
+          <CaseHeatmapView cases={casesQuery.data ?? []} stationBoundary={stationBoundary} />
         )}
       </main>
     </>

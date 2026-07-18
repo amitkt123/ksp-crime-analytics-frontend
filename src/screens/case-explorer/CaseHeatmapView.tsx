@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -9,9 +9,14 @@ import {
   type CaseStatus,
   type CaseSummaryResponse,
 } from '../../api/caseApi';
+import type { StationBoundaryFeatureCollection } from '../../api/geoApi';
+import { geometryBounds } from '../command-center/geoBounds';
+
+type StationBoundaryFeature = StationBoundaryFeatureCollection['features'][number];
 
 interface CaseHeatmapViewProps {
   cases: CaseSummaryResponse[];
+  stationBoundary?: StationBoundaryFeature | null;
 }
 
 type LocatedCase = CaseSummaryResponse & { location: { lat: number; lng: number } };
@@ -59,9 +64,13 @@ function popupHtml(properties: CasePointProperties): string {
   return `<strong>${properties.caseNumber}</strong><br/>${caseStatusLabel(properties.status)}${gravityLine}`;
 }
 
+function toBoundaryFeatureCollection(boundary: StationBoundaryFeature | null | undefined) {
+  return { type: 'FeatureCollection' as const, features: boundary ? [boundary] : [] };
+}
+
 // No basemap tiles, matching DistrictMap.tsx's demo-must-not-depend-on-an-external-service
-// constraint -- just the heatmap+circle layers over a blank style, fit to the case points.
-export function CaseHeatmapView({ cases }: CaseHeatmapViewProps) {
+// constraint -- just the boundary/heatmap/circle layers over a blank style.
+export function CaseHeatmapView({ cases, stationBoundary = null }: CaseHeatmapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<InstanceType<typeof maplibregl.Map> | null>(null);
   const loadedRef = useRef(false);
@@ -69,12 +78,15 @@ export function CaseHeatmapView({ cases }: CaseHeatmapViewProps) {
   const navigateRef = useRef(navigate);
   navigateRef.current = navigate;
 
-  const located = locatedCases(cases);
+  const located = useMemo(() => locatedCases(cases), [cases]);
   const locatedRef = useRef(located);
   locatedRef.current = located;
 
+  const stationBoundaryRef = useRef(stationBoundary);
+  stationBoundaryRef.current = stationBoundary;
+
   // Mounts once -- every value read inside 'load' comes from a ref, so filter changes
-  // (which fire often, e.g. per keystroke) update via setData/fitBounds in the effect
+  // (which fire often, e.g. per keystroke) update via setData/fitBounds in the effects
   // below instead of tearing down and recreating the WebGL context each time.
   useEffect(() => {
     if (!containerRef.current) return;
@@ -88,6 +100,21 @@ export function CaseHeatmapView({ cases }: CaseHeatmapViewProps) {
     mapRef.current = map;
 
     map.on('load', () => {
+      // Boundary layers added first so they render underneath the heatmap/circle layers.
+      map.addSource('station-boundary', { type: 'geojson', data: toBoundaryFeatureCollection(stationBoundaryRef.current) });
+      map.addLayer({
+        id: 'station-boundary-fill',
+        type: 'fill',
+        source: 'station-boundary',
+        paint: { 'fill-color': '#2a78d6', 'fill-opacity': 0.08 },
+      });
+      map.addLayer({
+        id: 'station-boundary-line',
+        type: 'line',
+        source: 'station-boundary',
+        paint: { 'line-color': '#2a78d6', 'line-width': 2 },
+      });
+
       map.addSource('case-points', { type: 'geojson', data: toFeatureCollection(locatedRef.current) });
 
       map.addLayer({
@@ -96,19 +123,23 @@ export function CaseHeatmapView({ cases }: CaseHeatmapViewProps) {
         source: 'case-points',
         paint: {
           'heatmap-weight': 1,
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 12, 3],
-          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 8, 12, 30],
-          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 10, 1, 13, 0],
+          // Zoom domain tuned for a single station's jurisdiction (a few km across), not a
+          // country-wide dataset -- fitBounds on a station boundary typically lands around
+          // z11-14, so the heatmap must stay fully opaque through that range and only give
+          // way to individual points once zoomed in to street level.
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 1, 16, 4],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 20, 16, 50],
+          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 16, 1, 18, 0],
           'heatmap-color': [
             'interpolate',
             ['linear'],
             ['heatmap-density'],
-            0, 'rgba(42,120,214,0)',
-            0.2, '#b7d3f6',
-            0.4, '#6fa8e0',
-            0.6, '#2a78d6',
-            0.8, '#104281',
-            1, '#5c1a1a',
+            0, 'rgba(255,255,178,0)',
+            0.2, '#ffffb2',
+            0.4, '#fecc5c',
+            0.6, '#fd8d3c',
+            0.8, '#f03b20',
+            1, '#bd0026',
           ],
         },
       });
@@ -119,10 +150,10 @@ export function CaseHeatmapView({ cases }: CaseHeatmapViewProps) {
         source: 'case-points',
         paint: {
           'circle-radius': 5,
-          'circle-color': '#104281',
+          'circle-color': '#bd0026',
           'circle-stroke-width': 1,
           'circle-stroke-color': '#ffffff',
-          'circle-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0, 13, 1],
+          'circle-opacity': ['interpolate', ['linear'], ['zoom'], 16, 0, 18, 1],
         },
       });
 
@@ -149,7 +180,13 @@ export function CaseHeatmapView({ cases }: CaseHeatmapViewProps) {
       });
 
       loadedRef.current = true;
-      if (locatedRef.current.length > 0) map.fitBounds(pointsBounds(locatedRef.current), { padding: 40 });
+      // The jurisdiction boundary gives a stable frame; prefer it over fitting to
+      // whatever subset of cases the current filter happens to include.
+      if (stationBoundaryRef.current) {
+        map.fitBounds(geometryBounds(stationBoundaryRef.current.geometry), { padding: 40 });
+      } else if (locatedRef.current.length > 0) {
+        map.fitBounds(pointsBounds(locatedRef.current), { padding: 40 });
+      }
     });
 
     return () => {
@@ -163,8 +200,17 @@ export function CaseHeatmapView({ cases }: CaseHeatmapViewProps) {
     if (!loadedRef.current || !mapRef.current) return;
     const source = mapRef.current.getSource('case-points') as { setData: (data: unknown) => void } | undefined;
     source?.setData(toFeatureCollection(located));
-    if (located.length > 0) mapRef.current.fitBounds(pointsBounds(located), { padding: 40 });
-  }, [cases]);
+    if (!stationBoundary && located.length > 0) {
+      mapRef.current.fitBounds(pointsBounds(located), { padding: 40 });
+    }
+  }, [located, stationBoundary]);
+
+  useEffect(() => {
+    if (!loadedRef.current || !mapRef.current) return;
+    const source = mapRef.current.getSource('station-boundary') as { setData: (data: unknown) => void } | undefined;
+    source?.setData(toBoundaryFeatureCollection(stationBoundary));
+    if (stationBoundary) mapRef.current.fitBounds(geometryBounds(stationBoundary.geometry), { padding: 40 });
+  }, [stationBoundary]);
 
   return (
     <div className="map-card">

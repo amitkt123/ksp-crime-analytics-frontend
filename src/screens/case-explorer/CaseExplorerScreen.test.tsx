@@ -6,6 +6,7 @@ import type { UseQueryResult } from '@tanstack/react-query';
 import * as AuthContextModule from '../../auth/AuthContext';
 import * as meApiModule from '../../api/meApi';
 import * as caseApiModule from '../../api/caseApi';
+import * as geoApiModule from '../../api/geoApi';
 
 const { FakeMap } = vi.hoisted(() => {
   class FakeMap {
@@ -75,8 +76,11 @@ const me: meApiModule.MeResponse = {
   rank: 'Investigator',
   unit: 'Whitefield PS',
   unitId: 176,
+  districtId: 5,
   roles: ['INVESTIGATOR'],
 };
+
+const emptyStationBoundaries: geoApiModule.StationBoundaryFeatureCollection = { type: 'FeatureCollection', features: [] };
 
 function mockAuth() {
   vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
@@ -87,6 +91,7 @@ function mockAuth() {
     logout: vi.fn(),
   });
   vi.spyOn(meApiModule, 'useMe').mockReturnValue(mockSuccess(me));
+  vi.spyOn(geoApiModule, 'useStationBoundaries').mockReturnValue(mockSuccess(emptyStationBoundaries));
 }
 
 function renderScreen() {
@@ -165,5 +170,16 @@ describe('CaseExplorerScreen', () => {
     expect(screen.getByRole('tab', { name: 'Map' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('img', { name: 'Heatmap of case locations' })).toBeInTheDocument();
     expect(screen.queryByText('276/2026')).not.toBeInTheDocument();
+  });
+
+  it('fetches station boundaries for the logged-in unit\'s district', async () => {
+    mockAuth();
+    const useStationBoundariesSpy = vi.spyOn(geoApiModule, 'useStationBoundaries');
+    vi.spyOn(caseApiModule, 'useCases').mockReturnValue(mockSuccess(cases));
+
+    renderScreen();
+
+    expect(await screen.findByText('276/2026')).toBeInTheDocument();
+    expect(useStationBoundariesSpy).toHaveBeenCalledWith('jwt', 5);
   });
 });

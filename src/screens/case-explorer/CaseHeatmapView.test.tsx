@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import type { CaseSummaryResponse } from '../../api/caseApi';
+import type { StationBoundaryFeatureCollection } from '../../api/geoApi';
 
 interface FakeMapEvent {
   features?: Array<{ properties: Record<string, unknown> }>;
@@ -221,5 +222,54 @@ describe('CaseHeatmapView', () => {
     const source = map.getSource('case-points') as { data: { features: unknown[] } };
     expect(source.data.features).toHaveLength(2);
     expect(map.lastFitBounds?.bounds).toEqual([[77.5, 12.9], [78.0, 14.0]]);
+  });
+
+  const stationBoundary: StationBoundaryFeatureCollection['features'][number] = {
+    type: 'Feature',
+    properties: { unitId: 176, unitName: 'Whitefield PS' },
+    geometry: { type: 'Polygon', coordinates: [[[77.6, 12.9], [77.8, 12.9], [77.8, 13.1], [77.6, 13.1], [77.6, 12.9]]] },
+  };
+
+  it('adds a station-boundary source and fill+line layers when a boundary is given', () => {
+    render(<CaseHeatmapView cases={[baseCase]} stationBoundary={stationBoundary} />);
+
+    const map = FakeMap.instances[0];
+    const source = map.getSource('station-boundary') as { data: { features: unknown[] } };
+    expect(source.data.features).toEqual([stationBoundary]);
+    expect(map.layers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'station-boundary-fill', type: 'fill' }),
+        expect.objectContaining({ id: 'station-boundary-line', type: 'line' }),
+      ]),
+    );
+  });
+
+  it('fits bounds to the station boundary (not just the located cases) when a boundary is given', () => {
+    const cases: CaseSummaryResponse[] = [{ ...baseCase, caseId: 1, location: { lat: 20.0, lng: 80.0 } }];
+
+    render(<CaseHeatmapView cases={cases} stationBoundary={stationBoundary} />);
+
+    expect(FakeMap.instances[0].lastFitBounds?.bounds).toEqual([[77.6, 12.9], [77.8, 13.1]]);
+  });
+
+  it('still adds the boundary layer even when no case has a location', () => {
+    render(<CaseHeatmapView cases={[baseCase]} stationBoundary={stationBoundary} />);
+
+    expect(screen.getByText('No case locations to show for these filters.')).toBeInTheDocument();
+    const map = FakeMap.instances[0];
+    expect(map.getSource('station-boundary')).toBeDefined();
+  });
+
+  it('does not refit bounds on filter changes once a station boundary is set', () => {
+    const initial: CaseSummaryResponse[] = [{ ...baseCase, caseId: 1, location: { lat: 12.95, lng: 77.7 } }];
+    const { rerender } = render(<CaseHeatmapView cases={initial} stationBoundary={stationBoundary} />);
+
+    const map = FakeMap.instances[0];
+    const boundsAfterLoad = map.lastFitBounds?.bounds;
+
+    const updated: CaseSummaryResponse[] = [{ ...baseCase, caseId: 2, location: { lat: 12.96, lng: 77.71 } }];
+    rerender(<CaseHeatmapView cases={updated} stationBoundary={stationBoundary} />);
+
+    expect(map.lastFitBounds?.bounds).toEqual(boundsAfterLoad);
   });
 });
