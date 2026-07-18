@@ -10,7 +10,8 @@ describe('App', () => {
     });
 
     render(<App />);
-    expect(screen.getByRole('heading', { name: /ksp crime analytics/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /crime analytics/i })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /karnataka state police/i })).toBeInTheDocument();
   });
 
   it("renders the authenticated user's default screen at the root path", async () => {
