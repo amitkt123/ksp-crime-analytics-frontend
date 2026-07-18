@@ -105,7 +105,10 @@ describe('CaseDetailScreen', () => {
   it('shows a not-found message with a link back when the case does not exist', () => {
     mockAuth();
     vi.spyOn(caseApiModule, 'useCaseDetail').mockReturnValue(
-      mockSuccess<caseApiModule.CaseDetailResponse | undefined>(undefined),
+      mockSuccess<caseApiModule.CaseDetailResponse | undefined>(undefined) as UseQueryResult<
+        caseApiModule.CaseDetailResponse,
+        Error
+      >,
     );
 
     renderScreen();
