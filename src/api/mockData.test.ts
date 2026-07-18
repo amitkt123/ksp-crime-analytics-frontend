@@ -97,3 +97,145 @@ describe('getMockResponse station boundaries', () => {
     expect(result).toEqual(fixture);
   });
 });
+
+describe('getMockResponse auth login personas', () => {
+  it('returns the Investigator role and a distinct token for the investigator demo persona', async () => {
+    const result = await getMockResponse('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'demo.investigator', password: 'x' }),
+    });
+    expect(result).toEqual({ token: 'mock-token-investigator', roles: ['INVESTIGATOR'] });
+  });
+
+  it('returns the Station Supervisor role and a distinct token for the supervisor demo persona', async () => {
+    const result = await getMockResponse('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'demo.supervisor', password: 'x' }),
+    });
+    expect(result).toEqual({ token: 'mock-token-supervisor', roles: ['STATION_SUPERVISOR'] });
+  });
+
+  it('falls back to the SCRB Analyst persona for any other username', async () => {
+    const result = await getMockResponse('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'demo.analyst', password: 'x' }),
+    });
+    expect(result).toEqual({ token: 'mock-token', roles: ['SCRB_ANALYST'] });
+  });
+});
+
+describe('getMockResponse /api/me by persona', () => {
+  it('returns the investigator profile with a real station unitId for the investigator token', async () => {
+    const result = await getMockResponse('/api/me', { method: 'GET' }, 'mock-token-investigator');
+    expect(result).toMatchObject({ roles: ['INVESTIGATOR'], unitId: 176, unit: 'Whitefield PS' });
+  });
+
+  it('returns the supervisor profile with a real station unitId for the supervisor token', async () => {
+    const result = await getMockResponse('/api/me', { method: 'GET' }, 'mock-token-supervisor');
+    expect(result).toMatchObject({ roles: ['STATION_SUPERVISOR'], unitId: 176, unit: 'Whitefield PS' });
+  });
+
+  it('returns the default SCRB Analyst profile with unitId null for the default token', async () => {
+    const result = await getMockResponse('/api/me', { method: 'GET' }, 'mock-token');
+    expect(result).toMatchObject({ roles: ['SCRB_ANALYST'], unitId: null });
+  });
+});
+
+describe('getMockResponse cases list', () => {
+  it('returns a deterministic, station-scoped case list for a given unitId', async () => {
+    const first = await getMockResponse('/api/cases?unitId=176', { method: 'GET' });
+    const second = await getMockResponse('/api/cases?unitId=176', { method: 'GET' });
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+  });
+
+  it('computes the expected fields for the first generated case at Whitefield PS', async () => {
+    const result = (await getMockResponse('/api/cases?unitId=176', { method: 'GET' })) as Array<{
+      caseId: number;
+      caseNumber: string;
+      unitName: string;
+      crimeSubHeadName: string;
+      status: string;
+      firDate: string;
+    }>;
+    expect(result[0]).toMatchObject({
+      caseId: 176000,
+      caseNumber: '276/2026',
+      unitName: 'Whitefield PS',
+      crimeSubHeadName: 'Chain Snatching',
+      status: 'registered',
+      firDate: '2026-05-26',
+    });
+  });
+
+  it('filters by status', async () => {
+    const result = (await getMockResponse('/api/cases?unitId=176&status=closed', {
+      method: 'GET',
+    })) as Array<{ status: string }>;
+    expect(result.length).toBeGreaterThan(0);
+    expect(result.every((c) => c.status === 'closed')).toBe(true);
+  });
+
+  it('filters by free-text search over the case number', async () => {
+    const result = (await getMockResponse('/api/cases?unitId=176&q=276%2F2026', {
+      method: 'GET',
+    })) as Array<{ caseNumber: string }>;
+    expect(result).toEqual([expect.objectContaining({ caseNumber: '276/2026' })]);
+  });
+
+  it('returns an empty array for a unitId with no known station', async () => {
+    const result = await getMockResponse('/api/cases?unitId=999999', { method: 'GET' });
+    expect(result).toEqual([]);
+  });
+});
+
+describe('getMockResponse case detail', () => {
+  it('returns full detail for a generated caseId, including narrative, parties, and a single-entry timeline for a registered case', async () => {
+    const result = (await getMockResponse('/api/cases/176000', { method: 'GET' })) as {
+      caseNumber: string;
+      narrative: string;
+      parties: Array<{ role: string }>;
+      timeline: Array<{ status: string; timestamp: string; note: string }>;
+    };
+    expect(result.caseNumber).toBe('276/2026');
+    expect(result.narrative.length).toBeGreaterThan(0);
+    expect(result.parties.map((p) => p.role)).toEqual(['victim', 'accused']);
+    expect(result.timeline).toEqual([{ status: 'registered', timestamp: '2026-05-26', note: 'FIR registered.' }]);
+  });
+
+  it('masks PII in party fields while preserving the real value', async () => {
+    const result = (await getMockResponse('/api/cases/176000', { method: 'GET' })) as {
+      parties: Array<{ name: { masked: string; real: string } }>;
+    };
+    expect(result.parties[0].name.real).toBe('Ramesh Kumar');
+    expect(result.parties[0].name.masked).toBe('R***** K****');
+  });
+
+  it('builds a three-entry timeline for a closed case', async () => {
+    // index 2 at unitId 176 has status 'closed' (see Task 2's status rotation)
+    const result = (await getMockResponse('/api/cases/176002', { method: 'GET' })) as {
+      timeline: Array<{ status: string }>;
+    };
+    expect(result.timeline.map((t) => t.status)).toEqual(['registered', 'under_investigation', 'closed']);
+  });
+
+  it('returns undefined for an unknown caseId', async () => {
+    const result = await getMockResponse('/api/cases/999999000', { method: 'GET' });
+    expect(result).toBeUndefined();
+  });
+});
+
+describe('getMockResponse cases list free-text search over party names', () => {
+  it('matches a case by a party real name even though the case number does not match', async () => {
+    // index 0 at unitId 176 has victim 'Ramesh Kumar' (see the VICTIM_NAMES pool below)
+    const result = (await getMockResponse('/api/cases?unitId=176&q=ramesh', {
+      method: 'GET',
+    })) as Array<{ caseId: number }>;
+    expect(result.map((c) => c.caseId)).toContain(176000);
+  });
+
+  it('excludes cases whose case number and party names both fail to match', async () => {
+    const result = await getMockResponse('/api/cases?unitId=176&q=nonexistent-name', { method: 'GET' });
+    expect(result).toEqual([]);
+  });
+});

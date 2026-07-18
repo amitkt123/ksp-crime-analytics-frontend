@@ -10,6 +10,7 @@ const sampleMe: MeResponse = {
   firstName: 'R.',
   rank: 'SCRB Analyst',
   unit: 'State CID HQ',
+  unitId: null,
   roles: ['SCRB_ANALYST'],
 };
 

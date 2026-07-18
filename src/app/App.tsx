@@ -7,6 +7,8 @@ import { Rail } from './Rail';
 import { Header } from './Header';
 import { ScreenPlaceholder } from './ScreenPlaceholder';
 import { CommandCenterScreen } from '../screens/command-center/CommandCenterScreen';
+import { CaseExplorerScreen } from '../screens/case-explorer/CaseExplorerScreen';
+import { CaseDetailScreen } from '../screens/case-explorer/CaseDetailScreen';
 
 const queryClient = new QueryClient();
 
@@ -43,10 +45,15 @@ function AuthenticatedShell() {
           path="/case-explorer"
           element={
             <ProtectedRoute allowedRoles={['INVESTIGATOR', 'STATION_SUPERVISOR']}>
-              <>
-                <Header title="Case Explorer" />
-                <ScreenPlaceholder title="Case Explorer" />
-              </>
+              <CaseExplorerScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/case-explorer/:caseId"
+          element={
+            <ProtectedRoute allowedRoles={['INVESTIGATOR', 'STATION_SUPERVISOR']}>
+              <CaseDetailScreen />
             </ProtectedRoute>
           }
         />
