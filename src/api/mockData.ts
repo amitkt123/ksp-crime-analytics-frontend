@@ -291,6 +291,71 @@ function mockCaseSummaries(unitId: number, unitName: string) {
   });
 }
 
+const VICTIM_NAMES = ['Ramesh Kumar', 'Sunita Devi', 'Arjun Rao', 'Lakshmi Bai', 'Manjunath Gowda', 'Fathima Begum'];
+const ACCUSED_NAMES = ['Suresh Naik', 'Vijay Kumar', 'Rakesh Yadav', 'Prakash Shetty', 'Imran Khan', 'Ganesh Bhat'];
+const ADDRESS_STREETS = ['12 MG Road', '45 Church Street', '7 Station Road', '3 Market Lane', '21 Temple Street', '9 Ring Road'];
+
+function maskName(real: string): string {
+  return real
+    .split(' ')
+    .map((part) => part[0] + '*'.repeat(Math.max(part.length - 1, 1)))
+    .join(' ');
+}
+
+function maskPhone(real: string): string {
+  return `${real.slice(0, 2)}${'*'.repeat(real.length - 4)}${real.slice(-2)}`;
+}
+
+function maskAddress(real: string): string {
+  const [street, ...rest] = real.split(', ');
+  return ['*'.repeat(street.length), ...rest].join(', ');
+}
+
+function mockParty(role: 'victim' | 'accused', index: number) {
+  const names = role === 'victim' ? VICTIM_NAMES : ACCUSED_NAMES;
+  const real = names[index % names.length];
+  const phone = `98${String(10000000 + index * 37).slice(0, 8)}`;
+  const address = `${ADDRESS_STREETS[index % ADDRESS_STREETS.length]}, Karnataka`;
+  return {
+    role,
+    name: { masked: maskName(real), real },
+    phone: { masked: maskPhone(phone), real: phone },
+    address: { masked: maskAddress(address), real: address },
+  };
+}
+
+function mockNarrative(crimeSubHeadName: string, unitName: string): string {
+  return `${crimeSubHeadName} reported to ${unitName}. Field verification and evidence collection are logged in the case diary.`;
+}
+
+function mockTimeline(status: CaseStatus, firDate: string) {
+  const timeline = [{ status: 'registered' as CaseStatus, timestamp: firDate, note: 'FIR registered.' }];
+  if (status === 'registered') return timeline;
+  timeline.push({
+    status: 'under_investigation' as CaseStatus,
+    timestamp: offsetDate(firDate, 3),
+    note: 'Investigation taken up by the station.',
+  });
+  if (status === 'under_investigation') return timeline;
+  timeline.push({ status: 'closed' as CaseStatus, timestamp: offsetDate(firDate, 21), note: 'Case closed.' });
+  return timeline;
+}
+
+function mockCaseDetail(caseId: number) {
+  const unitId = Math.floor(caseId / 1000);
+  const index = caseId % 1000;
+  const unitName = findStationName(unitId);
+  if (!unitName) return undefined;
+  const summary = mockCaseSummaries(unitId, unitName)[index];
+  if (!summary) return undefined;
+  return {
+    ...summary,
+    narrative: mockNarrative(summary.crimeSubHeadName, unitName),
+    parties: [mockParty('victim', index), mockParty('accused', index + 1)],
+    timeline: mockTimeline(summary.status, summary.firDate),
+  };
+}
+
 function filterCaseSummaries(
   cases: ReturnType<typeof mockCaseSummaries>,
   filters: { status?: string; crimeSubHeadId?: string; q?: string },
@@ -298,7 +363,13 @@ function filterCaseSummaries(
   return cases.filter((c) => {
     if (filters.status && c.status !== filters.status) return false;
     if (filters.crimeSubHeadId && String(c.crimeSubHeadId) !== filters.crimeSubHeadId) return false;
-    if (filters.q && !c.caseNumber.toLowerCase().includes(filters.q.toLowerCase())) return false;
+    if (filters.q) {
+      const q = filters.q.toLowerCase();
+      const matchesNumber = c.caseNumber.toLowerCase().includes(q);
+      const detail = mockCaseDetail(c.caseId);
+      const matchesParty = detail?.parties.some((p) => p.name.real.toLowerCase().includes(q)) ?? false;
+      if (!matchesNumber && !matchesParty) return false;
+    }
     return true;
   });
 }
@@ -340,6 +411,9 @@ export async function getMockResponse(
       q: query.get('q') ?? undefined,
     });
   }
+
+  const caseDetailMatch = path.match(/^\/api\/cases\/(\d+)$/);
+  if (caseDetailMatch) return mockCaseDetail(Number(caseDetailMatch[1]));
 
   return undefined;
 }

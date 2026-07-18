@@ -188,3 +188,54 @@ describe('getMockResponse cases list', () => {
     expect(result).toEqual([]);
   });
 });
+
+describe('getMockResponse case detail', () => {
+  it('returns full detail for a generated caseId, including narrative, parties, and a single-entry timeline for a registered case', async () => {
+    const result = (await getMockResponse('/api/cases/176000', { method: 'GET' })) as {
+      caseNumber: string;
+      narrative: string;
+      parties: Array<{ role: string }>;
+      timeline: Array<{ status: string; timestamp: string; note: string }>;
+    };
+    expect(result.caseNumber).toBe('276/2026');
+    expect(result.narrative.length).toBeGreaterThan(0);
+    expect(result.parties.map((p) => p.role)).toEqual(['victim', 'accused']);
+    expect(result.timeline).toEqual([{ status: 'registered', timestamp: '2026-05-26', note: 'FIR registered.' }]);
+  });
+
+  it('masks PII in party fields while preserving the real value', async () => {
+    const result = (await getMockResponse('/api/cases/176000', { method: 'GET' })) as {
+      parties: Array<{ name: { masked: string; real: string } }>;
+    };
+    expect(result.parties[0].name.real).toBe('Ramesh Kumar');
+    expect(result.parties[0].name.masked).toBe('R***** K****');
+  });
+
+  it('builds a three-entry timeline for a closed case', async () => {
+    // index 2 at unitId 176 has status 'closed' (see Task 2's status rotation)
+    const result = (await getMockResponse('/api/cases/176002', { method: 'GET' })) as {
+      timeline: Array<{ status: string }>;
+    };
+    expect(result.timeline.map((t) => t.status)).toEqual(['registered', 'under_investigation', 'closed']);
+  });
+
+  it('returns undefined for an unknown caseId', async () => {
+    const result = await getMockResponse('/api/cases/999999000', { method: 'GET' });
+    expect(result).toBeUndefined();
+  });
+});
+
+describe('getMockResponse cases list free-text search over party names', () => {
+  it('matches a case by a party real name even though the case number does not match', async () => {
+    // index 0 at unitId 176 has victim 'Ramesh Kumar' (see the VICTIM_NAMES pool below)
+    const result = (await getMockResponse('/api/cases?unitId=176&q=ramesh', {
+      method: 'GET',
+    })) as Array<{ caseId: number }>;
+    expect(result.map((c) => c.caseId)).toContain(176000);
+  });
+
+  it('excludes cases whose case number and party names both fail to match', async () => {
+    const result = await getMockResponse('/api/cases?unitId=176&q=nonexistent-name', { method: 'GET' });
+    expect(result).toEqual([]);
+  });
+});
