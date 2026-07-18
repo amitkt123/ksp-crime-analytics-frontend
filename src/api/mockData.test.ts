@@ -140,3 +140,51 @@ describe('getMockResponse /api/me by persona', () => {
     expect(result).toMatchObject({ roles: ['SCRB_ANALYST'], unitId: null });
   });
 });
+
+describe('getMockResponse cases list', () => {
+  it('returns a deterministic, station-scoped case list for a given unitId', async () => {
+    const first = await getMockResponse('/api/cases?unitId=176', { method: 'GET' });
+    const second = await getMockResponse('/api/cases?unitId=176', { method: 'GET' });
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(6);
+  });
+
+  it('computes the expected fields for the first generated case at Whitefield PS', async () => {
+    const result = (await getMockResponse('/api/cases?unitId=176', { method: 'GET' })) as Array<{
+      caseId: number;
+      caseNumber: string;
+      unitName: string;
+      crimeSubHeadName: string;
+      status: string;
+      firDate: string;
+    }>;
+    expect(result[0]).toMatchObject({
+      caseId: 176000,
+      caseNumber: '276/2026',
+      unitName: 'Whitefield PS',
+      crimeSubHeadName: 'Chain Snatching',
+      status: 'registered',
+      firDate: '2026-05-26',
+    });
+  });
+
+  it('filters by status', async () => {
+    const result = (await getMockResponse('/api/cases?unitId=176&status=closed', {
+      method: 'GET',
+    })) as Array<{ status: string }>;
+    expect(result.length).toBeGreaterThan(0);
+    expect(result.every((c) => c.status === 'closed')).toBe(true);
+  });
+
+  it('filters by free-text search over the case number', async () => {
+    const result = (await getMockResponse('/api/cases?unitId=176&q=276%2F2026', {
+      method: 'GET',
+    })) as Array<{ caseNumber: string }>;
+    expect(result).toEqual([expect.objectContaining({ caseNumber: '276/2026' })]);
+  });
+
+  it('returns an empty array for a unitId with no known station', async () => {
+    const result = await getMockResponse('/api/cases?unitId=999999', { method: 'GET' });
+    expect(result).toEqual([]);
+  });
+});

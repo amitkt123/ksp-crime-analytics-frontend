@@ -242,6 +242,67 @@ function mockDistrictDetail(districtId: number) {
   };
 }
 
+export type CaseStatus = 'registered' | 'under_investigation' | 'closed';
+
+const CASE_CRIME_TYPES: Array<{ crimeSubHeadId: number; crimeSubHeadName: string; crimeHeadId: number }> = [
+  { crimeSubHeadId: 101, crimeSubHeadName: 'Theft of Motor Vehicle', crimeHeadId: 2 },
+  { crimeSubHeadId: 102, crimeSubHeadName: 'House Break-in', crimeHeadId: 2 },
+  { crimeSubHeadId: 103, crimeSubHeadName: 'Chain Snatching', crimeHeadId: 1 },
+  { crimeSubHeadId: 104, crimeSubHeadName: 'Cyber Financial Fraud', crimeHeadId: 5 },
+  { crimeSubHeadId: 105, crimeSubHeadName: 'Assault', crimeHeadId: 1 },
+  { crimeSubHeadId: 106, crimeSubHeadName: 'Cattle Theft', crimeHeadId: 2 },
+];
+
+const CASE_STATUSES: CaseStatus[] = ['registered', 'under_investigation', 'closed'];
+const CASES_PER_STATION = 6;
+
+function offsetDate(base: string, deltaDays: number): string {
+  const date = new Date(`${base}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + deltaDays);
+  return date.toISOString().slice(0, 10);
+}
+
+function findStationName(unitId: number): string | undefined {
+  for (const roster of Object.values(STATIONS_BY_DISTRICT)) {
+    const match = roster.find((station) => station.unitId === unitId);
+    if (match) return match.unitName;
+  }
+  return undefined;
+}
+
+// Deterministic per-station case list -- no Math.random(), so a given unitId always
+// produces the same 6 cases (stable across runs and tests). index rotates through
+// crime type and status so a station's list isn't visually uniform.
+function mockCaseSummaries(unitId: number, unitName: string) {
+  return Array.from({ length: CASES_PER_STATION }, (_, index) => {
+    const crimeType = CASE_CRIME_TYPES[(unitId + index) % CASE_CRIME_TYPES.length];
+    const status = CASE_STATUSES[index % CASE_STATUSES.length];
+    const dayOffset = (unitId % 10) + index * 5;
+    return {
+      caseId: unitId * 1000 + index,
+      caseNumber: `${100 + unitId + index}/2026`,
+      unitId,
+      unitName,
+      crimeSubHeadId: crimeType.crimeSubHeadId,
+      crimeSubHeadName: crimeType.crimeSubHeadName,
+      status,
+      firDate: offsetDate('2026-06-01', -dayOffset),
+    };
+  });
+}
+
+function filterCaseSummaries(
+  cases: ReturnType<typeof mockCaseSummaries>,
+  filters: { status?: string; crimeSubHeadId?: string; q?: string },
+) {
+  return cases.filter((c) => {
+    if (filters.status && c.status !== filters.status) return false;
+    if (filters.crimeSubHeadId && String(c.crimeSubHeadId) !== filters.crimeSubHeadId) return false;
+    if (filters.q && !c.caseNumber.toLowerCase().includes(filters.q.toLowerCase())) return false;
+    return true;
+  });
+}
+
 export async function getMockResponse(
   path: string,
   options: RequestInit,
@@ -266,6 +327,19 @@ export async function getMockResponse(
 
   const districtDetailMatch = path.match(/^\/api\/geo\/districts\/(\d+)\/summary$/);
   if (districtDetailMatch) return mockDistrictDetail(Number(districtDetailMatch[1]));
+
+  if (path.startsWith('/api/cases?')) {
+    const query = new URLSearchParams(path.split('?')[1]);
+    const unitId = Number(query.get('unitId'));
+    const unitName = findStationName(unitId);
+    if (!unitName) return [];
+    const all = mockCaseSummaries(unitId, unitName);
+    return filterCaseSummaries(all, {
+      status: query.get('status') ?? undefined,
+      crimeSubHeadId: query.get('crimeSubHeadId') ?? undefined,
+      q: query.get('q') ?? undefined,
+    });
+  }
 
   return undefined;
 }
