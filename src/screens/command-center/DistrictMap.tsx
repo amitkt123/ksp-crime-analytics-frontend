@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type {
@@ -7,7 +7,8 @@ import type {
   StationBoundaryFeatureCollection,
   StationSummaryResponse,
 } from '../../api/geoApi';
-import { geometryBounds, featureCollectionBounds } from './geoBounds';
+import { alertSeverity, type AlertSeverity, type EmergingAlertResponse } from '../../api/alertsApi';
+import { geometryBounds, featureCollectionBounds, featureCentroid } from './geoBounds';
 
 interface DistrictMapProps {
   boundaries: DistrictBoundaryFeatureCollection;
@@ -15,8 +16,112 @@ interface DistrictMapProps {
   selectedDistrictId: number | null;
   stationBoundaries?: StationBoundaryFeatureCollection | null;
   stationSummaries?: StationSummaryResponse[];
+  alerts?: EmergingAlertResponse[];
+  // When set, re-shades the district choropleth by these counts instead of each
+  // district's total caseCount -- used to layer a time-of-day slice onto the map
+  // (spatiotemporal hotspots) without touching station-level data, which stays
+  // scoped to total case count.
+  caseCountOverride?: Map<number, number> | null;
   onDistrictSelect: (districtId: number) => void;
   onBack: () => void;
+}
+
+const SEVERITY_RANK: Record<AlertSeverity, number> = { moderate: 0, high: 1, critical: 2 };
+
+// Keeps the single most severe alert per district/station -- a red-zone marker
+// shouldn't downgrade just because a second, milder alert also landed there.
+function maxSeverityByKey(alerts: EmergingAlertResponse[], keyOf: (alert: EmergingAlertResponse) => number) {
+  const map = new Map<number, AlertSeverity>();
+  for (const alert of alerts) {
+    const key = keyOf(alert);
+    const severity = alertSeverity(alert.zScore);
+    const existing = map.get(key);
+    if (!existing || SEVERITY_RANK[severity] > SEVERITY_RANK[existing]) map.set(key, severity);
+  }
+  return map;
+}
+
+function createAlertMarkerElement(severity: AlertSeverity): HTMLDivElement {
+  const el = document.createElement('div');
+  el.className = 'map-alert-marker';
+  const dot = document.createElement('span');
+  dot.className = `alert-pulse-dot severity-${severity}`;
+  dot.setAttribute('aria-hidden', 'true');
+  el.appendChild(dot);
+  return el;
+}
+
+// Rebuilds every red-zone pulsing marker from scratch. Alert counts are small (a
+// handful of active alerts at once) so a full clear+recreate is simpler than
+// diffing, and mirrors applyDistrictSelection's pattern of being callable both at
+// map load and from a follow-up effect.
+function syncAlertMarkers(
+  map: InstanceType<typeof maplibregl.Map>,
+  boundaries: DistrictBoundaryFeatureCollection,
+  districtAlertSeverity: Map<number, AlertSeverity>,
+  stationBoundaries: StationBoundaryFeatureCollection | null,
+  stationAlertSeverity: Map<number, AlertSeverity>,
+  markersRef: { current: InstanceType<typeof maplibregl.Marker>[] },
+) {
+  for (const marker of markersRef.current) marker.remove();
+  markersRef.current = [];
+
+  for (const feature of boundaries.features) {
+    const severity = districtAlertSeverity.get(feature.properties.districtId);
+    if (!severity) continue;
+    const marker = new maplibregl.Marker({ element: createAlertMarkerElement(severity) })
+      .setLngLat(featureCentroid(feature.geometry))
+      .addTo(map);
+    markersRef.current.push(marker);
+  }
+
+  if (stationBoundaries) {
+    for (const feature of stationBoundaries.features) {
+      const severity = stationAlertSeverity.get(feature.properties.unitId);
+      if (!severity) continue;
+      const marker = new maplibregl.Marker({ element: createAlertMarkerElement(severity) })
+        .setLngLat(featureCentroid(feature.geometry))
+        .addTo(map);
+      markersRef.current.push(marker);
+    }
+  }
+}
+
+function districtCaseCountMap(
+  districtSummaries: DistrictSummaryResponse[],
+  caseCountOverride: Map<number, number> | null | undefined,
+): Map<number, number> {
+  if (caseCountOverride) return caseCountOverride;
+  return new Map(districtSummaries.map((d) => [d.districtId, d.caseCount]));
+}
+
+// Re-shades the choropleth in place via setData/setPaintProperty rather than
+// remounting the map -- toggling a time-of-day bucket must not tear down the
+// station layer or reset pan/zoom when a district is already drilled into.
+function applyDistrictCaseCounts(
+  map: InstanceType<typeof maplibregl.Map>,
+  boundaries: DistrictBoundaryFeatureCollection,
+  caseCountByDistrict: Map<number, number>,
+) {
+  const maxCount = Math.max(1, ...Array.from(caseCountByDistrict.values()));
+  const enrichedFeatures = boundaries.features.map((feature) => ({
+    ...feature,
+    properties: {
+      ...feature.properties,
+      caseCount: caseCountByDistrict.get(feature.properties.districtId) ?? 0,
+    },
+  }));
+  const source = map.getSource('districts') as { setData: (data: unknown) => void } | undefined;
+  source?.setData({ type: 'FeatureCollection', features: enrichedFeatures });
+  map.setPaintProperty('district-fill', 'fill-color', [
+    'interpolate',
+    ['linear'],
+    ['get', 'caseCount'],
+    0,
+    '#b7d3f6',
+    maxCount,
+    '#104281',
+  ]);
 }
 
 const DEFAULT_OUTLINE_COLOR = ['case', ['boolean', ['feature-state', 'hover'], false], '#2a78d6', '#D8DEEA'];
@@ -64,6 +169,8 @@ export function DistrictMap({
   selectedDistrictId,
   stationBoundaries = null,
   stationSummaries = [],
+  alerts = [],
+  caseCountOverride = null,
   onDistrictSelect,
   onBack,
 }: DistrictMapProps) {
@@ -75,18 +182,28 @@ export function DistrictMap({
   const popupRef = useRef<InstanceType<typeof maplibregl.Popup> | null>(null);
   const hoveredIdRef = useRef<number | null>(null);
   const hoveredStationIdRef = useRef<number | null>(null);
+  const alertMarkersRef = useRef<InstanceType<typeof maplibregl.Marker>[]>([]);
+  const caseCountOverrideRef = useRef(caseCountOverride);
+
+  const districtAlertSeverity = useMemo(() => maxSeverityByKey(alerts, (a) => a.districtId), [alerts]);
+  const stationAlertSeverity = useMemo(() => maxSeverityByKey(alerts, (a) => a.unitId), [alerts]);
+  const districtAlertSeverityRef = useRef(districtAlertSeverity);
+  const stationAlertSeverityRef = useRef(stationAlertSeverity);
   // Kept in refs, not effect deps -- onDistrictSelect's identity changes on every
   // CommandCenterScreen render (it closes over react-router's setSearchParams, whose
   // identity changes with the URL), which would otherwise tear down and recreate the
   // whole map every time a district is selected, defeating the fitBounds animation below.
   onDistrictSelectRef.current = onDistrictSelect;
   selectedDistrictIdRef.current = selectedDistrictId;
+  caseCountOverrideRef.current = caseCountOverride;
+  districtAlertSeverityRef.current = districtAlertSeverity;
+  stationAlertSeverityRef.current = stationAlertSeverity;
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const caseCountByDistrict = new Map(districtSummaries.map((d) => [d.districtId, d.caseCount]));
-    const maxCount = Math.max(1, ...districtSummaries.map((d) => d.caseCount));
+    const caseCountByDistrict = districtCaseCountMap(districtSummaries, caseCountOverrideRef.current);
+    const maxCount = Math.max(1, ...Array.from(caseCountByDistrict.values()));
 
     const enrichedFeatures = boundaries.features.map((feature) => ({
       ...feature,
@@ -159,11 +276,21 @@ export function DistrictMap({
 
       loadedRef.current = true;
       applyDistrictSelection(map, boundaries, selectedDistrictIdRef.current);
+      syncAlertMarkers(
+        map,
+        boundaries,
+        districtAlertSeverityRef.current,
+        null,
+        stationAlertSeverityRef.current,
+        alertMarkersRef,
+      );
     });
 
     return () => {
       loadedRef.current = false;
       mapRef.current = null;
+      for (const marker of alertMarkersRef.current) marker.remove();
+      alertMarkersRef.current = [];
       map.remove();
     };
   }, [boundaries, districtSummaries]);
@@ -259,6 +386,28 @@ export function DistrictMap({
       popupRef.current?.remove();
     });
   }, [stationBoundaries, stationSummaries, boundaries]);
+
+  // Keeps red-zone pulsing markers in sync with newly arrived alerts or a change in
+  // which district's stations are on screen, without tearing down the map itself.
+  useEffect(() => {
+    if (!loadedRef.current || !mapRef.current) return;
+    syncAlertMarkers(
+      mapRef.current,
+      boundaries,
+      districtAlertSeverity,
+      stationBoundaries,
+      stationAlertSeverity,
+      alertMarkersRef,
+    );
+  }, [boundaries, districtAlertSeverity, stationBoundaries, stationAlertSeverity]);
+
+  // Re-shades the choropleth when the time-of-day selection changes (or the
+  // underlying totals do), without remounting the map or disturbing the station
+  // layer/pan/zoom -- see applyDistrictCaseCounts.
+  useEffect(() => {
+    if (!loadedRef.current || !mapRef.current) return;
+    applyDistrictCaseCounts(mapRef.current, boundaries, districtCaseCountMap(districtSummaries, caseCountOverride));
+  }, [boundaries, districtSummaries, caseCountOverride]);
 
   const selectedDistrict =
     selectedDistrictId != null ? districtSummaries.find((d) => d.districtId === selectedDistrictId) : undefined;

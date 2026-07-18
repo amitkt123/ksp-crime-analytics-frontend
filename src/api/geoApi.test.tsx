@@ -9,11 +9,14 @@ import {
   getStationSummaries,
   getStationBoundaries,
   getDistrictDetail,
+  getDistrictTimeOfDay,
   useDistrictSummaries,
   useStationBoundaries,
   useDistrictDetail,
+  useDistrictTimeOfDay,
   type DistrictSummaryResponse,
   type DistrictDetailResponse,
+  type DistrictTimeOfDayResponse,
 } from './geoApi';
 
 const sampleDistricts: DistrictSummaryResponse[] = [
@@ -127,5 +130,40 @@ describe('useStationBoundaries', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(boundaries);
+  });
+});
+
+const sampleTimeOfDay: DistrictTimeOfDayResponse = {
+  buckets: [
+    { bucket: 'night', label: 'Night · 12–6 AM', districtCaseCounts: { 1: 40, 3: 25 } },
+    { bucket: 'morning', label: 'Morning · 6 AM–12 PM', districtCaseCounts: { 1: 90, 3: 22 } },
+    { bucket: 'afternoon', label: 'Afternoon · 12–6 PM', districtCaseCounts: { 1: 90, 3: 55 } },
+    { bucket: 'evening', label: 'Evening · 6 PM–12 AM', districtCaseCounts: { 1: 230, 3: 18 } },
+  ],
+};
+
+describe('getDistrictTimeOfDay', () => {
+  it('fetches /api/geo/districts/time-of-day with the auth token', async () => {
+    const apiFetchSpy = vi.spyOn(client, 'apiFetch').mockResolvedValue(sampleTimeOfDay);
+
+    const result = await getDistrictTimeOfDay('test-token');
+
+    expect(apiFetchSpy).toHaveBeenCalledWith('/api/geo/districts/time-of-day', {}, 'test-token');
+    expect(result).toEqual(sampleTimeOfDay);
+  });
+});
+
+describe('useDistrictTimeOfDay', () => {
+  it('returns the fetched time-of-day buckets once loaded', async () => {
+    vi.spyOn(client, 'apiFetch').mockResolvedValue(sampleTimeOfDay);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    function wrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    }
+
+    const { result } = renderHook(() => useDistrictTimeOfDay('test-token'), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(sampleTimeOfDay);
   });
 });

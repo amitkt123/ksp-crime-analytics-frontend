@@ -51,6 +51,14 @@ const districtDetail: geoApiModule.DistrictDetailResponse = {
   },
   categoryMix: [{ crimeHeadId: 2, crimeGroupName: 'Crimes Against Property', count: 88 }],
 };
+const timeOfDay: geoApiModule.DistrictTimeOfDayResponse = {
+  buckets: [
+    { bucket: 'night', label: 'Night · 12–6 AM', districtCaseCounts: { 1: 40, 3: 20 } },
+    { bucket: 'morning', label: 'Morning · 6 AM–12 PM', districtCaseCounts: { 1: 90, 3: 22 } },
+    { bucket: 'afternoon', label: 'Afternoon · 12–6 PM', districtCaseCounts: { 1: 90, 3: 55 } },
+    { bucket: 'evening', label: 'Evening · 6 PM–12 AM', districtCaseCounts: { 1: 230, 3: 18 } },
+  ],
+};
 
 function mockSuccess<T>(data: T) {
   return { data, isLoading: false, isError: false, isSuccess: true, refetch: vi.fn() } as unknown as UseQueryResult<
@@ -92,6 +100,7 @@ describe('CommandCenterScreen', () => {
       ),
     );
     vi.spyOn(alertsApiModule, 'useEmergingAlerts').mockReturnValue(mockSuccess(alerts));
+    vi.spyOn(geoApiModule, 'useDistrictTimeOfDay').mockReturnValue(mockSuccess(timeOfDay));
 
     renderScreen();
 
@@ -114,6 +123,7 @@ describe('CommandCenterScreen', () => {
     vi.spyOn(geoApiModule, 'useDistrictDetail').mockReturnValue(mockSuccess(districtDetail));
     vi.spyOn(geoApiModule, 'useStationBoundaries').mockReturnValue(mockSuccess(stationBoundaries));
     vi.spyOn(alertsApiModule, 'useEmergingAlerts').mockReturnValue(mockSuccess(alerts));
+    vi.spyOn(geoApiModule, 'useDistrictTimeOfDay').mockReturnValue(mockSuccess(timeOfDay));
 
     renderScreen();
 
@@ -147,6 +157,7 @@ describe('CommandCenterScreen', () => {
       ),
     );
     vi.spyOn(alertsApiModule, 'useEmergingAlerts').mockReturnValue(mockSuccess(alerts));
+    vi.spyOn(geoApiModule, 'useDistrictTimeOfDay').mockReturnValue(mockSuccess(timeOfDay));
 
     renderScreen();
 
@@ -174,6 +185,7 @@ describe('CommandCenterScreen', () => {
     } as unknown as UseQueryResult<geoApiModule.DistrictDetailResponse, Error>);
     vi.spyOn(geoApiModule, 'useStationBoundaries').mockReturnValue(mockSuccess(stationBoundaries));
     vi.spyOn(alertsApiModule, 'useEmergingAlerts').mockReturnValue(mockSuccess(alerts));
+    vi.spyOn(geoApiModule, 'useDistrictTimeOfDay').mockReturnValue(mockSuccess(timeOfDay));
 
     renderScreen();
 

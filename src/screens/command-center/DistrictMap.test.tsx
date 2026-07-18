@@ -7,13 +7,14 @@ import type {
   StationBoundaryFeatureCollection,
   StationSummaryResponse,
 } from '../../api/geoApi';
+import type { EmergingAlertResponse } from '../../api/alertsApi';
 
 interface FakeMapEvent {
   features?: Array<{ properties: Record<string, unknown> }>;
   lngLat?: { lng: number; lat: number };
 }
 
-const { FakeMap, FakePopup } = vi.hoisted(() => {
+const { FakeMap, FakePopup, FakeMarker } = vi.hoisted(() => {
   class FakeMap {
     static instances: FakeMap[] = [];
     sources: Record<string, unknown> = {};
@@ -41,7 +42,11 @@ const { FakeMap, FakePopup } = vi.hoisted(() => {
     }
 
     addSource(id: string, source: unknown) {
-      this.sources[id] = source;
+      const record = source as Record<string, unknown>;
+      record.setData = (data: unknown) => {
+        record.data = data;
+      };
+      this.sources[id] = record;
     }
 
     addLayer(layer: unknown) {
@@ -122,10 +127,37 @@ const { FakeMap, FakePopup } = vi.hoisted(() => {
     }
   }
 
-  return { FakeMap, FakePopup };
+  class FakeMarker {
+    static instances: FakeMarker[] = [];
+    element: HTMLElement;
+    lngLat: unknown;
+    addedToMap: unknown = null;
+    removed = false;
+
+    constructor(options: { element: HTMLElement }) {
+      this.element = options.element;
+      FakeMarker.instances.push(this);
+    }
+
+    setLngLat(lngLat: unknown) {
+      this.lngLat = lngLat;
+      return this;
+    }
+
+    addTo(map: unknown) {
+      this.addedToMap = map;
+      return this;
+    }
+
+    remove() {
+      this.removed = true;
+    }
+  }
+
+  return { FakeMap, FakePopup, FakeMarker };
 });
 
-vi.mock('maplibre-gl', () => ({ default: { Map: FakeMap, Popup: FakePopup } }));
+vi.mock('maplibre-gl', () => ({ default: { Map: FakeMap, Popup: FakePopup, Marker: FakeMarker } }));
 
 import { DistrictMap } from './DistrictMap';
 
@@ -163,10 +195,36 @@ const stationSummaries: StationSummaryResponse[] = [
   { unitId: 302, unitName: 'Mysuru Rural PS', caseCount: 40 },
 ];
 
+const stationGeometryCity = { type: 'Polygon', coordinates: [[[76, 11], [76.2, 11], [76.2, 11.2], [76, 11.2], [76, 11]]] };
+const stationGeometryRural = { type: 'Polygon', coordinates: [[[76.3, 11.3], [76.5, 11.3], [76.5, 11.5], [76.3, 11.5], [76.3, 11.3]]] };
+const stationBoundariesWithGeometry: StationBoundaryFeatureCollection = {
+  type: 'FeatureCollection',
+  features: [
+    { type: 'Feature', properties: { unitId: 301, unitName: 'Mysuru City PS' }, geometry: stationGeometryCity },
+    { type: 'Feature', properties: { unitId: 302, unitName: 'Mysuru Rural PS' }, geometry: stationGeometryRural },
+  ],
+};
+
+function makeAlert(overrides: Partial<EmergingAlertResponse>): EmergingAlertResponse {
+  return {
+    unitId: 301,
+    unitName: 'Mysuru City PS',
+    districtId: 3,
+    crimeSubHeadId: 12,
+    crimeSubHeadName: 'Chain Snatching',
+    currentWeekCount: 14,
+    baselineMean: 5.2,
+    zScore: 3.8,
+    explanation: 'test alert',
+    ...overrides,
+  };
+}
+
 describe('DistrictMap', () => {
   beforeEach(() => {
     FakeMap.instances = [];
     FakePopup.instances = [];
+    FakeMarker.instances = [];
   });
 
   it('adds a districts source with case counts merged into each feature, and a choropleth fill layer', () => {
@@ -521,5 +579,161 @@ describe('DistrictMap', () => {
     expect(map.featureStates.has(302)).toBe(false);
     expect(map.getCanvas().style.cursor).toBe('');
     expect(FakePopup.instances[0].removed).toBe(true);
+  });
+
+  it('adds a pulsing red-zone marker at the centroid of a district with an active alert', () => {
+    render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={null}
+        alerts={[makeAlert({ districtId: 3, zScore: 3.8 })]}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    const activeMarkers = FakeMarker.instances.filter((m) => !m.removed);
+    expect(activeMarkers).toHaveLength(1);
+    const marker = activeMarkers[0];
+    expect(marker.lngLat).toEqual([76.25, 11.25]);
+    expect(marker.element.querySelector('.alert-pulse-dot.severity-critical')).toBeTruthy();
+    expect(marker.addedToMap).toBe(FakeMap.instances[0]);
+  });
+
+  it('does not add a marker for a district with no active alert', () => {
+    render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={null}
+        alerts={[]}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(FakeMarker.instances.filter((m) => !m.removed)).toHaveLength(0);
+  });
+
+  it('adds a pulsing marker on the station polygon once drilled in, for a station with an active alert', () => {
+    render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        stationBoundaries={stationBoundariesWithGeometry}
+        stationSummaries={stationSummaries}
+        alerts={[makeAlert({ unitId: 302, districtId: 3, zScore: 2.7 })]}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    // Two active markers: the alert's district (3, Mysuru) still pulses on the
+    // (dimmed but visible) state map, plus the drilled-in station itself.
+    const activeMarkers = FakeMarker.instances.filter((m) => !m.removed);
+    expect(activeMarkers).toHaveLength(2);
+    const stationMarker = activeMarkers.find(
+      (m) => Array.isArray(m.lngLat) && (m.lngLat as number[])[0] === 76.4,
+    );
+    expect(stationMarker?.lngLat).toEqual([76.4, 11.4]);
+    expect(stationMarker?.element.querySelector('.alert-pulse-dot.severity-high')).toBeTruthy();
+  });
+
+  it('re-syncs markers when alerts change without remounting the map', () => {
+    const { rerender } = render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={null}
+        alerts={[makeAlert({ districtId: 3, zScore: 3.8 })]}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(FakeMap.instances).toHaveLength(1);
+    const firstMarker = FakeMarker.instances[0];
+
+    rerender(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={null}
+        alerts={[makeAlert({ districtId: 1, zScore: 3.8 })]}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(FakeMap.instances).toHaveLength(1);
+    expect(firstMarker.removed).toBe(true);
+    const activeMarkers = FakeMarker.instances.filter((m) => !m.removed);
+    expect(activeMarkers).toHaveLength(1);
+    expect(activeMarkers[0].lngLat).toEqual([77.5, 12.5]);
+  });
+
+  it('shades the choropleth by total case count when no time-of-day override is given', () => {
+    render(
+      <DistrictMap
+        boundaries={boundaries}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={null}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    const map = FakeMap.instances[0];
+    const source = map.getSource('districts') as { data: DistrictBoundaryFeatureCollection };
+    const properties = source.data.features.map((f) => f.properties);
+    expect(properties).toEqual([
+      { districtId: 1, district: 'Bengaluru Urban', caseCount: 500 },
+      { districtId: 3, district: 'Mysuru', caseCount: 120 },
+    ]);
+  });
+
+  it('re-shades the choropleth by the override map, in place, without remounting the map', () => {
+    const { rerender } = render(
+      <DistrictMap
+        boundaries={boundaries}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={null}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(FakeMap.instances).toHaveLength(1);
+
+    rerender(
+      <DistrictMap
+        boundaries={boundaries}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={null}
+        caseCountOverride={new Map([[1, 40], [3, 200]])}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(FakeMap.instances).toHaveLength(1);
+    const map = FakeMap.instances[0];
+    const source = map.getSource('districts') as { data: DistrictBoundaryFeatureCollection };
+    const properties = source.data.features.map((f) => f.properties);
+    expect(properties).toEqual([
+      { districtId: 1, district: 'Bengaluru Urban', caseCount: 40 },
+      { districtId: 3, district: 'Mysuru', caseCount: 200 },
+    ]);
+    expect(map.paintProperties['fill-color']).toEqual([
+      'interpolate',
+      ['linear'],
+      ['get', 'caseCount'],
+      0,
+      '#b7d3f6',
+      200,
+      '#104281',
+    ]);
   });
 });

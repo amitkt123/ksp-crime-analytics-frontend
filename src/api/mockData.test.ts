@@ -31,6 +31,39 @@ describe('getMockResponse district summary', () => {
   });
 });
 
+describe('getMockResponse district time-of-day', () => {
+  it('returns four buckets, each with a case count for every district', async () => {
+    const result = (await getMockResponse('/api/geo/districts/time-of-day', { method: 'GET' })) as {
+      buckets: Array<{ bucket: string; label: string; districtCaseCounts: Record<number, number> }>;
+    };
+
+    expect(result.buckets.map((b) => b.bucket)).toEqual(['night', 'morning', 'afternoon', 'evening']);
+    for (const bucket of result.buckets) {
+      expect(bucket.districtCaseCounts[5]).toBeGreaterThan(0);
+    }
+  });
+
+  it('gives each district a single peak bucket rather than an even split', async () => {
+    const result = (await getMockResponse('/api/geo/districts/time-of-day', { method: 'GET' })) as {
+      buckets: Array<{ bucket: string; districtCaseCounts: Record<number, number> }>;
+    };
+
+    const districtId = 5; // Bengaluru Urban, caseCount 1840
+    const counts = result.buckets.map((b) => b.districtCaseCounts[districtId]);
+    const max = Math.max(...counts);
+    const peakBuckets = counts.filter((c) => c === max);
+
+    expect(peakBuckets).toHaveLength(1);
+    expect(max).toBeGreaterThan(counts.reduce((a, b) => a + b, 0) / counts.length);
+  });
+
+  it('is deterministic across calls', async () => {
+    const first = await getMockResponse('/api/geo/districts/time-of-day', { method: 'GET' });
+    const second = await getMockResponse('/api/geo/districts/time-of-day', { method: 'GET' });
+    expect(first).toEqual(second);
+  });
+});
+
 describe('getMockResponse stations', () => {
   it('returns one entry per real station in the district, ids/names matching the generated fixture', async () => {
     const result = (await getMockResponse('/api/geo/districts/5/stations', { method: 'GET' })) as Array<{

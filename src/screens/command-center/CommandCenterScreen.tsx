@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { Header } from '../../app/Header';
@@ -8,6 +9,7 @@ import {
   useStationSummaries,
   useDistrictDetail,
   useStationBoundaries,
+  useDistrictTimeOfDay,
 } from '../../api/geoApi';
 import { useEmergingAlerts } from '../../api/alertsApi';
 import { DistrictMap } from './DistrictMap';
@@ -16,6 +18,7 @@ import { KpiPanel } from './KpiPanel';
 import { SparklineStrip } from './SparklineStrip';
 import { CategoryMixChart } from './CategoryMixChart';
 import { AlertFeed } from './AlertFeed';
+import { TimeOfDaySelector, type TimeOfDaySelection } from './TimeOfDaySelector';
 
 export function CommandCenterScreen() {
   const { token, roles } = useAuth();
@@ -23,6 +26,7 @@ export function CommandCenterScreen() {
   const isPolicymaker = roles.includes('POLICYMAKER');
   const selectedDistrictId = searchParams.get('district') ? Number(searchParams.get('district')) : null;
   const districtDrilldownId = isPolicymaker ? null : selectedDistrictId;
+  const [timeOfDay, setTimeOfDay] = useState<TimeOfDaySelection>('all');
 
   const summaryQuery = useCommandCenterSummary(token);
   const districtSummariesQuery = useDistrictSummaries(token);
@@ -31,6 +35,11 @@ export function CommandCenterScreen() {
   const stationSummariesQuery = useStationSummaries(token, districtDrilldownId);
   const districtDetailQuery = useDistrictDetail(token, districtDrilldownId);
   const stationBoundariesQuery = useStationBoundaries(token, districtDrilldownId);
+  // Spatiotemporal hotspot layering is a progressive enhancement on top of the
+  // district drill-down -- it deliberately isn't part of isLoading/isError below,
+  // so a slow or failed time-of-day fetch never blocks the rest of the screen; the
+  // selector just renders with no buckets until the data arrives.
+  const timeOfDayQuery = useDistrictTimeOfDay(token);
 
   function selectDistrict(districtId: number) {
     if (isPolicymaker) return;
@@ -96,6 +105,12 @@ export function CommandCenterScreen() {
   const alerts = alertsQuery.data!;
   const selectedDistrictName = districtSummaries.find((d) => d.districtId === selectedDistrictId)?.districtName ?? '';
 
+  const timeOfDayBuckets = timeOfDayQuery.data?.buckets ?? [];
+  const activeBucket = timeOfDay === 'all' ? null : timeOfDayBuckets.find((b) => b.bucket === timeOfDay);
+  const caseCountOverride = activeBucket
+    ? new Map(Object.entries(activeBucket.districtCaseCounts).map(([id, count]) => [Number(id), count]))
+    : null;
+
   return (
     <>
       <Header title="Command Center">
@@ -117,8 +132,9 @@ export function CommandCenterScreen() {
         <section className="pane map-pane" aria-label="Karnataka hotspot map">
           <div className="pane-head">
             <div>
-              <h2>Karnataka — case density by district</h2>
+              <h2>Karnataka — case density {activeBucket ? `· ${activeBucket.label}` : 'by district'}</h2>
             </div>
+            <TimeOfDaySelector buckets={timeOfDayBuckets} value={timeOfDay} onChange={setTimeOfDay} />
           </div>
           <DistrictMap
             boundaries={boundaries}
@@ -126,6 +142,8 @@ export function CommandCenterScreen() {
             selectedDistrictId={districtDrilldownId}
             stationBoundaries={stationBoundariesQuery.data ?? null}
             stationSummaries={stationSummariesQuery.data ?? []}
+            alerts={alerts}
+            caseCountOverride={caseCountOverride}
             onDistrictSelect={selectDistrict}
             onBack={clearDistrict}
           />

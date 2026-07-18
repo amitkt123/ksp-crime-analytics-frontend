@@ -113,8 +113,30 @@
 .alert-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .alert-card { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); cursor: pointer; text-align: left; font: inherit; color: inherit; }
 .alert-card:hover { border-color: var(--alert); }
+.alert-card.severity-critical { border-color: var(--alert); background: var(--alert-fill); }
 .alert-unit { font-weight: 600; font-size: 12px; }
 .alert-subhead { flex: 1; color: var(--muted); font-size: 12px; }
+
+/* Red-zone pulsing indicator -- a small dot with an expanding, fading ring, used
+   both on alert cards and (via the same class names) as a MapLibre marker element
+   over districts/stations with an active emerging alert. */
+.alert-pulse-dot { position: relative; flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--alert); }
+.alert-pulse-dot.severity-moderate { background: var(--muted-2); }
+.alert-pulse-dot.severity-critical::before, .alert-pulse-dot.severity-high::before {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--alert);
+  animation: alert-pulse-ring 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.alert-pulse-dot.severity-high::before { animation-duration: 2.2s; }
+@keyframes alert-pulse-ring {
+  0% { transform: scale(1); opacity: 0.65; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .alert-pulse-dot.severity-critical::before, .alert-pulse-dot.severity-high::before { animation: none; opacity: 0.35; }
+}
+
+.map-alert-marker { width: 14px; height: 14px; }
+.map-alert-marker .alert-pulse-dot { width: 100%; height: 100%; box-shadow: 0 0 0 2px var(--panel); }
 
 /* ---- Command Center screen layout (ported from docs/fe-artifacts-html/build/build_command_center.py) ---- */
 .main { grid-area: main; display: grid; grid-template-columns: minmax(0, 1.85fr) minmax(320px, 1fr); gap: 1px; background: var(--line); overflow: hidden; }
@@ -123,6 +145,11 @@
 .map-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .map-breadcrumb { position: absolute; top: 12px; left: 12px; z-index: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; box-shadow: var(--shadow); }
 .map-breadcrumb-count { font-family: 'IBM Plex Mono', monospace; color: var(--muted-2); }
+
+.tod-selector { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px; background: var(--canvas); border: 1px solid var(--line); border-radius: 8px; }
+.tod-option { border: none; background: none; color: var(--muted); font: inherit; font-size: 11.5px; font-weight: 500; padding: 5px 9px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.tod-option:hover { color: var(--text); }
+.tod-option.active { background: var(--panel); color: var(--real); box-shadow: var(--shadow); }
 
 .spark-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; flex-shrink: 0; }
 .spark-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px 10px; }

@@ -37,6 +37,18 @@ export interface StationBoundaryFeatureCollection {
   }>;
 }
 
+export type TimeOfDayBucketKey = 'night' | 'morning' | 'afternoon' | 'evening';
+
+export interface TimeOfDayBucket {
+  bucket: TimeOfDayBucketKey;
+  label: string;
+  districtCaseCounts: Record<number, number>;
+}
+
+export interface DistrictTimeOfDayResponse {
+  buckets: TimeOfDayBucket[];
+}
+
 export function getDistrictSummaries(token: string | null): Promise<DistrictSummaryResponse[]> {
   return apiFetch<DistrictSummaryResponse[]>('/api/geo/districts', {}, token);
 }
@@ -55,6 +67,10 @@ export function getStationBoundaries(token: string | null, districtId: number): 
 
 export function getDistrictDetail(token: string | null, districtId: number): Promise<DistrictDetailResponse> {
   return apiFetch<DistrictDetailResponse>(`/api/geo/districts/${districtId}/summary`, {}, token);
+}
+
+export function getDistrictTimeOfDay(token: string | null): Promise<DistrictTimeOfDayResponse> {
+  return apiFetch<DistrictTimeOfDayResponse>('/api/geo/districts/time-of-day', {}, token);
 }
 
 export function useDistrictSummaries(token: string | null) {
@@ -99,5 +115,14 @@ export function useDistrictDetail(token: string | null, districtId: number | nul
     queryFn: () => getDistrictDetail(token, districtId as number),
     staleTime: 60_000,
     enabled: token != null && districtId != null,
+  });
+}
+
+export function useDistrictTimeOfDay(token: string | null) {
+  return useQuery({
+    queryKey: ['geo-district-time-of-day'],
+    queryFn: () => getDistrictTimeOfDay(token),
+    staleTime: 5 * 60_000,
+    enabled: token != null,
   });
 }

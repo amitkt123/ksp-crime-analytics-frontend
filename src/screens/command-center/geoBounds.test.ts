@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { geometryBounds, featureCollectionBounds } from './geoBounds';
+import { geometryBounds, featureCollectionBounds, featureCentroid } from './geoBounds';
 
 describe('geometryBounds', () => {
   it('computes bounds for a Polygon', () => {
@@ -16,6 +16,13 @@ describe('geometryBounds', () => {
       ],
     };
     expect(geometryBounds(geometry)).toEqual([[74, 10], [77, 13]]);
+  });
+});
+
+describe('featureCentroid', () => {
+  it('returns the midpoint of the geometry bounds', () => {
+    const geometry = { type: 'Polygon', coordinates: [[[75, 12], [77, 12], [77, 14], [75, 14], [75, 12]]] };
+    expect(featureCentroid(geometry)).toEqual([76, 13]);
   });
 });
 

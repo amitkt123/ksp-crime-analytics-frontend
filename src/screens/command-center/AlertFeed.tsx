@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { EvidencePanel, type EvidenceData } from '../../design-system/EvidencePanel';
-import type { EmergingAlertResponse } from '../../api/alertsApi';
+import { alertSeverity, type EmergingAlertResponse } from '../../api/alertsApi';
 
 interface AlertFeedProps {
   alerts: EmergingAlertResponse[];
@@ -29,17 +29,21 @@ export function AlertFeed({ alerts }: AlertFeedProps) {
           <p>No emerging alerts in this window.</p>
         ) : (
           <div className="alert-list">
-            {alerts.map((alert) => (
-              <button
-                key={`${alert.unitId}-${alert.crimeSubHeadId}`}
-                className="alert-card"
-                onClick={() => setSelected(alert)}
-              >
-                <span className="alert-unit">{alert.unitName}</span>
-                <span className="alert-subhead">{alert.crimeSubHeadName}</span>
-                <span className="chip alert mono">z={alert.zScore.toFixed(1)}</span>
-              </button>
-            ))}
+            {alerts.map((alert) => {
+              const severity = alertSeverity(alert.zScore);
+              return (
+                <button
+                  key={`${alert.unitId}-${alert.crimeSubHeadId}`}
+                  className={`alert-card severity-${severity}`}
+                  onClick={() => setSelected(alert)}
+                >
+                  <span className={`alert-pulse-dot severity-${severity}`} aria-hidden="true" />
+                  <span className="alert-unit">{alert.unitName}</span>
+                  <span className="alert-subhead">{alert.crimeSubHeadName}</span>
+                  <span className="chip alert mono">z={alert.zScore.toFixed(1)}</span>
+                </button>
+              );
+            })}
           </div>
         )}
       </section>

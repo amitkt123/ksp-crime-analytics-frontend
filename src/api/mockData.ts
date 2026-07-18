@@ -90,10 +90,14 @@ const MOCK_SUMMARY = {
   ],
 };
 
+// unitId/districtId pulled from STATIONS_BY_DISTRICT (real KGIS rosters) so an
+// alert's pulsing marker lands on the correct station polygon once its district is
+// drilled into, and on the correct district polygon on the state-wide map.
 const MOCK_ALERTS = [
   {
-    unitId: 101,
+    unitId: 176,
     unitName: 'Whitefield PS',
+    districtId: 5,
     crimeSubHeadId: 12,
     crimeSubHeadName: 'Chain Snatching',
     currentWeekCount: 14,
@@ -103,28 +107,59 @@ const MOCK_ALERTS = [
       'Whitefield PS logged 14 chain snatching cases this week against an 8-week baseline mean of 5.2 -- a 3.8 sigma deviation, the sharpest rise in the district.',
   },
   {
-    unitId: 205,
-    unitName: 'Hubballi Rural PS',
+    unitId: 403,
+    unitName: 'Hubli SubUrban PS',
+    districtId: 13,
     crimeSubHeadId: 21,
     crimeSubHeadName: 'Cattle Theft',
     currentWeekCount: 9,
     baselineMean: 3.1,
     zScore: 3.1,
     explanation:
-      'Hubballi Rural PS recorded 9 cattle theft cases this week versus a baseline mean of 3.1, consistent with a coordinated pattern across two adjoining jurisdictions.',
+      'Hubli SubUrban PS recorded 9 cattle theft cases this week versus a baseline mean of 3.1, consistent with a coordinated pattern across two adjoining jurisdictions.',
   },
   {
-    unitId: 340,
-    unitName: 'Mangaluru City PS',
+    unitId: 355,
+    unitName: 'Panambur PS',
+    districtId: 11,
     crimeSubHeadId: 34,
     crimeSubHeadName: 'Cyber Financial Fraud',
     currentWeekCount: 22,
     baselineMean: 11.4,
     zScore: 2.6,
     explanation:
-      'Mangaluru City PS saw 22 cyber financial fraud complaints this week against a baseline of 11.4, driven by a UPI-linked phishing campaign.',
+      'Panambur PS saw 22 cyber financial fraud complaints this week against a baseline of 11.4, driven by a UPI-linked phishing campaign.',
   },
 ];
+
+const TIME_OF_DAY_BUCKETS: Array<{ bucket: 'night' | 'morning' | 'afternoon' | 'evening'; label: string }> = [
+  { bucket: 'night', label: 'Night · 12–6 AM' },
+  { bucket: 'morning', label: 'Morning · 6 AM–12 PM' },
+  { bucket: 'afternoon', label: 'Afternoon · 12–6 PM' },
+  { bucket: 'evening', label: 'Evening · 6 PM–12 AM' },
+];
+
+// Deterministic per-district skew (no Math.random(), so results stay stable across
+// runs): each district's peak bucket rotates with its id, giving visibly different
+// hotspots as the analyst steps through time-of-day buckets instead of every
+// district splitting its total case count evenly across all four.
+function timeOfDayShares(districtId: number): [number, number, number, number] {
+  const shares: [number, number, number, number] = [0.18, 0.18, 0.18, 0.18];
+  shares[districtId % 4] = 0.46;
+  return shares;
+}
+
+function districtTimeOfDayBuckets() {
+  return TIME_OF_DAY_BUCKETS.map(({ bucket, label }, bucketIndex) => {
+    const districtCaseCounts: Record<number, number> = {};
+    for (const district of MOCK_DISTRICTS) {
+      districtCaseCounts[district.districtId] = Math.round(
+        district.caseCount * timeOfDayShares(district.districtId)[bucketIndex],
+      );
+    }
+    return { bucket, label, districtCaseCounts };
+  });
+}
 
 const MOCK_ME = {
   username: 'demo.analyst',
@@ -179,6 +214,7 @@ export async function getMockResponse(path: string, options: RequestInit): Promi
   if (path === '/api/alerts/emerging') return MOCK_ALERTS;
   if (path === '/api/geo/districts') return MOCK_DISTRICTS;
   if (path === '/api/geo/districts/boundaries') return loadBoundaries();
+  if (path === '/api/geo/districts/time-of-day') return { buckets: districtTimeOfDayBuckets() };
 
   const stationMatch = path.match(/^\/api\/geo\/districts\/(\d+)\/stations$/);
   if (stationMatch) return mockStations(Number(stationMatch[1]));
