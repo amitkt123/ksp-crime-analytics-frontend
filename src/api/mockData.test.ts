@@ -239,3 +239,56 @@ describe('getMockResponse cases list free-text search over party names', () => {
     expect(result).toEqual([]);
   });
 });
+
+describe('getMockResponse station incidents', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const panamburGeometry = {
+    type: 'Polygon',
+    coordinates: [[[74.80, 12.94], [74.84, 12.94], [74.84, 12.98], [74.80, 12.98], [74.80, 12.94]]],
+  };
+  const panamburFixture = {
+    type: 'FeatureCollection',
+    features: [{ type: 'Feature', properties: { unitId: 355, unitName: 'Panambur PS' }, geometry: panamburGeometry }],
+  };
+
+  it('returns one point per mock case, clustered around the station boundary centroid', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue({
+      json: () => Promise.resolve(panamburFixture),
+    } as unknown as Response);
+
+    const result = (await getMockResponse('/api/geo/stations/355/incidents', { method: 'GET' })) as Array<{
+      caseMasterId: number;
+      crimeNo: string;
+      latitude: number;
+      longitude: number;
+    }>;
+
+    expect(result).toHaveLength(6); // CASES_PER_STATION
+    const centerLng = 74.82;
+    const centerLat = 12.96;
+    for (const point of result) {
+      expect(Math.abs(point.longitude - centerLng)).toBeLessThan(0.02);
+      expect(Math.abs(point.latitude - centerLat)).toBeLessThan(0.02);
+      expect(typeof point.caseMasterId).toBe('number');
+      expect(typeof point.crimeNo).toBe('string');
+    }
+  });
+
+  it('is deterministic across calls', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue({
+      json: () => Promise.resolve(panamburFixture),
+    } as unknown as Response);
+
+    const first = await getMockResponse('/api/geo/stations/355/incidents', { method: 'GET' });
+    const second = await getMockResponse('/api/geo/stations/355/incidents', { method: 'GET' });
+    expect(first).toEqual(second);
+  });
+
+  it('returns an empty array for a unitId not present in any district roster', async () => {
+    const result = await getMockResponse('/api/geo/stations/999999/incidents', { method: 'GET' });
+    expect(result).toEqual([]);
+  });
+});
