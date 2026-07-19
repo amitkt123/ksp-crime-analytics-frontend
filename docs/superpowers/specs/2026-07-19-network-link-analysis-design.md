@@ -1,271 +1,255 @@
-# Network / Link Analysis screen design
+# Network / Link Analysis screen design (rewritten against the real backend contract)
+
+> **Revision note (2026-07-19):** This replaces an earlier version of this spec that proposed a
+> speculative `GET /api/network/graph?scope=...` contract, opened to every role with masking. That
+> contract was never built. The real backend (core-platform + graph-service, implemented and
+> tested the same day) shipped a different contract: a single `GET /api/network/subgraph?focus=...`
+> endpoint with four focus modes, access unchanged from the three pre-existing network endpoints
+> (`SCRB_ANALYST` only, raw unmasked data, no scope params). This revision targets that real
+> contract. Everything under "Real backend contract" below was verified by reading the actual
+> DTOs/controllers/Cypher in `core-platform` and `graph-service` and running their test suites
+> (`SubgraphQueryServiceTest`, `SubgraphQueryControllerIT`, `NetworkQueryServiceTest`,
+> `GraphServiceClientTest`, `NetworkControllerIT` — all passing).
 
 ## Problem
 
 `/network` is wired into `App.tsx` and `Rail.tsx` but renders only `ScreenPlaceholder`. A static
 design mockup already exists (`docs/superpowers/fe-artifacts-html/network.html` /
-`build_network.py`): a force-directed graph of Person/Case/Location nodes, a path-finding mode
+`build/build_network.py`): a force-directed graph of Person/Case/Location nodes, a path-finding mode
 (click two people, BFS-highlight the connecting chain), a community legend, and a repeat-offenders
-ranked rail, with node clicks opening an evidence panel.
+ranked rail, with node clicks opening an evidence panel. This spec designs the frontend screen
+against the real, already-implemented backend contract.
 
-The mockup assumes a graph-shaped API (`nodes` + `edges`) that doesn't exist. The real backend —
-core-platform's `NetworkController` → `NetworkQueryService` → `GraphServiceClient` →
-graph-service's `PersonQueryController` (Neo4j-backed) — exposes three flat endpoints today:
+## Real backend contract (verified against `core-platform`/`graph-service` source + passing tests)
 
-- `GET /api/network/repeat-offenders?minCases=&limit=`
-- `GET /api/network/path?from=&to=&maxHops=`
-- `GET /api/network/communities?minSize=`
+Four endpoints under `/api/network`, all requiring the caller to have `STATE` scope AND
+`rawCaseAccess=true` (`NetworkQueryService.requireFullNetworkAccess()`) — in practice
+**`SCRB_ANALYST` only**. `DISTRICT_SUPERVISOR` is not `STATE`-scoped and gets `403`. There is no
+scope/masking parameter anywhere in this contract; every field is the real, unmasked value.
 
-All three currently require `STATE` scope + `rawCaseAccess=true`, which in practice only
-`SCRB_ANALYST` has (`POLICYMAKER` is `STATE`-scoped but aggregate-only, so gets `403`). There is no
-endpoint that returns a raw node+edge graph for rendering — `PersonQueryController` only exposes
-the same three routes internally.
+### 1. `GET /api/network/subgraph?focus=&limit=&personId=&hops=&communityId=&from=&to=&maxHops=` (new)
 
-This spec (a) proposes the backend contract change needed to unblock the graph canvas and to open
-the screen to every role with scoped/masked access, and (b) designs the frontend screen against
-that proposed contract, built now with mock data per this app's "render fully populated without a
-backend" convention.
+One endpoint, four mutually-exclusive focus modes (`focus` unrecognized/missing → `top-offenders`):
 
-## Goals
+| `focus` | Params used | Server-side semantics |
+|---|---|---|
+| `top-offenders` (default) | `limit` (default 10) | 2-hop ego-networks around the top-N repeat offenders by case count |
+| `person` | `personId` (required), `hops` (default 2, clamped 1–2) | Ego-network around one person |
+| `community` | `communityId` (required) | **Only** the `Person` nodes in that Louvain community plus the real `CO_ACCUSED_WITH`/`SHARES_MO_WITH` edges Neo4j actually has among them — no `Case`/`Location` nodes, ever |
+| `path` | `from`, `to` (required), `maxHops` (default 6) | The `Person` nodes on the resolved shortest path, plus the `Case`/`Location` nodes that justify each direct hop |
 
-- Open `/network` to all authenticated roles (not just `SCRB_ANALYST`/`DISTRICT_SUPERVISOR`),
-  scoped by role like Command Center already scopes by station/district/state.
-- Non-`SCRB_ANALYST`/`POLICYMAKER` roles get a masked, scope-limited view (station or district),
-  consistent with `PiiField`'s masked/real convention already used in Case Explorer — this is a
-  real widening of who can query the graph service, so it must not also widen who sees raw names.
-- Full parity with the mockup's interactions: graph canvas (Person/Case/Location nodes, community
-  coloring), path-finding mode with BFS hop count, repeat-offenders rail, evidence panel on click.
-- Fully populated in mock mode, following the existing `caseApi.ts` / `mockData.ts` pattern.
+Response:
 
-## Non-goals
-
-- No actual graph-service/core-platform code changes in this repo — the "Backend contract change"
-  section below is a proposal to hand off, not an implementation. This frontend repo has no access
-  to that codebase to implement or verify it.
-- No fix for the mock repeat-offender name-collision artifact described under "Mock data" — flagged
-  as a known limitation, not solved here.
-- No live cross-linking from Network back into Case Explorer (e.g. clicking a case node doesn't
-  deep-link to `/case-explorer/:caseId`) — the two screens use independently-shaped mock identities
-  (Neo4j `personId` vs. `caseId`) and reconciling them is a separate piece of work.
-- No Playwright e2e coverage, matching the precedent set by Case Explorer's spec.
-- No change to real (non-mock) backend behavior. Until graph-service/core-platform implement the
-  contract change below, this screen only functions fully in mock mode. Against the real backend
-  today, only `SCRB_ANALYST` has working access via the existing three endpoints; the new `/graph`
-  endpoint and every other role's scoped access simply don't exist server-side yet — this frontend
-  work doesn't create them.
-
-## Backend contract change (proposal for graph-service / core-platform)
-
-### New endpoint
-
-`GET /api/network/graph?scope={station|district|state}&unitId=&districtId=`
-
-```json
-{
-  "nodes": [
-    { "id": "123", "type": "person", "displayName": "...", "maskedName": "...", "caseCount": 4, "communityId": 5 },
-    { "id": "c1", "type": "case", "caseNumber": "..." },
-    { "id": "l1", "type": "location", "label": "..." }
-  ],
-  "edges": [
-    { "a": "123", "b": "c1", "kind": "involved" },
-    { "a": "123", "b": "456", "kind": "co-accused" },
-    { "a": "c1", "b": "c2", "kind": "mo-shared" },
-    { "a": "c1", "b": "l1", "kind": "location" }
-  ]
+```ts
+interface SubgraphResponse {
+  nodes: GraphNodeResponse[];
+  edges: GraphEdgeResponse[];
+  generatedAt: string; // ISO Instant of the graph-service projection run that produced this data
+}
+interface GraphNodeResponse {
+  id: string;                                  // String form of Neo4j's internal node id
+  type: 'PERSON' | 'CASE' | 'LOCATION';
+  label: string;                                // displayName (PERSON) / "crimeNo / caseNo" (CASE) / locationKey (LOCATION)
+  confidence: number | null;                    // non-null ONLY for type === 'PERSON' (identity-resolution confidence)
+}
+interface GraphEdgeResponse {
+  id: string;
+  sourceId: string;                             // matches a GraphNodeResponse.id
+  targetId: string;                             // matches a GraphNodeResponse.id
+  type: 'ACCUSED_IN' | 'VICTIM_IN' | 'ARRESTED_BY' | 'OCCURRED_AT' | 'CO_ACCUSED_WITH' | 'SHARES_MO_WITH';
+  confidence: number | null;                    // non-null ONLY for type === 'SHARES_MO_WITH' (MO-similarity score)
 }
 ```
 
-This doesn't exist in `PersonQueryController` today and is new graph-service work, not just a
-core-platform passthrough.
+Capped at **≤75 total nodes** per response, enforced in the Cypher itself server-side — the frontend
+must never assume more nodes exist just because a focus "should" have more; hitting the cap on a
+large community is expected, not an error.
 
-### Existing endpoints gain `scope`/`unitId`/`districtId`
+### 2–4. Existing endpoints (unchanged, already implemented before this session)
 
-`repeat-offenders`, `communities`, and `path` all currently assume `STATE` scope. Add the same
-`scope`/`unitId`/`districtId` params as the new `/graph` endpoint, and for any role without
-`rawCaseAccess`, return `maskedName` instead of `displayName` per person — mirroring
-`CasePartyResponse`'s `{ masked, real }` shape already used in `caseApi.ts`, so the frontend applies
-one masking convention everywhere instead of two.
+```ts
+// GET /api/network/repeat-offenders?minCases=&limit=
+interface RepeatOffenderResponse { personId: number; displayName: string; caseCount: number; gravityWeight: number; confidenceScore: number; }
 
-### Carried-forward caveat
+// GET /api/network/communities?minSize=
+interface CommunityResponse { communityId: number; size: number; memberDisplayNames: string[]; }
 
-`personId` is a Neo4j internal node id, valid only within the hourly projection run that produced
-it (see `RepeatOffenderResponse.java`). The frontend must never persist a `personId` across a page
-reload or cache it beyond a single session's fetch — see "Stale ids" under Error handling.
+// GET /api/network/path?from=&to=&maxHops=  (404 -> no path, or null in mock mode)
+interface NetworkPathResponse { personIds: number[]; displayNames: string[]; hopCount: number; }
+```
 
-### Open feasibility questions (for graph-service team, not answered here)
+### The graph model (why edges point where they do)
 
-- Are `Case` and `Location` modeled as Neo4j nodes today, or only `Person`, with case/location
-  association reconstructed from Postgres at query time? This determines whether `/graph` is a
-  straightforward Cypher query or requires new node types.
-- Is `unitId`/`districtId` already a property reachable from `Person`/`Case` nodes for scoping, or
-  does scoping require a new relationship to the org hierarchy?
-- Can `maskedName` be computed inside the Cypher query, or does it require a join back to
-  `case_master` (Postgres) per node?
+From `graph-service`'s `Person`/`CaseNode`/`LocationNode` entities and the subgraph Cypher:
+
+- `ACCUSED_IN`: `Person -> Case` (outgoing)
+- `VICTIM_IN`: `Person -> Case` (outgoing)
+- `ARRESTED_BY`: `Person -> Case` (outgoing — despite the name, the target is the case they were arrested in connection with, not a station)
+- `OCCURRED_AT`: `Case -> Location` (outgoing)
+- `CO_ACCUSED_WITH`, `SHARES_MO_WITH`: `Person <-> Person` (computed, undirected in practice) — **both** confirmed from the `community` focus Cypher, which only ever traverses these two types between `Person` nodes
+
+### Two contract subtleties that will bite if missed
+
+1. **`personId` (input) vs. `GraphNodeResponse.id` (output) are related but differently-typed.**
+   `RepeatOffenderResponse.personId` and the `personId`/`from`/`to` query params are numbers (Neo4j's
+   internal `Long` id, serialized as a JSON number). But a `PERSON` node's `id` field in a
+   `SubgraphResponse` is a **string** (`String.valueOf(id(n))` server-side) — the string form of that
+   same number. To go from a canvas node back to a numeric `personId` (e.g. to drive path-finding or
+   to look up a repeat-offender's rich stats), convert with `Number(node.id)`; to compare a
+   `RepeatOffenderResponse.personId` against a canvas node, compare `String(offender.personId) ===
+   node.id`. Never treat `node.id` as a second, independent identifier space.
+
+2. **`GraphNodeResponse` carries no `communityId`.** The `/subgraph` node shape is
+   `{id, type, label, confidence}` only — community membership is not on the node. To color a
+   `PERSON` node by community, cross-reference its `label` against `CommunityResponse.memberDisplayNames`
+   (a plain name list, no ids) from a separately-fetched `communities` list. This is a name-based
+   join, not an id-based one — a real limitation of the current contract, not a frontend choice.
+
+3. **`personId`/`communityId` validity window.** These are Neo4j internal ids, valid only within the
+   hourly graph-service projection run that produced them (same caveat `RepeatOffenderResponse`
+   already documents backend-side). The frontend must never persist a `personId` across a page
+   reload or cache it beyond a single session's fetch.
+
+## Goals
+
+- Render `/network` fully populated in mock mode, following the existing `caseApi.ts` / `mockData.ts`
+  pattern, against the *real* contract above (not a speculative one).
+- Full parity with the mockup's interactions: graph canvas (Person/Case/Location nodes, community
+  coloring), path-finding mode with hop count, repeat-offenders rail, community legend, evidence
+  panel on click.
+- Fix the existing over-permissive route: `/network` currently allows
+  `['DISTRICT_SUPERVISOR', 'SCRB_ANALYST']` in `App.tsx`, but the real backend only ever authorizes
+  `SCRB_ANALYST`. A `DISTRICT_SUPERVISOR` reaching this screen today would get a working-looking UI
+  in mock mode and a `403` against the real backend — this spec corrects the route to
+  `['SCRB_ANALYST']` only, so the FE access model matches reality.
+
+## Non-goals
+
+- No scope narrowing, no masking, no widening access to other roles — the real backend doesn't
+  support any of that for these four endpoints. If that ever changes, it needs its own backend spec
+  first, then a follow-up to this one, per the original design spec's own stated sequencing
+  (`docs/superpowers/specs/2026-07-19-network-subgraph-api-design.md`, core-platform repo: "The
+  Network/Link Analysis frontend screen itself — separate spec, built against this contract once
+  merged").
+- No live cross-linking from Network back into Case Explorer (independently-shaped mock identities —
+  Neo4j `personId` vs. `caseId` — reconciling them is separate work).
+- No Playwright e2e coverage, matching the precedent set by Case Explorer's spec.
+- No CO_ACCUSED_WITH edges in mock data — today's mock case generator produces exactly one accused
+  per case (`mockCaseSummaries`/`mockParty`), so no two mock accused ever share a case as co-accused.
+  `SHARES_MO_WITH` (accused sharing a crime sub-head) is populated instead and carries the demo
+  weight that a real deployment would split across both edge types.
 
 ## Frontend architecture
 
 ### Routing & access
 
-`/network`'s `ProtectedRoute allowedRoles` in `App.tsx` is widened to all roles (removing the
-`DISTRICT_SUPERVISOR`/`SCRB_ANALYST` restriction) — auth alone gates the route; scope is what
-narrows the data.
-
-Scope is derived automatically from `useMe()`, the same way Command Center derives district/station
-scope — no scope picker in the UI:
-
-| Role | Scope | Access |
-|---|---|---|
-| `INVESTIGATOR`, `STATION_SUPERVISOR` | `station` (`unitId`) | masked |
-| `DISTRICT_SUPERVISOR` | `district` (`districtId`) | masked |
-| `SCRB_ANALYST`, `POLICYMAKER` | `state` | raw (`SCRB_ANALYST`) / masked (`POLICYMAKER`, no `rawCaseAccess`) |
-| `ADMIN` | `state` | masked |
+`/network`'s `ProtectedRoute allowedRoles` in `App.tsx` becomes `['SCRB_ANALYST']` only (removing
+`DISTRICT_SUPERVISOR`), matching `requireFullNetworkAccess()`. No scope picker, no `useMe()`
+dependency in the screen — access is binary (in or redirected), same as today's `/admin` route.
 
 ### `networkApi.ts` (new)
 
-Same shape as `caseApi.ts`/`geoApi.ts` — interfaces, fetch functions, one `useX` React Query hook
-per fetch function:
-
-```ts
-export type NetworkScope = 'station' | 'district' | 'state';
-export type NetworkNodeType = 'person' | 'case' | 'location';
-export type NetworkEdgeKind = 'co-accused' | 'involved' | 'mo-shared' | 'location';
-
-export interface NetworkNode {
-  id: string;
-  type: NetworkNodeType;
-  name?: { masked: string; real: string };
-  caseCount?: number;
-  communityId?: number;
-  caseNumber?: string;
-  label?: string;
-}
-
-export interface NetworkEdge { a: string; b: string; kind: NetworkEdgeKind; }
-export interface NetworkGraphResponse { nodes: NetworkNode[]; edges: NetworkEdge[]; }
-
-export interface RepeatOffenderResponse {
-  personId: string;
-  name: { masked: string; real: string };
-  caseCount: number;
-  gravityWeight: number;
-  confidenceScore: number;
-  communityId: number;
-}
-
-export interface CommunityResponse { communityId: number; size: number; memberNames: Array<{ masked: string; real: string }>; }
-
-export interface NetworkPathResponse { personIds: string[]; names: Array<{ masked: string; real: string }>; hopCount: number; }
-
-export interface NetworkScopeParams { scope: NetworkScope; unitId?: number; districtId?: number; }
-
-export function getNetworkGraph(token, params: NetworkScopeParams): Promise<NetworkGraphResponse>;
-export function useNetworkGraph(token, params: NetworkScopeParams | null);
-
-export function getRepeatOffenders(token, params: NetworkScopeParams, minCases = 2, limit = 8): Promise<RepeatOffenderResponse[]>;
-export function useRepeatOffenders(token, params: NetworkScopeParams | null);
-
-export function getCommunities(token, params: NetworkScopeParams, minSize = 3): Promise<CommunityResponse[]>;
-export function useCommunities(token, params: NetworkScopeParams | null);
-
-export function getNetworkPath(token, from: string, to: string, maxHops = 6): Promise<NetworkPathResponse | null>; // null on 404
-export function useNetworkPath(token, from: string | null, to: string | null);
-```
-
-`name`/party fields reuse the `{ masked, real }` shape so they drop straight into `PiiField` with
-no adapter, same as `CasePartyResponse` in `caseApi.ts`.
+Same shape as `caseApi.ts`/`geoApi.ts` — interfaces, fetch functions, one `useX` React Query hook per
+fetch function. Full signatures are specified task-by-task in the implementation plan
+(`docs/superpowers/plans/2026-07-19-network-link-analysis.md`), matching the types under "Real
+backend contract" above verbatim.
 
 ### Mock data (`mockData.ts`)
 
-New route matches in `getMockResponse`: `/api/network/graph`, `/api/network/repeat-offenders`,
-`/api/network/communities`, `/api/network/path`.
+New route matches in `getMockResponse`: `/api/network/subgraph`, `/api/network/repeat-offenders`,
+`/api/network/communities`, `/api/network/path`. Derived from the *existing* mock case data
+(`mockCaseSummaries`, `mockParty`, `CASE_CRIME_TYPES`) rather than a separate synthetic dataset, using
+the **same** `accused`/`victim` party generation `mockCaseDetail` already uses
+(`mockParty('accused', index + 1)`, `mockParty('victim', index)`) so a person appearing in the network
+graph is the same identity Case Explorer shows for that case.
 
-Derived from the *existing* mock case data rather than a separate synthetic dataset, per the
-existing per-station generator (`mockCaseSummaries`, `mockParty`, `CASES_PER_STATION = 6`):
+- Accused and victim names get stable numeric `personId`s via two fixed id arrays parallel to the
+  existing `ACCUSED_NAMES`/`VICTIM_NAMES` pools (mock has no real Neo4j ids, so this stands in for
+  identity resolution's synthetic-id tier).
+- **`ACCUSED_IN`/`VICTIM_IN`** edges: person → case, from each case's accused/victim party.
+- **`OCCURRED_AT`** edges: case → its station (one `LOCATION` node per contributing station).
+- **`SHARES_MO_WITH`** edges: accused ↔ accused sharing `crimeSubHeadId`, confidence scored by shared
+  case count — stands in for the real MO-similarity signal.
+- **`CO_ACCUSED_WITH`**: never populated (see Non-goals).
+- **Communities**: accused persons grouped by `crimeHeadId` (their crime sub-head's parent category)
+  — a deterministic stand-in for a real Louvain run, matching `community` focus's actual shape
+  (`Person` nodes + `CO_ACCUSED_WITH`/`SHARES_MO_WITH` edges only, no `Case`/`Location`).
+  `colorForCommunity` hashes the resulting `communityId` into one of the 5 `--cat-N` palette slots —
+  it does **not** reuse `CategoryMixChart`'s `crimeHeadId -> slot` map, because a real Neo4j
+  `communityId` is an arbitrary Louvain cluster id with no relation to the crime-category palette;
+  mock happens to derive `communityId` from `crimeHeadId` today, but the frontend must treat
+  `communityId` as opaque.
+- **Repeat offenders**: accused grouped by `personId`, `caseCount` = occurrence count, sorted
+  descending, filtered by `minCases`, capped at `limit`.
+- **Path**: BFS over a person-adjacency graph built from case co-occurrence (any two persons —
+  accused or victim — appearing on the same case are adjacent), `hopCount` = person-to-person hops,
+  `null` (-> "no path found") if unreachable within `maxHops`. This mirrors the real
+  `/api/network/path`'s reported shape (`personIds`/`displayNames`/`hopCount` only, no intermediate
+  Case/Location nodes) even though the real graph traversal happens over the full node/edge graph.
+- **Subgraph**: builds the node/edge set per focus mode following the real Cypher's actual shape for
+  each mode (documented per-mode above) — critically, `community` focus returns **only** `PERSON`
+  nodes and `SHARES_MO_WITH` edges, never `CASE`/`LOCATION`, matching the real query. All modes cap at
+  75 nodes and drop any edge whose endpoint didn't survive the cap, exactly like the server does.
 
-- For the requested scope, enumerate the relevant stations (one station for `station` scope, all
-  stations in a district for `district`, all stations statewide for `state`).
-- For each station, build its 6 cases via `mockCaseSummaries` and their accused/victim parties via
-  `mockParty`. Person node identity = accused party's `real` name string (mock data has no separate
-  person id).
-- **`involved` edges**: person ↔ case, from each case's accused party.
-- **`co-accused` edges**: two accused sharing a case — doesn't occur in current mock data (one
-  accused per case), so this edge kind will be empty until/unless a case gets a second accused
-  party; left as a real edge kind in the type, not populated by the generator yet.
-- **`mo-shared` edges**: case ↔ case where both share `crimeSubHeadId`.
-- **`location` edges**: case ↔ its station (`unitId`), one location node per station.
-- **Communities**: group by shared `crimeSubHeadId` cluster (mirrors the mockup's
-  `communityId`/`communityColors` idea) — deterministic, not a real Louvain run.
-- **Repeat offenders**: group accused-party occurrences by name, `caseCount` = occurrence count,
-  sorted descending, top N.
-- **Path**: BFS over the derived edge list between two person ids, same algorithm as the mockup's
-  `bfsPath`, returning `null` (→ frontend renders "no path found") if unreachable within `maxHops`.
-- Names masked/unmasked per the requesting persona's role, matching `maskName()`'s existing logic.
-
-**Known mock limitation**: `ACCUSED_NAMES` is a fixed 6-name pool, and `mockParty('accused', index)`
-cycles through it by `index % 6` independent of `unitId` — so the same accused name recurs at the
-same case-slot across *every* station statewide. Within a single station's 6 cases this never
-repeats (each of the 6 names appears once), so `station` scope shows no repeat offenders at all;
-`district`/`state` scope will show all 6 names as "repeat offenders" purely because the name pool
-is shared across stations, not because of intentional repeat-offense modeling. This is a pre-existing
-limitation of `mockData.ts`'s name pool, not something this spec fixes — noted here so the resulting
-demo data doesn't get mistaken for a deliberately dramatic repeat-offender pattern.
+**Known mock limitation** (carried over from the original spec draft): `ACCUSED_NAMES` is a fixed
+6-name pool cycling by `index % 6` independent of station, so the same accused name recurs across
+every station statewide once more than 6 stations feed the dataset. This produces "repeat offenders"
+that are a pool-size artifact, not intentional repeat-offense modeling — a pre-existing limitation of
+`mockData.ts`, not something this spec fixes.
 
 ### Components (`src/screens/network/`)
 
-- **`NetworkScreen.tsx`** — the `/network` route. `useMe(token)` derives `NetworkScopeParams` from
-  role + `unitId`/`districtId`. Renders `<Header title="Network / Link Analysis">`, filter bar
-  (date range / crime type / confidence — cosmetic, mirrors the mockup's header, not wired to the
-  mock backend since none of the three real endpoints take those params today), and the graph
-  layout below.
-- **`NetworkGraphCanvas.tsx`** — SVG canvas, force layout ported directly from `build_network.py`'s
-  algorithm (fixed-iteration spring + repulsion simulation, no d3 dependency, consistent with this
-  app avoiding graph-viz libraries elsewhere). Renders person (circle, radius by `caseCount`, fill
-  by `communityId`), case (diamond), location (triangle) nodes per the mockup's shapes. Click on a
-  person opens the evidence panel; in path-finding mode, click-two-people highlights the BFS path.
-  Case and location nodes are visual context only, not interactive, in v1 — matching the mockup,
-  which never wires a click handler for them either.
-- **`CommunityLegend.tsx`** — node-type shapes + community color key, presentational.
+- **`NetworkScreen.tsx`** — the `/network` route. Local `focus` state (`top-offenders` by default,
+  switching to `person`/`community`/`path` on interaction) drives `useSubgraph`. `useRepeatOffenders`
+  and `useCommunities` are fetched independently of `focus` (they always show the full ranked
+  list/legend, not just what's on-canvas). Renders `<Header title="Network / Link Analysis">`, the
+  canvas, path-finding bar, community legend, and repeat-offender rail.
+- **`NetworkGraphCanvas.tsx`** — SVG canvas, force layout ported from `build_network.py`'s algorithm
+  (fixed-iteration spring + repulsion simulation, no d3 dependency). Renders `PERSON` (circle, colored
+  by community via label lookup), `CASE` (diamond), `LOCATION` (triangle) nodes. Click on a `PERSON`
+  node opens the evidence panel (outside path mode) or registers a path endpoint (inside path mode).
+  `CASE`/`LOCATION` nodes are visual context only, not interactive, matching the mockup.
+- **`CommunityLegend.tsx`** — node-type shapes + community color key; clicking a community row sets
+  `focus = { mode: 'community', communityId }`.
 - **`PathFindingBar.tsx`** — toggle + two-person selection state, calls `useNetworkPath` once both
-  ends are picked, renders hop count or "no path found within 6 hops".
+  ends are picked, renders hop count + name chain or "no path found within 6 hops".
 - **`RepeatOffenderRail.tsx`** — ranked list from `useRepeatOffenders`, reuses `ConfidenceChip` for
-  `confidenceScore`, each card click behaves like clicking that person's node (opens evidence
-  panel).
-- Evidence panel reuses the existing `EvidencePanel` design-system component unchanged — a person
-  click builds `EvidenceData` from that node's `communityId`/`caseCount`/supporting case numbers,
-  same shape Case Explorer and Command Center already produce for it.
+  `confidenceScore`, each card click sets `focus = { mode: 'person', personId, hops: 2 }` and opens
+  the evidence panel using that row's rich data (`caseCount`/`gravityWeight`/`confidenceScore` — a
+  strictly better evidence source than a bare canvas node click, which only has `label`/`confidence`).
+- Evidence panel reuses the existing `EvidencePanel` design-system component unchanged.
 
 ## Error handling
 
-- **Loading**: skeleton state on the canvas (empty node placeholders) while `useNetworkGraph` and
-  `useRepeatOffenders` are loading, matching `CommandCenterScreen`'s existing skeleton convention.
+- **Loading**: skeleton state on the canvas while `useSubgraph`/`useRepeatOffenders` are loading,
+  matching `CommandCenterScreen`'s existing skeleton convention.
 - **Error**: `role="alert"` message + retry button calling `.refetch()`, same pattern as
   `CaseExplorerScreen`.
-- **Empty scope**: if `nodes` is empty for the resolved scope (e.g. a station with no cases),
-  render `"No linked cases in this scope."` instead of an empty canvas.
+- **Empty focus**: if `nodes` is empty for the resolved focus (e.g. an unknown `communityId`), render
+  `"No linked records for this view."` instead of an empty canvas.
 - **No path found**: `/path` resolving to `null` (real 404, or mock BFS finding nothing) renders an
   inline message in `PathFindingBar`, not a page-level error.
-- **Stale ids**: because Neo4j `personId` is only valid within the hourly projection run that
-  produced it, `useNetworkGraph`/`useRepeatOffenders` use a short `staleTime` (5 minutes, well under
-  an hour) so a session doesn't hold ids long enough to go stale. A `/path` call against a stale id
-  is indistinguishable from a genuine "no path" 404 with the current contract, so both render the
-  same "no path found" message — not solved by better error messages, only by keeping ids fresh.
-- **403 (`rawCaseAccess` denial)**: shouldn't trigger once scope/masking is implemented correctly
-  per role, but `networkApi.ts` still surfaces `ApiError` through the existing error state as a
-  safety net if a role/scope combination is misconfigured server-side.
+- **Stale ids**: `useSubgraph`/`useRepeatOffenders`/`useCommunities` use a short `staleTime` (5
+  minutes, well under an hour) so a session doesn't hold ids long enough to go stale.
+- **403 (`rawCaseAccess` denial)**: shouldn't trigger given the corrected `SCRB_ANALYST`-only route,
+  but `networkApi.ts` still surfaces `ApiError` through the existing error state as a safety net.
 
 ## Testing
 
 - **`networkApi.test.tsx`**: each `getX`/`useX` pair, mock-mode responses for all four endpoints,
-  same shape as `caseApi.test.tsx`.
-- **`mockData.test.ts` additions**: graph/offenders/communities are deterministic per scope; `path`
-  BFS returns the right hop chain for a known pair and `null` for an unreachable pair; masking is
-  applied for non-raw-access personas and bypassed for `SCRB_ANALYST`.
-- **`NetworkScreen.test.tsx`**: scope correctly derived per role/`unitId`/`districtId`; loading
-  skeleton, error+retry, and empty-scope states each render.
+  same shape as `caseApi.test.tsx`; the `node.id` <-> `personId` string/number conversion helper gets
+  its own direct test.
+- **`mockData.test.ts` additions**: subgraph is deterministic per focus+params and never exceeds 75
+  nodes / never has a dangling edge; `community` focus returns only `PERSON` nodes; `path` BFS
+  returns the right hop chain for a known pair and `null` for an unreachable pair or an id outside
+  `maxHops`.
+- **`NetworkScreen.test.tsx`**: default `top-offenders` focus renders; clicking a rail card switches
+  focus to that person and opens the evidence panel; clicking a community legend row switches focus;
+  loading skeleton, error+retry, and empty-focus states each render.
 - **`NetworkGraphCanvas.test.tsx`**: nodes/edges render from a fixed graph fixture; clicking a
-  person node opens the evidence panel with the right claim text.
-- **`PathFindingBar.test.tsx`**: toggling path mode, selecting two people, rendering hop count;
-  "no path found" state when the mock query resolves to `null`.
+  `PERSON` node fires `onPersonClick` with its numeric `personId` (converted from `node.id`), not the
+  raw node id string.
+- **`PathFindingBar.test.tsx`**: toggling path mode, selecting two people, rendering hop count and
+  name chain; "no path found" state when the mock query resolves to `null`.
 - **`RepeatOffenderRail.test.tsx`**: ranked list renders from a fixed fixture, sorted descending by
   `caseCount`; card click matches the same evidence-panel behavior as a canvas node click.
