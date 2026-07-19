@@ -11,6 +11,7 @@ const sampleMe: MeResponse = {
   rank: 'SCRB Analyst',
   unit: 'State CID HQ',
   unitId: null,
+  districtId: null,
   roles: ['SCRB_ANALYST'],
 };
 

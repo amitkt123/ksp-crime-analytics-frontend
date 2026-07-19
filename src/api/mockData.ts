@@ -4,6 +4,7 @@
 
 import { STATIONS_BY_DISTRICT } from './generatedStationFixtures';
 import { featureCentroid } from '../screens/command-center/geoBounds';
+import { STATION_CENTROIDS } from './generatedStationCentroids';
 
 // districtId assignments here match the ones baked into
 // public/data/karnataka-districts.geojson (alphabetical order) so boundaries and
@@ -168,6 +169,7 @@ const MOCK_ME = {
   rank: 'SCRB Analyst',
   unit: 'State Crime Records Bureau',
   unitId: null as number | null,
+  districtId: null as number | null,
   roles: ['SCRB_ANALYST'],
 };
 
@@ -175,12 +177,16 @@ const MOCK_ME = {
 // backend issues one token per user; here the token itself encodes which demo persona
 // is "logged in" so /api/me (which has no other way to know who's asking) can look up
 // the right profile.
+// Whitefield PS (unitId 176) is in Bengaluru Urban (districtId 5, see MOCK_DISTRICTS
+// above) -- lets Case Explorer fetch this station's jurisdiction boundary the same way
+// Command Center does, via getStationBoundaries(token, districtId).
 const MOCK_ME_INVESTIGATOR = {
   username: 'demo.investigator',
   firstName: 'Demo',
   rank: 'Investigator',
   unit: 'Whitefield PS',
   unitId: 176,
+  districtId: 5,
   roles: ['INVESTIGATOR'],
 };
 
@@ -190,6 +196,7 @@ const MOCK_ME_SUPERVISOR = {
   rank: 'Station Supervisor',
   unit: 'Whitefield PS',
   unitId: 176,
+  districtId: 5,
   roles: ['STATION_SUPERVISOR'],
 };
 
@@ -255,7 +262,7 @@ const CASE_CRIME_TYPES: Array<{ crimeSubHeadId: number; crimeSubHeadName: string
 ];
 
 const CASE_STATUSES: CaseStatus[] = ['registered', 'under_investigation', 'closed'];
-const CASES_PER_STATION = 6;
+const CASES_PER_STATION = 40;
 
 function offsetDate(base: string, deltaDays: number): string {
   const date = new Date(`${base}T00:00:00Z`);
@@ -278,14 +285,53 @@ function findStationDistrictId(unitId: number): number | undefined {
   return undefined;
 }
 
+function findDistrictName(unitId: number): string | undefined {
+  for (const [districtId, roster] of Object.entries(STATIONS_BY_DISTRICT)) {
+    if (roster.some((station) => station.unitId === unitId)) {
+      return MOCK_DISTRICTS.find((d) => d.districtId === Number(districtId))?.districtName;
+    }
+  }
+  return undefined;
+}
+
+type CaseGravity = 'heinous' | 'serious' | 'minor';
+const CASE_GRAVITIES: CaseGravity[] = ['serious', 'heinous', 'minor'];
+
+// A few small offsets from the station centroid, standing in for 2-3 real crime-prone
+// spots within the jurisdiction (a market, a highway junction, etc).
+const CLUSTER_OFFSETS: Array<[number, number]> = [
+  [0, 0],
+  [0.014, 0.01],
+  [-0.012, 0.013],
+];
+
+// Real per-station centroid (STATION_CENTROIDS, derived from public/data/stations/*.geojson
+// via scripts/build-station-centroids.mjs), jittered deterministically -- no Math.random(),
+// matching this file's convention -- into a few tight clusters plus a sparser background
+// scatter (index % 6 === 5). Gives the case density heatmap believable higher/lower-crime
+// areas within the station's real jurisdiction, rather than a Karnataka-wide random spread.
+// Stands in for real FIR geo-coordinates until mock mode is retired in favor of the real
+// `location` field GET /api/cases now returns.
+function mockLocation(unitId: number, index: number): { lat: number; lng: number } {
+  const [centerLng, centerLat] = STATION_CENTROIDS[unitId] ?? [76.5, 15.3];
+  const isBackground = index % 6 === 5;
+  const cluster = CLUSTER_OFFSETS[(unitId + index) % CLUSTER_OFFSETS.length];
+  const spread = isBackground ? 0.035 : 0.007;
+  const latJitter = (((unitId * 7 + index * 13) % 100) / 100 - 0.5) * spread;
+  const lngJitter = (((unitId * 11 + index * 17) % 100) / 100 - 0.5) * spread;
+  return { lat: centerLat + cluster[1] + latJitter, lng: centerLng + cluster[0] + lngJitter };
+}
+
 // Deterministic per-station case list -- no Math.random(), so a given unitId always
-// produces the same 6 cases (stable across runs and tests). index rotates through
-// crime type and status so a station's list isn't visually uniform.
+// produces the same CASES_PER_STATION cases (stable across runs and tests). index
+// rotates through crime type and status so a station's list isn't visually uniform.
 function mockCaseSummaries(unitId: number, unitName: string) {
+  const district = findDistrictName(unitId);
   return Array.from({ length: CASES_PER_STATION }, (_, index) => {
     const crimeType = CASE_CRIME_TYPES[(unitId + index) % CASE_CRIME_TYPES.length];
     const status = CASE_STATUSES[index % CASE_STATUSES.length];
     const dayOffset = (unitId % 10) + index * 5;
+    const gravity = CASE_GRAVITIES[(unitId + index * 2) % CASE_GRAVITIES.length];
     return {
       caseId: unitId * 1000 + index,
       caseNumber: `${100 + unitId + index}/2026`,
@@ -295,6 +341,11 @@ function mockCaseSummaries(unitId: number, unitName: string) {
       crimeSubHeadName: crimeType.crimeSubHeadName,
       status,
       firDate: offsetDate('2026-06-01', -dayOffset),
+      crimeNumber: `FIR-2026-KA-${String(unitId).padStart(3, '0')}${String(index).padStart(2, '0')}`,
+      station: unitName,
+      district,
+      gravity,
+      location: mockLocation(unitId, index),
     };
   });
 }
@@ -327,7 +378,9 @@ async function mockStationIncidents(unitId: number) {
 
 const VICTIM_NAMES = ['Ramesh Kumar', 'Sunita Devi', 'Arjun Rao', 'Lakshmi Bai', 'Manjunath Gowda', 'Fathima Begum'];
 const ACCUSED_NAMES = ['Suresh Naik', 'Vijay Kumar', 'Rakesh Yadav', 'Prakash Shetty', 'Imran Khan', 'Ganesh Bhat'];
+const COMPLAINANT_NAMES = ['Nagaraj Setty', 'Kavitha Reddy', 'Basavaraj Patil', 'Meena Iyer', 'Yusuf Ali', 'Shobha Rani'];
 const ADDRESS_STREETS = ['12 MG Road', '45 Church Street', '7 Station Road', '3 Market Lane', '21 Temple Street', '9 Ring Road'];
+const COURTS = ['JMFC Court, Bengaluru Urban', 'Sessions Court, Belagavi', 'JMFC Court, Mysuru'];
 
 function maskName(real: string): string {
   return real
@@ -345,8 +398,14 @@ function maskAddress(real: string): string {
   return ['*'.repeat(street.length), ...rest].join(', ');
 }
 
-function mockParty(role: 'victim' | 'accused', index: number) {
-  const names = role === 'victim' ? VICTIM_NAMES : ACCUSED_NAMES;
+const PARTY_NAME_POOLS: Record<'complainant' | 'victim' | 'accused', string[]> = {
+  complainant: COMPLAINANT_NAMES,
+  victim: VICTIM_NAMES,
+  accused: ACCUSED_NAMES,
+};
+
+function mockParty(role: 'complainant' | 'victim' | 'accused', index: number) {
+  const names = PARTY_NAME_POOLS[role];
   const real = names[index % names.length];
   const phone = `98${String(10000000 + index * 37).slice(0, 8)}`;
   const address = `${ADDRESS_STREETS[index % ADDRESS_STREETS.length]}, Karnataka`;
@@ -355,6 +414,27 @@ function mockParty(role: 'victim' | 'accused', index: number) {
     name: { masked: maskName(real), real },
     phone: { masked: maskPhone(phone), real: phone },
     address: { masked: maskAddress(address), real: address },
+  };
+}
+
+// Only some cases have a complainant distinct from the victim (e.g. a family
+// member filing on the victim's behalf) -- deterministic so it stays stable.
+function mockArrests(status: CaseStatus, firDate: string) {
+  if (status === 'registered') return undefined;
+  return [
+    {
+      arrestDate: offsetDate(firDate, 5),
+      custodyStatus: status === 'closed' ? 'Released on bail' : 'Judicial custody',
+    },
+  ];
+}
+
+function mockChargesheet(status: CaseStatus, firDate: string, index: number) {
+  if (status !== 'closed') return undefined;
+  return {
+    filedDate: offsetDate(firDate, 18),
+    sectionsApplied: index % 2 === 0 ? '379, 411 IPC' : '392, 34 IPC',
+    court: COURTS[index % COURTS.length],
   };
 }
 
@@ -382,11 +462,43 @@ function mockCaseDetail(caseId: number) {
   if (!unitName) return undefined;
   const summary = mockCaseSummaries(unitId, unitName)[index];
   if (!summary) return undefined;
+  const parties = [mockParty('victim', index), mockParty('accused', index + 1)];
+  if (index % 3 === 0) parties.unshift(mockParty('complainant', index + 2));
   return {
     ...summary,
     narrative: mockNarrative(summary.crimeSubHeadName, unitName),
-    parties: [mockParty('victim', index), mockParty('accused', index + 1)],
+    parties,
     timeline: mockTimeline(summary.status, summary.firDate),
+    arrests: mockArrests(summary.status, summary.firDate),
+    chargesheet: mockChargesheet(summary.status, summary.firDate, index),
+  };
+}
+
+// Deterministic stand-in for a real Insight & Explanation Agent -- see
+// docs/superpowers/specs/2026-07-18-case-explorer-extensions-design.md for the
+// endpoint contract a real backend implementation should follow.
+function mockCaseExplanation(caseId: number) {
+  const detail = mockCaseDetail(caseId);
+  if (!detail) return undefined;
+  const related = mockCaseSummaries(detail.unitId, detail.unitName)
+    .filter((c) => c.crimeSubHeadId === detail.crimeSubHeadId && c.caseId !== detail.caseId)
+    .map((c) => c.caseNumber);
+  const confidence = Math.min(0.95, 0.5 + related.length * 0.1 + detail.timeline.length * 0.03);
+  const claim =
+    related.length > 0
+      ? `${detail.crimeSubHeadName} case ${detail.caseNumber} at ${detail.unitName} shares its crime sub-head ` +
+        `and jurisdiction with ${related.length} other case${related.length === 1 ? '' : 's'} registered at this ` +
+        'station, consistent with an active local pattern.'
+      : `${detail.crimeSubHeadName} case ${detail.caseNumber} at ${detail.unitName} is currently the only case ` +
+        'of this crime sub-head registered at this station in the sampled window -- no local repeat pattern detected.';
+  return {
+    claim,
+    confidence,
+    confidenceLabel: 'Pattern confidence',
+    method: 'Insight & Explanation Agent · case similarity within unit',
+    baseline: 'Same crime sub-head, same station, most recent 6 cases',
+    generatedAt: detail.timeline[detail.timeline.length - 1].timestamp,
+    records: related.length > 0 ? related : [detail.caseNumber],
   };
 }
 
@@ -399,7 +511,8 @@ function filterCaseSummaries(
     if (filters.crimeSubHeadId && String(c.crimeSubHeadId) !== filters.crimeSubHeadId) return false;
     if (filters.q) {
       const q = filters.q.toLowerCase();
-      const matchesNumber = c.caseNumber.toLowerCase().includes(q);
+      const matchesNumber =
+        c.caseNumber.toLowerCase().includes(q) || (c.crimeNumber?.toLowerCase().includes(q) ?? false);
       const detail = mockCaseDetail(c.caseId);
       const matchesParty = detail?.parties.some((p) => p.name.real.toLowerCase().includes(q)) ?? false;
       if (!matchesNumber && !matchesParty) return false;
@@ -451,6 +564,9 @@ export async function getMockResponse(
 
   const caseDetailMatch = path.match(/^\/api\/cases\/(\d+)$/);
   if (caseDetailMatch) return mockCaseDetail(Number(caseDetailMatch[1]));
+
+  const caseExplainMatch = path.match(/^\/api\/cases\/(\d+)\/explain$/);
+  if (caseExplainMatch) return mockCaseExplanation(Number(caseExplainMatch[1]));
 
   return undefined;
 }

@@ -13,9 +13,10 @@ export interface EvidenceData {
 interface EvidencePanelProps {
   data: EvidenceData | null;
   onClose: () => void;
+  variant?: 'drawer' | 'modal';
 }
 
-export function EvidencePanel({ data, onClose }: EvidencePanelProps) {
+export function EvidencePanel({ data, onClose, variant = 'drawer' }: EvidencePanelProps) {
   useEffect(() => {
     if (!data) return;
     function handleKey(event: KeyboardEvent) {
@@ -30,7 +31,12 @@ export function EvidencePanel({ data, onClose }: EvidencePanelProps) {
   return (
     <>
       <div className="scrim open" onClick={onClose} />
-      <aside className="evidence open" role="dialog" aria-label="Evidence panel" aria-modal="true">
+      <aside
+        className={`evidence open${variant === 'modal' ? ' modal' : ''}`}
+        role="dialog"
+        aria-label="Evidence panel"
+        aria-modal="true"
+      >
         <div className="evidence-head">
           <h3>Evidence</h3>
           <button className="evidence-close" aria-label="Close evidence panel" onClick={onClose}>
