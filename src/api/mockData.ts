@@ -3,6 +3,7 @@
 // production path -- safe to leave in.
 
 import { STATIONS_BY_DISTRICT } from './generatedStationFixtures';
+import { featureCentroid } from '../screens/command-center/geoBounds';
 import { STATION_CENTROIDS } from './generatedStationCentroids';
 
 // districtId assignments here match the ones baked into
@@ -277,6 +278,13 @@ function findStationName(unitId: number): string | undefined {
   return undefined;
 }
 
+function findStationDistrictId(unitId: number): number | undefined {
+  for (const [districtId, roster] of Object.entries(STATIONS_BY_DISTRICT)) {
+    if (roster.some((s) => s.unitId === unitId)) return Number(districtId);
+  }
+  return undefined;
+}
+
 function findDistrictName(unitId: number): string | undefined {
   for (const [districtId, roster] of Object.entries(STATIONS_BY_DISTRICT)) {
     if (roster.some((station) => station.unitId === unitId)) {
@@ -338,6 +346,32 @@ function mockCaseSummaries(unitId: number, unitName: string) {
       district,
       gravity,
       location: mockLocation(unitId, index),
+    };
+  });
+}
+
+// Deterministic jitter around the station's real boundary centroid (no Math.random(),
+// same spirit as mockCaseSummaries) -- reuses CASES_PER_STATION's count so the heatmap
+// and the station's own case list agree on volume.
+async function mockStationIncidents(unitId: number) {
+  const districtId = findStationDistrictId(unitId);
+  if (districtId == null) return [];
+  const boundaries = (await loadStationBoundaries(districtId)) as {
+    features: Array<{ properties: { unitId: number }; geometry: { coordinates: unknown } }>;
+  };
+  const feature = boundaries.features.find((f) => f.properties.unitId === unitId);
+  if (!feature) return [];
+  const [centerLng, centerLat] = featureCentroid(feature.geometry);
+  const unitName = findStationName(unitId) ?? '';
+
+  return mockCaseSummaries(unitId, unitName).map((c, index) => {
+    const angle = (index / CASES_PER_STATION) * 2 * Math.PI;
+    const radius = 0.01 + (index % 3) * 0.005; // ~1-2km wobble, cycles 3 ways
+    return {
+      caseMasterId: c.caseId,
+      crimeNo: c.caseNumber,
+      latitude: centerLat + Math.sin(angle) * radius,
+      longitude: centerLng + Math.cos(angle) * radius,
     };
   });
 }
@@ -511,6 +545,9 @@ export async function getMockResponse(
 
   const districtDetailMatch = path.match(/^\/api\/geo\/districts\/(\d+)\/summary$/);
   if (districtDetailMatch) return mockDistrictDetail(Number(districtDetailMatch[1]));
+
+  const stationIncidentsMatch = path.match(/^\/api\/geo\/stations\/(\d+)\/incidents$/);
+  if (stationIncidentsMatch) return mockStationIncidents(Number(stationIncidentsMatch[1]));
 
   if (path.startsWith('/api/cases?')) {
     const query = new URLSearchParams(path.split('?')[1]);

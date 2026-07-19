@@ -6,6 +6,7 @@ import type {
   DistrictSummaryResponse,
   StationBoundaryFeatureCollection,
   StationSummaryResponse,
+  StationIncidentPointResponse,
 } from '../../api/geoApi';
 import { alertSeverity, type AlertSeverity, type EmergingAlertResponse } from '../../api/alertsApi';
 import { geometryBounds, featureCollectionBounds, featureCentroid } from './geoBounds';
@@ -16,6 +17,10 @@ interface DistrictMapProps {
   selectedDistrictId: number | null;
   stationBoundaries?: StationBoundaryFeatureCollection | null;
   stationSummaries?: StationSummaryResponse[];
+  selectedStationId?: number | null;
+  stationIncidents?: StationIncidentPointResponse[];
+  onStationSelect: (unitId: number) => void;
+  onStationBack: () => void;
   alerts?: EmergingAlertResponse[];
   // When set, re-shades the district choropleth by these counts instead of each
   // district's total caseCount -- used to layer a time-of-day slice onto the map
@@ -158,6 +163,72 @@ function applyDistrictSelection(
   }
 }
 
+// Dims every sibling station (matching applyDistrictSelection's dimming, one level
+// down), zooms to the selected station's boundary, and swaps its choropleth fill for a
+// density heatmap of its real incident points. No zoom-dependent circle-layer
+// transition and no per-point hover -- a single fixed-paint heatmap layer is enough.
+function applyStationSelection(
+  map: InstanceType<typeof maplibregl.Map>,
+  stationBoundaries: StationBoundaryFeatureCollection | null,
+  selectedStationId: number | null,
+  stationIncidents: StationIncidentPointResponse[],
+) {
+  if (!map.getLayer('station-fill')) return;
+
+  if (selectedStationId == null) {
+    map.setPaintProperty('station-fill', 'fill-opacity', 1);
+    if (map.getLayer('heatmap-incidents-layer')) map.removeLayer('heatmap-incidents-layer');
+    if (map.getSource('heatmap-incidents')) map.removeSource('heatmap-incidents');
+    return;
+  }
+
+  map.setPaintProperty('station-fill', 'fill-opacity', [
+    'case',
+    ['==', ['get', 'unitId'], selectedStationId],
+    1,
+    0.15,
+  ]);
+
+  const feature = stationBoundaries?.features.find((f) => f.properties.unitId === selectedStationId);
+  if (feature) map.fitBounds(geometryBounds(feature.geometry), { padding: 40 });
+
+  const points = {
+    type: 'FeatureCollection' as const,
+    features: stationIncidents.map((p) => ({
+      type: 'Feature' as const,
+      properties: { caseMasterId: p.caseMasterId, crimeNo: p.crimeNo },
+      geometry: { type: 'Point' as const, coordinates: [p.longitude, p.latitude] },
+    })),
+  };
+
+  const existingSource = map.getSource('heatmap-incidents') as { setData: (data: unknown) => void } | undefined;
+  if (existingSource) {
+    existingSource.setData(points);
+    return;
+  }
+  map.addSource('heatmap-incidents', { type: 'geojson', data: points });
+  map.addLayer({
+    id: 'heatmap-incidents-layer',
+    type: 'heatmap',
+    source: 'heatmap-incidents',
+    paint: {
+      'heatmap-weight': 1,
+      'heatmap-intensity': 1,
+      'heatmap-radius': 24,
+      'heatmap-opacity': 0.85,
+      'heatmap-color': [
+        'interpolate', ['linear'], ['heatmap-density'],
+        0, 'rgba(255,255,178,0)',
+        0.2, 'rgba(255,237,160,0.6)',
+        0.4, 'rgba(254,178,76,0.7)',
+        0.6, 'rgba(253,141,60,0.8)',
+        0.8, 'rgba(240,59,32,0.9)',
+        1, 'rgba(189,0,38,1)',
+      ],
+    },
+  });
+}
+
 // No basemap tiles, no external tile server/token -- just the real district boundary
 // GeoJSON (already case-count-enriched here, district-id-enriched server-side by
 // DistrictBoundaryService) rendered as a MapLibre vector fill layer. Matches the design
@@ -169,16 +240,21 @@ export function DistrictMap({
   selectedDistrictId,
   stationBoundaries = null,
   stationSummaries = [],
+  selectedStationId = null,
+  stationIncidents = [],
   alerts = [],
   caseCountOverride = null,
   onDistrictSelect,
   onBack,
+  onStationSelect,
+  onStationBack,
 }: DistrictMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<InstanceType<typeof maplibregl.Map> | null>(null);
   const loadedRef = useRef(false);
   const selectedDistrictIdRef = useRef(selectedDistrictId);
   const onDistrictSelectRef = useRef(onDistrictSelect);
+  const onStationSelectRef = useRef(onStationSelect);
   const popupRef = useRef<InstanceType<typeof maplibregl.Popup> | null>(null);
   const hoveredIdRef = useRef<number | null>(null);
   const hoveredStationIdRef = useRef<number | null>(null);
@@ -194,6 +270,7 @@ export function DistrictMap({
   // identity changes with the URL), which would otherwise tear down and recreate the
   // whole map every time a district is selected, defeating the fitBounds animation below.
   onDistrictSelectRef.current = onDistrictSelect;
+  onStationSelectRef.current = onStationSelect;
   selectedDistrictIdRef.current = selectedDistrictId;
   caseCountOverrideRef.current = caseCountOverride;
   districtAlertSeverityRef.current = districtAlertSeverity;
@@ -385,7 +462,21 @@ export function DistrictMap({
       map.getCanvas().style.cursor = '';
       popupRef.current?.remove();
     });
+
+    map.on('click', 'station-fill', (e) => {
+      const unitId = e.features?.[0]?.properties?.unitId;
+      if (typeof unitId === 'number') onStationSelectRef.current(unitId);
+    });
   }, [stationBoundaries, stationSummaries, boundaries]);
+
+  // Mirrors the district-level selection effect one level down: dims sibling
+  // stations, zooms to the selected one, and (re)builds its heatmap layer. Declared
+  // after the station-layer effect above so it always runs against a freshly (re)built
+  // station-fill layer within the same commit when stationBoundaries changes.
+  useEffect(() => {
+    if (!loadedRef.current || !mapRef.current) return;
+    applyStationSelection(mapRef.current, stationBoundaries, selectedStationId, stationIncidents);
+  }, [stationBoundaries, selectedStationId, stationIncidents]);
 
   // Keeps red-zone pulsing markers in sync with newly arrived alerts or a change in
   // which district's stations are on screen, without tearing down the map itself.
@@ -411,6 +502,8 @@ export function DistrictMap({
 
   const selectedDistrict =
     selectedDistrictId != null ? districtSummaries.find((d) => d.districtId === selectedDistrictId) : undefined;
+  const selectedStation =
+    selectedStationId != null ? stationSummaries.find((s) => s.unitId === selectedStationId) : undefined;
 
   return (
     <div className="map-card">
@@ -427,8 +520,21 @@ export function DistrictMap({
               State
             </button>
             <span className="sep">›</span>
-            <b>{selectedDistrict.districtName}</b>
-            <span className="map-breadcrumb-count">{selectedDistrict.caseCount.toLocaleString()} cases</span>
+            {selectedStation ? (
+              <>
+                <button className="breadcrumb-back" onClick={onStationBack}>
+                  {selectedDistrict.districtName}
+                </button>
+                <span className="sep">›</span>
+                <b>{selectedStation.unitName}</b>
+                <span className="map-breadcrumb-count">{stationIncidents.length.toLocaleString()} incidents</span>
+              </>
+            ) : (
+              <>
+                <b>{selectedDistrict.districtName}</b>
+                <span className="map-breadcrumb-count">{selectedDistrict.caseCount.toLocaleString()} cases</span>
+              </>
+            )}
           </div>
         </div>
       )}

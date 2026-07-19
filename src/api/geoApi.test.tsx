@@ -14,9 +14,12 @@ import {
   useStationBoundaries,
   useDistrictDetail,
   useDistrictTimeOfDay,
+  getStationIncidents,
+  useStationIncidents,
   type DistrictSummaryResponse,
   type DistrictDetailResponse,
   type DistrictTimeOfDayResponse,
+  type StationIncidentPointResponse,
 } from './geoApi';
 
 const sampleDistricts: DistrictSummaryResponse[] = [
@@ -165,5 +168,33 @@ describe('useDistrictTimeOfDay', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(sampleTimeOfDay);
+  });
+});
+
+const samplePoints: StationIncidentPointResponse[] = [
+  { caseMasterId: 501, crimeNo: '12/2026', latitude: 12.9757, longitude: 77.6057 },
+];
+
+describe('getStationIncidents', () => {
+  it('fetches /api/geo/stations/{unitId}/incidents with the auth token', async () => {
+    const apiFetchSpy = vi.spyOn(client, 'apiFetch').mockResolvedValue(samplePoints);
+    const result = await getStationIncidents('test-token', 301);
+    expect(apiFetchSpy).toHaveBeenCalledWith('/api/geo/stations/301/incidents', {}, 'test-token');
+    expect(result).toEqual(samplePoints);
+  });
+});
+
+describe('useStationIncidents', () => {
+  it('returns the fetched incident points once loaded', async () => {
+    vi.spyOn(client, 'apiFetch').mockResolvedValue(samplePoints);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    function wrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    }
+
+    const { result } = renderHook(() => useStationIncidents('test-token', 301), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(samplePoints);
   });
 });

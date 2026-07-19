@@ -6,6 +6,7 @@ import type {
   DistrictSummaryResponse,
   StationBoundaryFeatureCollection,
   StationSummaryResponse,
+  StationIncidentPointResponse,
 } from '../../api/geoApi';
 import type { EmergingAlertResponse } from '../../api/alertsApi';
 
@@ -205,6 +206,11 @@ const stationBoundariesWithGeometry: StationBoundaryFeatureCollection = {
   ],
 };
 
+const stationIncidents: StationIncidentPointResponse[] = [
+  { caseMasterId: 1, crimeNo: 'GEO-1/2026', latitude: 11.4, longitude: 76.4 },
+  { caseMasterId: 2, crimeNo: 'GEO-2/2026', latitude: 11.41, longitude: 76.41 },
+];
+
 function makeAlert(overrides: Partial<EmergingAlertResponse>): EmergingAlertResponse {
   return {
     unitId: 301,
@@ -235,6 +241,8 @@ describe('DistrictMap', () => {
         selectedDistrictId={null}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -259,6 +267,8 @@ describe('DistrictMap', () => {
         selectedDistrictId={null}
         onDistrictSelect={onDistrictSelect}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -276,6 +286,8 @@ describe('DistrictMap', () => {
         selectedDistrictId={null}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -301,6 +313,8 @@ describe('DistrictMap', () => {
         selectedDistrictId={null}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -324,6 +338,8 @@ describe('DistrictMap', () => {
         selectedDistrictId={3}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -344,6 +360,8 @@ describe('DistrictMap', () => {
         selectedDistrictId={3}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -367,6 +385,8 @@ describe('DistrictMap', () => {
         selectedDistrictId={3}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -377,6 +397,8 @@ describe('DistrictMap', () => {
         selectedDistrictId={null}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -399,6 +421,8 @@ describe('DistrictMap', () => {
         selectedDistrictId={null}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -411,6 +435,8 @@ describe('DistrictMap', () => {
         selectedDistrictId={3}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -427,6 +453,8 @@ describe('DistrictMap', () => {
         selectedDistrictId={3}
         onDistrictSelect={vi.fn()}
         onBack={onBack}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -445,6 +473,8 @@ describe('DistrictMap', () => {
         stationSummaries={stationSummaries}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -468,6 +498,8 @@ describe('DistrictMap', () => {
         stationSummaries={[stationSummaries[0]]}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -487,6 +519,8 @@ describe('DistrictMap', () => {
         stationSummaries={stationSummaries}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -499,6 +533,8 @@ describe('DistrictMap', () => {
         stationSummaries={[]}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -517,6 +553,8 @@ describe('DistrictMap', () => {
         stationSummaries={stationSummaries}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -543,6 +581,8 @@ describe('DistrictMap', () => {
         stationSummaries={[]}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -566,6 +606,8 @@ describe('DistrictMap', () => {
         stationSummaries={stationSummaries}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -590,6 +632,8 @@ describe('DistrictMap', () => {
         alerts={[makeAlert({ districtId: 3, zScore: 3.8 })]}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -610,6 +654,8 @@ describe('DistrictMap', () => {
         alerts={[]}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -627,6 +673,8 @@ describe('DistrictMap', () => {
         alerts={[makeAlert({ unitId: 302, districtId: 3, zScore: 2.7 })]}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -650,6 +698,8 @@ describe('DistrictMap', () => {
         alerts={[makeAlert({ districtId: 3, zScore: 3.8 })]}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -664,6 +714,8 @@ describe('DistrictMap', () => {
         alerts={[makeAlert({ districtId: 1, zScore: 3.8 })]}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -682,6 +734,8 @@ describe('DistrictMap', () => {
         selectedDistrictId={null}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -702,6 +756,8 @@ describe('DistrictMap', () => {
         selectedDistrictId={null}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -715,6 +771,8 @@ describe('DistrictMap', () => {
         caseCountOverride={new Map([[1, 40], [3, 200]])}
         onDistrictSelect={vi.fn()}
         onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
       />,
     );
 
@@ -735,5 +793,137 @@ describe('DistrictMap', () => {
       200,
       '#104281',
     ]);
+  });
+
+  it('adds a heatmap source/layer for the selected station\'s incident points, and dims its siblings', () => {
+    render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        stationBoundaries={stationBoundariesWithGeometry}
+        stationSummaries={stationSummaries}
+        selectedStationId={302}
+        stationIncidents={stationIncidents}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
+      />,
+    );
+
+    const map = FakeMap.instances[0];
+    const source = map.getSource('heatmap-incidents') as { data: { features: unknown[] } };
+    expect(source.data.features).toHaveLength(2);
+    expect(map.getLayer('heatmap-incidents-layer')).toEqual(expect.objectContaining({ type: 'heatmap' }));
+    expect(map.paintProperties['fill-opacity']).toEqual(['case', ['==', ['get', 'unitId'], 302], 1, 0.15]);
+    expect(map.lastFitBounds?.bounds).toEqual([[76.3, 11.3], [76.5, 11.5]]);
+  });
+
+  it('removes the heatmap layer/source and resets station opacity when the station selection clears', () => {
+    const { rerender } = render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        stationBoundaries={stationBoundariesWithGeometry}
+        stationSummaries={stationSummaries}
+        selectedStationId={302}
+        stationIncidents={stationIncidents}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
+      />,
+    );
+
+    rerender(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        stationBoundaries={stationBoundariesWithGeometry}
+        stationSummaries={stationSummaries}
+        selectedStationId={null}
+        stationIncidents={[]}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
+      />,
+    );
+
+    const map = FakeMap.instances[0];
+    expect(map.getLayer('heatmap-incidents-layer')).toBeUndefined();
+    expect(map.getSource('heatmap-incidents')).toBeUndefined();
+    expect(map.paintProperties['fill-opacity']).toBe(1);
+  });
+
+  it('calls onStationSelect with the clicked station unitId', () => {
+    const onStationSelect = vi.fn();
+    render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        stationBoundaries={stationBoundaries}
+        stationSummaries={stationSummaries}
+        selectedStationId={null}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+        onStationSelect={onStationSelect}
+        onStationBack={vi.fn()}
+      />,
+    );
+
+    const map = FakeMap.instances[0];
+    map.handlers['click:station-fill']({ features: [{ properties: { unitId: 302 } }] });
+
+    expect(onStationSelect).toHaveBeenCalledWith(302);
+  });
+
+  it('shows a three-level breadcrumb with the incident count when a station is selected', () => {
+    render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        stationBoundaries={stationBoundariesWithGeometry}
+        stationSummaries={stationSummaries}
+        selectedStationId={302}
+        stationIncidents={stationIncidents}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Mysuru Rural PS')).toBeInTheDocument();
+    expect(screen.getByText('2 incidents')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mysuru' })).toBeInTheDocument();
+  });
+
+  it('calls onStationBack when the district breadcrumb segment is clicked while a station is selected', async () => {
+    const onStationBack = vi.fn();
+    render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        stationBoundaries={stationBoundariesWithGeometry}
+        stationSummaries={stationSummaries}
+        selectedStationId={302}
+        stationIncidents={stationIncidents}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={onStationBack}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mysuru' }));
+
+    expect(onStationBack).toHaveBeenCalled();
   });
 });

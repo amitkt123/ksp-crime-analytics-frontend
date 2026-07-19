@@ -3,10 +3,18 @@ import type { StationSummaryResponse } from '../../api/geoApi';
 interface StationDrilldownListProps {
   districtName: string;
   stations: StationSummaryResponse[];
+  selectedStationId?: number | null;
   onBack: () => void;
+  onStationSelect: (unitId: number) => void;
 }
 
-export function StationDrilldownList({ districtName, stations, onBack }: StationDrilldownListProps) {
+export function StationDrilldownList({
+  districtName,
+  stations,
+  selectedStationId = null,
+  onBack,
+  onStationSelect,
+}: StationDrilldownListProps) {
   const sorted = [...stations].sort((a, b) => b.caseCount - a.caseCount);
 
   return (
@@ -21,9 +29,16 @@ export function StationDrilldownList({ districtName, stations, onBack }: Station
       ) : (
         <ul className="station-list">
           {sorted.map((station) => (
-            <li key={station.unitId} className="station-list-row">
-              <span>{station.unitName}</span>
-              <span className="mono">{station.caseCount.toLocaleString()}</span>
+            <li key={station.unitId}>
+              <button
+                type="button"
+                className={`station-list-row${station.unitId === selectedStationId ? ' selected' : ''}`}
+                aria-current={station.unitId === selectedStationId ? 'true' : undefined}
+                onClick={() => onStationSelect(station.unitId)}
+              >
+                <span>{station.unitName}</span>
+                <span className="mono">{station.caseCount.toLocaleString()}</span>
+              </button>
             </li>
           ))}
         </ul>

@@ -10,6 +10,7 @@ import {
   useDistrictDetail,
   useStationBoundaries,
   useDistrictTimeOfDay,
+  useStationIncidents,
 } from '../../api/geoApi';
 import { useEmergingAlerts } from '../../api/alertsApi';
 import { DistrictMap } from './DistrictMap';
@@ -26,6 +27,8 @@ export function CommandCenterScreen() {
   const isPolicymaker = roles.includes('POLICYMAKER');
   const selectedDistrictId = searchParams.get('district') ? Number(searchParams.get('district')) : null;
   const districtDrilldownId = isPolicymaker ? null : selectedDistrictId;
+  const selectedStationId = searchParams.get('station') ? Number(searchParams.get('station')) : null;
+  const stationDrilldownId = isPolicymaker ? null : selectedStationId;
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDaySelection>('all');
 
   const summaryQuery = useCommandCenterSummary(token);
@@ -35,6 +38,7 @@ export function CommandCenterScreen() {
   const stationSummariesQuery = useStationSummaries(token, districtDrilldownId);
   const districtDetailQuery = useDistrictDetail(token, districtDrilldownId);
   const stationBoundariesQuery = useStationBoundaries(token, districtDrilldownId);
+  const stationIncidentsQuery = useStationIncidents(token, stationDrilldownId);
   // Spatiotemporal hotspot layering is a progressive enhancement on top of the
   // district drill-down -- it deliberately isn't part of isLoading/isError below,
   // so a slow or failed time-of-day fetch never blocks the rest of the screen; the
@@ -54,6 +58,24 @@ export function CommandCenterScreen() {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete('district');
+      next.delete('station');
+      return next;
+    });
+  }
+
+  function selectStation(unitId: number) {
+    if (isPolicymaker) return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('station', String(unitId));
+      return next;
+    });
+  }
+
+  function clearStation() {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('station');
       return next;
     });
   }
@@ -142,10 +164,14 @@ export function CommandCenterScreen() {
             selectedDistrictId={districtDrilldownId}
             stationBoundaries={stationBoundariesQuery.data ?? null}
             stationSummaries={stationSummariesQuery.data ?? []}
+            selectedStationId={stationDrilldownId}
+            stationIncidents={stationIncidentsQuery.data ?? []}
             alerts={alerts}
             caseCountOverride={caseCountOverride}
             onDistrictSelect={selectDistrict}
             onBack={clearDistrict}
+            onStationSelect={selectStation}
+            onStationBack={clearStation}
           />
           <SparklineStrip
             stateCaseVolumeWeekly={summary.stateCaseVolumeWeekly}
@@ -178,10 +204,18 @@ export function CommandCenterScreen() {
                 <StationDrilldownList
                   districtName={selectedDistrictName}
                   stations={stationSummariesQuery.data}
+                  selectedStationId={stationDrilldownId}
                   onBack={clearDistrict}
+                  onStationSelect={selectStation}
                 />
               ) : (
                 <p>Loading stations…</p>
+              )}
+              {stationDrilldownId != null && stationIncidentsQuery.isError && (
+                <p role="alert">
+                  Couldn't load incident points.{' '}
+                  <button onClick={() => stationIncidentsQuery.refetch()}>Retry</button>
+                </p>
               )}
             </>
           ) : (

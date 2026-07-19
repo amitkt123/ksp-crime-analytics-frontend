@@ -12,14 +12,20 @@ import * as meApiModule from '../../api/meApi';
 vi.mock('./DistrictMap', () => ({
   DistrictMap: ({
     onDistrictSelect,
+    onStationSelect,
     stationBoundaries,
+    stationIncidents,
   }: {
     onDistrictSelect: (id: number) => void;
+    onStationSelect: (id: number) => void;
     stationBoundaries: unknown;
+    stationIncidents?: unknown[];
   }) => (
     <>
       <button onClick={() => onDistrictSelect(3)}>Select Mysuru</button>
+      <button onClick={() => onStationSelect(300)}>Select Station</button>
       {stationBoundaries ? <p>Station boundaries loaded</p> : null}
+      {stationIncidents ? <p>{stationIncidents.length} incident points loaded</p> : null}
     </>
   ),
 }));
@@ -99,6 +105,7 @@ describe('CommandCenterScreen', () => {
         undefined as unknown as geoApiModule.StationBoundaryFeatureCollection,
       ),
     );
+    vi.spyOn(geoApiModule, 'useStationIncidents').mockReturnValue(mockSuccess<geoApiModule.StationIncidentPointResponse[]>([]));
     vi.spyOn(alertsApiModule, 'useEmergingAlerts').mockReturnValue(mockSuccess(alerts));
     vi.spyOn(geoApiModule, 'useDistrictTimeOfDay').mockReturnValue(mockSuccess(timeOfDay));
 
@@ -122,6 +129,7 @@ describe('CommandCenterScreen', () => {
     vi.spyOn(geoApiModule, 'useStationSummaries').mockReturnValue(mockSuccess(stations));
     vi.spyOn(geoApiModule, 'useDistrictDetail').mockReturnValue(mockSuccess(districtDetail));
     vi.spyOn(geoApiModule, 'useStationBoundaries').mockReturnValue(mockSuccess(stationBoundaries));
+    vi.spyOn(geoApiModule, 'useStationIncidents').mockReturnValue(mockSuccess<geoApiModule.StationIncidentPointResponse[]>([]));
     vi.spyOn(alertsApiModule, 'useEmergingAlerts').mockReturnValue(mockSuccess(alerts));
     vi.spyOn(geoApiModule, 'useDistrictTimeOfDay').mockReturnValue(mockSuccess(timeOfDay));
 
@@ -156,6 +164,7 @@ describe('CommandCenterScreen', () => {
         undefined as unknown as geoApiModule.StationBoundaryFeatureCollection,
       ),
     );
+    vi.spyOn(geoApiModule, 'useStationIncidents').mockReturnValue(mockSuccess<geoApiModule.StationIncidentPointResponse[]>([]));
     vi.spyOn(alertsApiModule, 'useEmergingAlerts').mockReturnValue(mockSuccess(alerts));
     vi.spyOn(geoApiModule, 'useDistrictTimeOfDay').mockReturnValue(mockSuccess(timeOfDay));
 
@@ -184,6 +193,7 @@ describe('CommandCenterScreen', () => {
       refetch,
     } as unknown as UseQueryResult<geoApiModule.DistrictDetailResponse, Error>);
     vi.spyOn(geoApiModule, 'useStationBoundaries').mockReturnValue(mockSuccess(stationBoundaries));
+    vi.spyOn(geoApiModule, 'useStationIncidents').mockReturnValue(mockSuccess<geoApiModule.StationIncidentPointResponse[]>([]));
     vi.spyOn(alertsApiModule, 'useEmergingAlerts').mockReturnValue(mockSuccess(alerts));
     vi.spyOn(geoApiModule, 'useDistrictTimeOfDay').mockReturnValue(mockSuccess(timeOfDay));
 
@@ -192,6 +202,105 @@ describe('CommandCenterScreen', () => {
     await userEvent.click(await screen.findByText('Select Mysuru'));
 
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load district details");
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it('selecting a station sets ?station= and fetches its incident points', async () => {
+    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+      token: 'jwt', roles: ['SCRB_ANALYST'], username: 'demo.analyst', login: vi.fn(), logout: vi.fn(),
+    });
+    vi.spyOn(meApiModule, 'useMe').mockReturnValue(
+      mockSuccess<meApiModule.MeResponse>(undefined as unknown as meApiModule.MeResponse),
+    );
+    vi.spyOn(commandCenterApiModule, 'useCommandCenterSummary').mockReturnValue(mockSuccess(summary));
+    vi.spyOn(geoApiModule, 'useDistrictSummaries').mockReturnValue(mockSuccess(districts));
+    vi.spyOn(geoApiModule, 'useDistrictBoundaries').mockReturnValue(mockSuccess(boundaries));
+    vi.spyOn(geoApiModule, 'useStationSummaries').mockReturnValue(mockSuccess(stations));
+    vi.spyOn(geoApiModule, 'useDistrictDetail').mockReturnValue(mockSuccess(districtDetail));
+    vi.spyOn(geoApiModule, 'useStationBoundaries').mockReturnValue(mockSuccess(stationBoundaries));
+    const stationIncidents: geoApiModule.StationIncidentPointResponse[] = [
+      { caseMasterId: 1, crimeNo: '1/2026', latitude: 12.3, longitude: 76.6 },
+      { caseMasterId: 2, crimeNo: '2/2026', latitude: 12.31, longitude: 76.61 },
+    ];
+    const useStationIncidentsSpy = vi
+      .spyOn(geoApiModule, 'useStationIncidents')
+      .mockReturnValue(mockSuccess(stationIncidents));
+    vi.spyOn(alertsApiModule, 'useEmergingAlerts').mockReturnValue(mockSuccess(alerts));
+    vi.spyOn(geoApiModule, 'useDistrictTimeOfDay').mockReturnValue(mockSuccess(timeOfDay));
+
+    renderScreen();
+
+    await userEvent.click(await screen.findByText('Select Mysuru'));
+    await userEvent.click(await screen.findByText('Select Station'));
+
+    expect(await screen.findByText('2 incident points loaded')).toBeInTheDocument();
+    expect(useStationIncidentsSpy).toHaveBeenCalledWith('jwt', 300);
+  });
+
+  it('clearing the district also clears the station selection', async () => {
+    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+      token: 'jwt', roles: ['SCRB_ANALYST'], username: 'demo.analyst', login: vi.fn(), logout: vi.fn(),
+    });
+    vi.spyOn(meApiModule, 'useMe').mockReturnValue(
+      mockSuccess<meApiModule.MeResponse>(undefined as unknown as meApiModule.MeResponse),
+    );
+    vi.spyOn(commandCenterApiModule, 'useCommandCenterSummary').mockReturnValue(mockSuccess(summary));
+    vi.spyOn(geoApiModule, 'useDistrictSummaries').mockReturnValue(mockSuccess(districts));
+    vi.spyOn(geoApiModule, 'useDistrictBoundaries').mockReturnValue(mockSuccess(boundaries));
+    vi.spyOn(geoApiModule, 'useStationSummaries').mockReturnValue(mockSuccess(stations));
+    vi.spyOn(geoApiModule, 'useDistrictDetail').mockReturnValue(mockSuccess(districtDetail));
+    vi.spyOn(geoApiModule, 'useStationBoundaries').mockReturnValue(mockSuccess(stationBoundaries));
+    const useStationIncidentsSpy = vi
+      .spyOn(geoApiModule, 'useStationIncidents')
+      .mockReturnValue(mockSuccess<geoApiModule.StationIncidentPointResponse[]>([]));
+    vi.spyOn(alertsApiModule, 'useEmergingAlerts').mockReturnValue(mockSuccess(alerts));
+    vi.spyOn(geoApiModule, 'useDistrictTimeOfDay').mockReturnValue(mockSuccess(timeOfDay));
+
+    renderScreen();
+
+    await userEvent.click(await screen.findByText('Select Mysuru'));
+    await userEvent.click(await screen.findByText('Select Station'));
+    expect(useStationIncidentsSpy).toHaveBeenLastCalledWith('jwt', 300);
+
+    // The mocked DistrictMap doesn't expose a "clear district" control, but
+    // StationDrilldownList's real "State" breadcrumb button does -- it's rendered
+    // for real (not mocked) in the side pane.
+    await userEvent.click(screen.getByRole('button', { name: 'State' }));
+
+    await waitFor(() => expect(useStationIncidentsSpy).toHaveBeenLastCalledWith('jwt', null));
+  });
+
+  it('shows an inline retry control when station incidents fail to load', async () => {
+    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+      token: 'jwt', roles: ['SCRB_ANALYST'], username: 'demo.analyst', login: vi.fn(), logout: vi.fn(),
+    });
+    vi.spyOn(meApiModule, 'useMe').mockReturnValue(
+      mockSuccess<meApiModule.MeResponse>(undefined as unknown as meApiModule.MeResponse),
+    );
+    vi.spyOn(commandCenterApiModule, 'useCommandCenterSummary').mockReturnValue(mockSuccess(summary));
+    vi.spyOn(geoApiModule, 'useDistrictSummaries').mockReturnValue(mockSuccess(districts));
+    vi.spyOn(geoApiModule, 'useDistrictBoundaries').mockReturnValue(mockSuccess(boundaries));
+    vi.spyOn(geoApiModule, 'useStationSummaries').mockReturnValue(mockSuccess(stations));
+    vi.spyOn(geoApiModule, 'useDistrictDetail').mockReturnValue(mockSuccess(districtDetail));
+    vi.spyOn(geoApiModule, 'useStationBoundaries').mockReturnValue(mockSuccess(stationBoundaries));
+    const refetch = vi.fn();
+    vi.spyOn(geoApiModule, 'useStationIncidents').mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      isSuccess: false,
+      refetch,
+    } as unknown as UseQueryResult<geoApiModule.StationIncidentPointResponse[], Error>);
+    vi.spyOn(alertsApiModule, 'useEmergingAlerts').mockReturnValue(mockSuccess(alerts));
+    vi.spyOn(geoApiModule, 'useDistrictTimeOfDay').mockReturnValue(mockSuccess(timeOfDay));
+
+    renderScreen();
+
+    await userEvent.click(await screen.findByText('Select Mysuru'));
+    await userEvent.click(await screen.findByText('Select Station'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load incident points");
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(refetch).toHaveBeenCalled();
   });
