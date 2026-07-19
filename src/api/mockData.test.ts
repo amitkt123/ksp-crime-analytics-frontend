@@ -146,7 +146,7 @@ describe('getMockResponse cases list', () => {
     const first = await getMockResponse('/api/cases?unitId=176', { method: 'GET' });
     const second = await getMockResponse('/api/cases?unitId=176', { method: 'GET' });
     expect(first).toEqual(second);
-    expect(first).toHaveLength(6);
+    expect(first).toHaveLength(40);
   });
 
   it('computes the expected fields for the first generated case at Whitefield PS', async () => {
@@ -157,6 +157,11 @@ describe('getMockResponse cases list', () => {
       crimeSubHeadName: string;
       status: string;
       firDate: string;
+      crimeNumber: string;
+      station: string;
+      district: string;
+      gravity: string;
+      location: { lat: number; lng: number };
     }>;
     expect(result[0]).toMatchObject({
       caseId: 176000,
@@ -165,7 +170,19 @@ describe('getMockResponse cases list', () => {
       crimeSubHeadName: 'Chain Snatching',
       status: 'registered',
       firDate: '2026-05-26',
+      crimeNumber: 'FIR-2026-KA-17600',
+      station: 'Whitefield PS',
     });
+    expect(typeof result[0].district).toBe('string');
+    expect(['heinous', 'serious', 'minor']).toContain(result[0].gravity);
+    expect(result[0].location).toEqual({ lat: expect.any(Number), lng: expect.any(Number) });
+  });
+
+  it('gives every case a real district name derived from its station', async () => {
+    const result = (await getMockResponse('/api/cases?unitId=176', { method: 'GET' })) as Array<{
+      district: string;
+    }>;
+    expect(result.every((c) => typeof c.district === 'string' && c.district.length > 0)).toBe(true);
   });
 
   it('filters by status', async () => {
@@ -199,16 +216,18 @@ describe('getMockResponse case detail', () => {
     };
     expect(result.caseNumber).toBe('276/2026');
     expect(result.narrative.length).toBeGreaterThan(0);
-    expect(result.parties.map((p) => p.role)).toEqual(['victim', 'accused']);
+    // index 0 (176000 % 3 === 0) also gets a complainant distinct from the victim.
+    expect(result.parties.map((p) => p.role)).toEqual(['complainant', 'victim', 'accused']);
     expect(result.timeline).toEqual([{ status: 'registered', timestamp: '2026-05-26', note: 'FIR registered.' }]);
   });
 
   it('masks PII in party fields while preserving the real value', async () => {
     const result = (await getMockResponse('/api/cases/176000', { method: 'GET' })) as {
-      parties: Array<{ name: { masked: string; real: string } }>;
+      parties: Array<{ role: string; name: { masked: string; real: string } }>;
     };
-    expect(result.parties[0].name.real).toBe('Ramesh Kumar');
-    expect(result.parties[0].name.masked).toBe('R***** K****');
+    const victim = result.parties.find((p) => p.role === 'victim')!;
+    expect(victim.name.real).toBe('Ramesh Kumar');
+    expect(victim.name.masked).toBe('R***** K****');
   });
 
   it('builds a three-entry timeline for a closed case', async () => {
@@ -221,6 +240,49 @@ describe('getMockResponse case detail', () => {
 
   it('returns undefined for an unknown caseId', async () => {
     const result = await getMockResponse('/api/cases/999999000', { method: 'GET' });
+    expect(result).toBeUndefined();
+  });
+
+  it('omits arrests and chargesheet for a registered case', async () => {
+    const result = (await getMockResponse('/api/cases/176000', { method: 'GET' })) as {
+      arrests?: unknown[];
+      chargesheet?: unknown;
+    };
+    expect(result.arrests).toBeUndefined();
+    expect(result.chargesheet).toBeUndefined();
+  });
+
+  it('includes arrests and a chargesheet for a closed case', async () => {
+    const result = (await getMockResponse('/api/cases/176002', { method: 'GET' })) as {
+      arrests?: Array<{ arrestDate: string; custodyStatus: string }>;
+      chargesheet?: { filedDate: string; sectionsApplied: string; court: string };
+    };
+    expect(result.arrests).toHaveLength(1);
+    expect(result.chargesheet).toBeDefined();
+  });
+});
+
+describe('getMockResponse case explain', () => {
+  it('returns a deterministic explanation grounded in the case and its related records', async () => {
+    const first = await getMockResponse('/api/cases/176000/explain', { method: 'GET' });
+    const second = await getMockResponse('/api/cases/176000/explain', { method: 'GET' });
+    expect(first).toEqual(second);
+  });
+
+  it('cites the case number and a confidence between 0 and 1', async () => {
+    const result = (await getMockResponse('/api/cases/176000/explain', { method: 'GET' })) as {
+      claim: string;
+      confidence: number;
+      records: string[];
+    };
+    expect(result.claim).toContain('276/2026');
+    expect(result.confidence).toBeGreaterThan(0);
+    expect(result.confidence).toBeLessThanOrEqual(1);
+    expect(result.records.length).toBeGreaterThan(0);
+  });
+
+  it('returns undefined for an unknown caseId', async () => {
+    const result = await getMockResponse('/api/cases/999999000/explain', { method: 'GET' });
     expect(result).toBeUndefined();
   });
 });
