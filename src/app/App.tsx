@@ -9,6 +9,7 @@ import { ScreenPlaceholder } from './ScreenPlaceholder';
 import { CommandCenterScreen } from '../screens/command-center/CommandCenterScreen';
 import { CaseExplorerScreen } from '../screens/case-explorer/CaseExplorerScreen';
 import { CaseDetailScreen } from '../screens/case-explorer/CaseDetailScreen';
+import { NetworkScreen } from '../screens/network/NetworkScreen';
 
 const queryClient = new QueryClient();
 
@@ -60,11 +61,8 @@ function AuthenticatedShell() {
         <Route
           path="/network"
           element={
-            <ProtectedRoute allowedRoles={['DISTRICT_SUPERVISOR', 'SCRB_ANALYST']}>
-              <>
-                <Header title="Network / Link Analysis" />
-                <ScreenPlaceholder title="Network / Link Analysis" />
-              </>
+            <ProtectedRoute allowedRoles={['SCRB_ANALYST']}>
+              <NetworkScreen />
             </ProtectedRoute>
           }
         />
