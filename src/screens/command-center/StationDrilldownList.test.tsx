@@ -11,7 +11,9 @@ const stations: StationSummaryResponse[] = [
 
 describe('StationDrilldownList', () => {
   it('renders the district breadcrumb and stations sorted by case count descending', () => {
-    render(<StationDrilldownList districtName="Bengaluru Urban" stations={stations} onBack={vi.fn()} />);
+    render(
+      <StationDrilldownList districtName="Bengaluru Urban" stations={stations} onBack={vi.fn()} onStationSelect={vi.fn()} />,
+    );
 
     expect(screen.getByText('Bengaluru Urban')).toBeInTheDocument();
     const rows = screen.getAllByRole('listitem').map((el) => el.textContent);
@@ -21,14 +23,47 @@ describe('StationDrilldownList', () => {
 
   it('calls onBack when the breadcrumb "State" link is clicked', async () => {
     const onBack = vi.fn();
-    render(<StationDrilldownList districtName="Bengaluru Urban" stations={stations} onBack={onBack} />);
+    render(
+      <StationDrilldownList districtName="Bengaluru Urban" stations={stations} onBack={onBack} onStationSelect={vi.fn()} />,
+    );
 
     await userEvent.click(screen.getByRole('button', { name: 'State' }));
     expect(onBack).toHaveBeenCalled();
   });
 
   it('shows a plain-voice empty state when the district has no stations with cases', () => {
-    render(<StationDrilldownList districtName="Bengaluru Urban" stations={[]} onBack={vi.fn()} />);
+    render(<StationDrilldownList districtName="Bengaluru Urban" stations={[]} onBack={vi.fn()} onStationSelect={vi.fn()} />);
     expect(screen.getByText('No stations with cases in this district.')).toBeInTheDocument();
+  });
+
+  it('calls onStationSelect with the clicked station\'s unitId', async () => {
+    const onStationSelect = vi.fn();
+    render(
+      <StationDrilldownList
+        districtName="Bengaluru Urban"
+        stations={stations}
+        onBack={vi.fn()}
+        onStationSelect={onStationSelect}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /Halasuru PS/ }));
+
+    expect(onStationSelect).toHaveBeenCalledWith(102);
+  });
+
+  it('marks the selected station row', () => {
+    render(
+      <StationDrilldownList
+        districtName="Bengaluru Urban"
+        stations={stations}
+        onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        selectedStationId={102}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /Halasuru PS/ })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('button', { name: /Cubbon Park PS/ })).not.toHaveAttribute('aria-current');
   });
 });
