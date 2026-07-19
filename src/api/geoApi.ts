@@ -49,6 +49,13 @@ export interface DistrictTimeOfDayResponse {
   buckets: TimeOfDayBucket[];
 }
 
+export interface StationIncidentPointResponse {
+  caseMasterId: number;
+  crimeNo: string;
+  latitude: number;
+  longitude: number;
+}
+
 export function getDistrictSummaries(token: string | null): Promise<DistrictSummaryResponse[]> {
   return apiFetch<DistrictSummaryResponse[]>('/api/geo/districts', {}, token);
 }
@@ -124,5 +131,18 @@ export function useDistrictTimeOfDay(token: string | null) {
     queryFn: () => getDistrictTimeOfDay(token),
     staleTime: 5 * 60_000,
     enabled: token != null,
+  });
+}
+
+export function getStationIncidents(token: string | null, unitId: number): Promise<StationIncidentPointResponse[]> {
+  return apiFetch<StationIncidentPointResponse[]>(`/api/geo/stations/${unitId}/incidents`, {}, token);
+}
+
+export function useStationIncidents(token: string | null, unitId: number | null) {
+  return useQuery({
+    queryKey: ['geo-station-incidents', unitId],
+    queryFn: () => getStationIncidents(token, unitId as number),
+    staleTime: 60_000,
+    enabled: token != null && unitId != null,
   });
 }
