@@ -239,3 +239,113 @@ describe('getMockResponse cases list free-text search over party names', () => {
     expect(result).toEqual([]);
   });
 });
+
+describe('getMockResponse — /api/network/subgraph', () => {
+  it('top-offenders focus returns PERSON, CASE, and LOCATION nodes with ACCUSED_IN/OCCURRED_AT edges', async () => {
+    const response = (await getMockResponse('/api/network/subgraph?focus=top-offenders&limit=5', {})) as {
+      nodes: Array<{ id: string; type: string; label: string; confidence: number | null }>;
+      edges: Array<{ sourceId: string; targetId: string; type: string; confidence: number | null }>;
+      generatedAt: string;
+    };
+    expect(response.nodes.some((n) => n.type === 'PERSON')).toBe(true);
+    expect(response.nodes.some((n) => n.type === 'CASE')).toBe(true);
+    expect(response.nodes.some((n) => n.type === 'LOCATION')).toBe(true);
+    expect(response.edges.some((e) => e.type === 'ACCUSED_IN')).toBe(true);
+    expect(response.edges.some((e) => e.type === 'OCCURRED_AT')).toBe(true);
+    expect(response.generatedAt).toBeTruthy();
+  });
+
+  it('never exceeds 75 nodes and never has a dangling edge', async () => {
+    const response = (await getMockResponse('/api/network/subgraph?focus=top-offenders&limit=50', {})) as {
+      nodes: Array<{ id: string }>;
+      edges: Array<{ sourceId: string; targetId: string }>;
+    };
+    expect(response.nodes.length).toBeLessThanOrEqual(75);
+    const ids = new Set(response.nodes.map((n) => n.id));
+    response.edges.forEach((e) => {
+      expect(ids.has(e.sourceId)).toBe(true);
+      expect(ids.has(e.targetId)).toBe(true);
+    });
+  });
+
+  it('is deterministic -- the same params return identical output across calls', async () => {
+    const a = await getMockResponse('/api/network/subgraph?focus=top-offenders&limit=5', {});
+    const b = await getMockResponse('/api/network/subgraph?focus=top-offenders&limit=5', {});
+    expect(a).toEqual(b);
+  });
+
+  it('community focus returns only PERSON nodes, never CASE or LOCATION', async () => {
+    const communities = (await getMockResponse('/api/network/communities?minSize=1', {})) as Array<{ communityId: number }>;
+    expect(communities.length).toBeGreaterThan(0);
+    const response = (await getMockResponse(`/api/network/subgraph?focus=community&communityId=${communities[0].communityId}`, {})) as {
+      nodes: Array<{ type: string }>;
+    };
+    expect(response.nodes.length).toBeGreaterThan(0);
+    response.nodes.forEach((n) => expect(n.type).toBe('PERSON'));
+  });
+
+  it('person focus centers the ego-network on the requested personId', async () => {
+    const offenders = (await getMockResponse('/api/network/repeat-offenders?minCases=1&limit=5', {})) as Array<{ personId: number }>;
+    expect(offenders.length).toBeGreaterThan(0);
+    const response = (await getMockResponse(`/api/network/subgraph?focus=person&personId=${offenders[0].personId}&hops=2`, {})) as {
+      nodes: Array<{ id: string }>;
+    };
+    expect(response.nodes.some((n) => n.id === String(offenders[0].personId))).toBe(true);
+  });
+
+  it('path focus with from === to returns just that one person, no query needed', async () => {
+    const offenders = (await getMockResponse('/api/network/repeat-offenders?minCases=1&limit=5', {})) as Array<{ personId: number }>;
+    const response = await getMockResponse(
+      `/api/network/path?from=${offenders[0].personId}&to=${offenders[0].personId}&maxHops=6`,
+      {},
+    );
+    expect((response as { hopCount: number }).hopCount).toBe(0);
+  });
+
+  it('path focus returns the path persons plus the justifying case and location', async () => {
+    const offenders = (await getMockResponse('/api/network/repeat-offenders?minCases=1&limit=8', {})) as Array<{ personId: number }>;
+    expect(offenders.length).toBeGreaterThanOrEqual(2);
+    const [from, to] = offenders.map((o) => o.personId);
+
+    const response = (await getMockResponse(`/api/network/subgraph?focus=path&from=${from}&to=${to}&maxHops=6`, {})) as {
+      nodes: Array<{ type: string }>;
+    };
+    expect(response.nodes.some((n) => n.type === 'PERSON')).toBe(true);
+    expect(response.nodes.some((n) => n.type === 'CASE')).toBe(true);
+  });
+});
+
+describe('getMockResponse — /api/network/repeat-offenders', () => {
+  it('ranks offenders descending by caseCount and respects limit', async () => {
+    const response = (await getMockResponse('/api/network/repeat-offenders?minCases=1&limit=3', {})) as Array<{ caseCount: number }>;
+    expect(response.length).toBeLessThanOrEqual(3);
+    for (let i = 1; i < response.length; i++) {
+      expect(response[i - 1].caseCount).toBeGreaterThanOrEqual(response[i].caseCount);
+    }
+  });
+});
+
+describe('getMockResponse — /api/network/communities', () => {
+  it('groups persons into communities of at least minSize', async () => {
+    const response = (await getMockResponse('/api/network/communities?minSize=1', {})) as Array<{ size: number }>;
+    expect(response.length).toBeGreaterThan(0);
+    response.forEach((c) => expect(c.size).toBeGreaterThanOrEqual(1));
+  });
+});
+
+describe('getMockResponse — /api/network/path', () => {
+  it('finds a path between two persons who share a case', async () => {
+    const offenders = (await getMockResponse('/api/network/repeat-offenders?minCases=1&limit=8', {})) as Array<{ personId: number }>;
+    expect(offenders.length).toBeGreaterThanOrEqual(2);
+    const [from, to] = offenders.map((o) => o.personId);
+
+    const response = await getMockResponse(`/api/network/path?from=${from}&to=${to}&maxHops=6`, {});
+    expect(response).not.toBeNull();
+    expect((response as { hopCount: number }).hopCount).toBeGreaterThanOrEqual(0);
+  });
+
+  it('returns null for an unknown personId', async () => {
+    const response = await getMockResponse('/api/network/path?from=999999&to=999998&maxHops=6', {});
+    expect(response).toBeNull();
+  });
+});
