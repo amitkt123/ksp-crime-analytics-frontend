@@ -521,6 +521,374 @@ function filterCaseSummaries(
   });
 }
 
+// Caps how many stations feed the network mock dataset so the graph stays a legible
+// size -- mirrors the real backend's 75-node-per-response cap without needing to
+// reproduce it station-by-station. Object.values(...).flat() has a stable insertion
+// order, so this sample is deterministic.
+const MOCK_NETWORK_STATION_SAMPLE = 10;
+
+// Stand in for identity resolution's synthetic-id tier -- mock data has no real
+// Neo4j id, so these fixed arrays (parallel to ACCUSED_NAMES/VICTIM_NAMES) give
+// every mock person a stable numeric personId, matching the real contract's
+// personId: number shape (RepeatOffenderResponse.personId, /path's from/to).
+const ACCUSED_PERSON_IDS = [5001, 5002, 5003, 5004, 5005, 5006];
+const VICTIM_PERSON_IDS = [6001, 6002, 6003, 6004, 6005, 6006];
+
+const MAX_SUBGRAPH_NODES = 75;
+
+interface NetworkCaseTuple {
+  caseId: number;
+  caseNumber: string;
+  unitId: number;
+  unitName: string;
+  crimeSubHeadId: number;
+  accusedId: number;
+  accusedName: string;
+  victimId: number;
+  victimName: string;
+}
+
+function networkStations() {
+  return Object.values(STATIONS_BY_DISTRICT).flat().slice(0, MOCK_NETWORK_STATION_SAMPLE);
+}
+
+// Reuses mockCaseDetail's exact party indices (mockParty('accused', index + 1),
+// mockParty('victim', index)) so a person shown here is the same identity Case
+// Explorer shows for the same caseId.
+function networkCaseTuples(): NetworkCaseTuple[] {
+  const tuples: NetworkCaseTuple[] = [];
+  networkStations().forEach(({ unitId, unitName }) => {
+    mockCaseSummaries(unitId, unitName).forEach((summary, index) => {
+      const accused = mockParty('accused', index + 1);
+      const victim = mockParty('victim', index);
+      tuples.push({
+        caseId: summary.caseId,
+        caseNumber: summary.caseNumber,
+        unitId,
+        unitName,
+        crimeSubHeadId: summary.crimeSubHeadId,
+        accusedId: ACCUSED_PERSON_IDS[(index + 1) % ACCUSED_PERSON_IDS.length],
+        accusedName: accused.name.real,
+        victimId: VICTIM_PERSON_IDS[index % VICTIM_PERSON_IDS.length],
+        victimName: victim.name.real,
+      });
+    });
+  });
+  return tuples;
+}
+
+interface NetworkPersonAgg {
+  personId: number;
+  displayName: string;
+  caseIds: number[];
+  crimeSubHeadId: number;
+}
+
+function aggregateAccused(tuples: NetworkCaseTuple[]): Map<number, NetworkPersonAgg> {
+  const byId = new Map<number, NetworkPersonAgg>();
+  tuples.forEach((t) => {
+    const existing = byId.get(t.accusedId);
+    if (existing) {
+      existing.caseIds.push(t.caseId);
+    } else {
+      byId.set(t.accusedId, { personId: t.accusedId, displayName: t.accusedName, caseIds: [t.caseId], crimeSubHeadId: t.crimeSubHeadId });
+    }
+  });
+  return byId;
+}
+
+function confidenceScoreFor(caseCount: number): number {
+  return Math.min(0.97, 0.55 + caseCount * 0.06);
+}
+
+function personDisplayName(personId: number, tuples: NetworkCaseTuple[]): string | undefined {
+  const accused = tuples.find((t) => t.accusedId === personId);
+  if (accused) return accused.accusedName;
+  const victim = tuples.find((t) => t.victimId === personId);
+  if (victim) return victim.victimName;
+  return undefined;
+}
+
+function buildRepeatOffenders(minCases: number, limit: number) {
+  const persons = aggregateAccused(networkCaseTuples());
+  return Array.from(persons.values())
+    .filter((p) => p.caseIds.length >= minCases)
+    .sort((a, b) => b.caseIds.length - a.caseIds.length || a.personId - b.personId)
+    .slice(0, limit)
+    .map((p) => ({
+      personId: p.personId,
+      displayName: p.displayName,
+      caseCount: p.caseIds.length,
+      gravityWeight: p.caseIds.length * 3,
+      confidenceScore: confidenceScoreFor(p.caseIds.length),
+    }));
+}
+
+// Deterministic stand-in for a real Louvain run: groups accused by their crime
+// sub-head's parent category. Mirrors the real community focus's actual shape --
+// PERSON nodes only, no Case/Location -- so communityId here is just as opaque
+// to the frontend as a real Neo4j Louvain cluster id would be.
+function buildCommunities(minSize: number) {
+  const persons = aggregateAccused(networkCaseTuples());
+  const byCommunity = new Map<number, string[]>();
+  persons.forEach((p) => {
+    const crimeType = CASE_CRIME_TYPES.find((c) => c.crimeSubHeadId === p.crimeSubHeadId)!;
+    const list = byCommunity.get(crimeType.crimeHeadId) ?? [];
+    list.push(p.displayName);
+    byCommunity.set(crimeType.crimeHeadId, list);
+  });
+  return Array.from(byCommunity.entries())
+    .map(([communityId, memberDisplayNames]) => ({ communityId, size: memberDisplayNames.length, memberDisplayNames }))
+    .filter((c) => c.size >= minSize)
+    .sort((a, b) => b.size - a.size);
+}
+
+// Two persons are "adjacent" if they appear (as accused or victim) on the same
+// case, OR if two accused share a crimeSubHeadId (the same signal
+// sharesMoWithEdges uses for SHARES_MO_WITH) -- a person-to-person adjacency
+// graph, matching the real /path endpoint's reported shape
+// (personIds/displayNames/hopCount only, no intermediate Case/Location nodes)
+// even though the real graph traversal happens over the full node/edge graph,
+// including computed CO_ACCUSED_WITH/SHARES_MO_WITH edges.
+//
+// The case-co-occurrence link alone is NOT enough here: mock accusedId and
+// victimId are both pure functions of a case's index-in-station (see
+// networkCaseTuples), so every occurrence of a given accusedId pairs with
+// exactly one victimId and vice versa -- a perfect matching with no
+// accused-to-accused connectivity at all. The crimeSubHeadId link is what
+// makes two different repeat offenders reachable from each other, mirroring
+// how a real deployment's SHARES_MO_WITH edges would connect them.
+function personAdjacency(tuples: NetworkCaseTuple[]): Map<number, Set<number>> {
+  const byCase = new Map<number, Set<number>>();
+  const bySubHead = new Map<number, Set<number>>();
+  tuples.forEach((t) => {
+    const caseSet = byCase.get(t.caseId) ?? new Set<number>();
+    caseSet.add(t.accusedId);
+    caseSet.add(t.victimId);
+    byCase.set(t.caseId, caseSet);
+
+    const subHeadSet = bySubHead.get(t.crimeSubHeadId) ?? new Set<number>();
+    subHeadSet.add(t.accusedId);
+    bySubHead.set(t.crimeSubHeadId, subHeadSet);
+  });
+  const adjacency = new Map<number, Set<number>>();
+  function link(a: number, b: number) {
+    if (a === b) return;
+    if (!adjacency.has(a)) adjacency.set(a, new Set());
+    if (!adjacency.has(b)) adjacency.set(b, new Set());
+    adjacency.get(a)!.add(b);
+    adjacency.get(b)!.add(a);
+  }
+  byCase.forEach((members) => {
+    const list = Array.from(members);
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) link(list[i], list[j]);
+    }
+  });
+  bySubHead.forEach((members) => {
+    const list = Array.from(members);
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) link(list[i], list[j]);
+    }
+  });
+  return adjacency;
+}
+
+function bfsPersonPath(from: number, to: number, maxHops: number, tuples: NetworkCaseTuple[]): number[] | null {
+  if (from === to) return [from];
+  const adjacency = personAdjacency(tuples);
+  const queue: number[][] = [[from]];
+  const seen = new Set<number>([from]);
+  while (queue.length) {
+    const current = queue.shift()!;
+    const last = current[current.length - 1];
+    if (last === to) return current;
+    if (current.length - 1 >= maxHops) continue;
+    for (const next of adjacency.get(last) ?? []) {
+      if (!seen.has(next)) {
+        seen.add(next);
+        queue.push([...current, next]);
+      }
+    }
+  }
+  return null;
+}
+
+function buildNetworkPath(from: number, to: number, maxHops: number) {
+  const tuples = networkCaseTuples();
+  const fromName = personDisplayName(from, tuples);
+  const toName = personDisplayName(to, tuples);
+  if (!fromName || !toName) return null;
+
+  const path = bfsPersonPath(from, to, maxHops, tuples);
+  if (!path) return null;
+
+  return {
+    personIds: path,
+    displayNames: path.map((id) => personDisplayName(id, tuples)!),
+    hopCount: path.length - 1,
+  };
+}
+
+type MockGraphNode = { id: string; type: 'PERSON' | 'CASE' | 'LOCATION'; label: string; confidence: number | null };
+type MockGraphEdge = { id: string; sourceId: string; targetId: string; type: string; confidence: number | null };
+
+// Caps the node list at 75 and drops any edge whose endpoint didn't survive the
+// cap -- mirrors the real Cypher's own documented invariant (never a dangling
+// edge, never truncated after the edges were already built).
+function capSubgraph(nodes: MockGraphNode[], edges: MockGraphEdge[]) {
+  const seen = new Set<string>();
+  const cappedNodes = nodes.filter((n) => {
+    if (seen.has(n.id)) return false;
+    seen.add(n.id);
+    return true;
+  }).slice(0, MAX_SUBGRAPH_NODES);
+  const nodeIds = new Set(cappedNodes.map((n) => n.id));
+  const cappedEdges = edges.filter((e) => nodeIds.has(e.sourceId) && nodeIds.has(e.targetId));
+  return { nodes: cappedNodes, edges: cappedEdges, generatedAt: '2026-07-19T06:00:00Z' };
+}
+
+function sharesMoWithEdges(personIds: number[], tuples: NetworkCaseTuple[]) {
+  const bySubHead = new Map<number, Set<number>>();
+  tuples.forEach((t) => {
+    if (!personIds.includes(t.accusedId)) return;
+    const set = bySubHead.get(t.crimeSubHeadId) ?? new Set<number>();
+    set.add(t.accusedId);
+    bySubHead.set(t.crimeSubHeadId, set);
+  });
+  const edges: MockGraphEdge[] = [];
+  bySubHead.forEach((members) => {
+    const list = Array.from(members);
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        edges.push({
+          id: `smw-${list[i]}-${list[j]}`,
+          sourceId: String(list[i]),
+          targetId: String(list[j]),
+          type: 'SHARES_MO_WITH',
+          confidence: 0.7,
+        });
+      }
+    }
+  });
+  return edges;
+}
+
+function egoNetworkNodesAndEdges(seedPersonIds: number[], tuples: NetworkCaseTuple[]) {
+  const nodes: MockGraphNode[] = [];
+  const edges: MockGraphEdge[] = [];
+  const seenNodeIds = new Set<string>();
+  function addNode(node: MockGraphNode) {
+    if (seenNodeIds.has(node.id)) return;
+    seenNodeIds.add(node.id);
+    nodes.push(node);
+  }
+
+  tuples.forEach((t) => {
+    if (!seedPersonIds.includes(t.accusedId) && !seedPersonIds.includes(t.victimId)) return;
+    addNode({ id: String(t.accusedId), type: 'PERSON', label: t.accusedName, confidence: confidenceScoreFor(1) });
+    addNode({ id: `case-${t.caseId}`, type: 'CASE', label: `${t.caseNumber}`, confidence: null });
+    addNode({ id: `location-${t.unitId}`, type: 'LOCATION', label: t.unitName, confidence: null });
+    addNode({ id: String(t.victimId), type: 'PERSON', label: t.victimName, confidence: null });
+    edges.push({ id: `acc-${t.accusedId}-${t.caseId}`, sourceId: String(t.accusedId), targetId: `case-${t.caseId}`, type: 'ACCUSED_IN', confidence: null });
+    edges.push({ id: `vic-${t.victimId}-${t.caseId}`, sourceId: String(t.victimId), targetId: `case-${t.caseId}`, type: 'VICTIM_IN', confidence: null });
+    edges.push({ id: `occ-${t.caseId}-${t.unitId}`, sourceId: `case-${t.caseId}`, targetId: `location-${t.unitId}`, type: 'OCCURRED_AT', confidence: null });
+  });
+
+  const accusedIdsOnCanvas = nodes.filter((n) => n.type === 'PERSON').map((n) => Number(n.id));
+  edges.push(...sharesMoWithEdges(accusedIdsOnCanvas, tuples));
+
+  return capSubgraph(nodes, edges);
+}
+
+function buildSubgraph(focus: string, limit: number, personId: number | undefined, hops: number, communityId: number | undefined, from: number | undefined, to: number | undefined, maxHops: number) {
+  const tuples = networkCaseTuples();
+
+  if (focus === 'person' && personId != null) {
+    const clampedHops = Math.min(Math.max(hops, 1), 2);
+    const seeds = [personId];
+    if (clampedHops === 2) {
+      const directCoParties = tuples
+        .filter((t) => t.accusedId === personId || t.victimId === personId)
+        .flatMap((t) => [t.accusedId, t.victimId]);
+      seeds.push(...directCoParties);
+    }
+    return egoNetworkNodesAndEdges(seeds, tuples);
+  }
+
+  if (focus === 'community' && communityId != null) {
+    const persons = aggregateAccused(tuples);
+    const memberIds = Array.from(persons.values())
+      .filter((p) => {
+        const crimeType = CASE_CRIME_TYPES.find((c) => c.crimeSubHeadId === p.crimeSubHeadId)!;
+        return crimeType.crimeHeadId === communityId;
+      })
+      .map((p) => p.personId);
+    const nodes: MockGraphNode[] = memberIds.map((id) => {
+      const person = persons.get(id)!;
+      return { id: String(id), type: 'PERSON', label: person.displayName, confidence: confidenceScoreFor(person.caseIds.length) };
+    });
+    const edges = sharesMoWithEdges(memberIds, tuples);
+    return capSubgraph(nodes, edges);
+  }
+
+  if (focus === 'path' && from != null && to != null) {
+    const path = bfsPersonPath(from, to, maxHops, tuples);
+    if (!path) return capSubgraph([], []);
+    const nodes: MockGraphNode[] = [];
+    const edges: MockGraphEdge[] = [];
+    const seenNodeIds = new Set<string>();
+    function addNode(node: MockGraphNode) {
+      if (seenNodeIds.has(node.id)) return;
+      seenNodeIds.add(node.id);
+      nodes.push(node);
+    }
+    path.forEach((personId2) => {
+      const name = personDisplayName(personId2, tuples)!;
+      addNode({ id: String(personId2), type: 'PERSON', label: name, confidence: confidenceScoreFor(1) });
+    });
+    // A hop can be case-based (a shared tuple, i.e. one is accused and the other
+    // victim of the same case) or MO-based (two accused linked only by
+    // crimeSubHeadId, per personAdjacency's bySubHead links -- a case tuple never
+    // has two accused, so no single tuple can "justify" that kind of hop). Fall
+    // back to each endpoint's own case so the hop still has supporting evidence,
+    // and add SHARES_MO_WITH edges across the whole path to show the MO link.
+    for (let i = 0; i < path.length - 1; i++) {
+      const a = path[i];
+      const b = path[i + 1];
+      const sharedCase = tuples.find((t) => (t.accusedId === a || t.victimId === a) && (t.accusedId === b || t.victimId === b));
+      const justifyingCase = sharedCase ?? tuples.find((t) => t.accusedId === a || t.victimId === a) ?? tuples.find((t) => t.accusedId === b || t.victimId === b);
+      if (!justifyingCase) continue;
+      addNode({ id: `case-${justifyingCase.caseId}`, type: 'CASE', label: justifyingCase.caseNumber, confidence: null });
+      addNode({ id: `location-${justifyingCase.unitId}`, type: 'LOCATION', label: justifyingCase.unitName, confidence: null });
+      if (justifyingCase.accusedId === a || justifyingCase.victimId === a) {
+        edges.push({
+          id: `p-${a}-${justifyingCase.caseId}`,
+          sourceId: String(a),
+          targetId: `case-${justifyingCase.caseId}`,
+          type: justifyingCase.accusedId === a ? 'ACCUSED_IN' : 'VICTIM_IN',
+          confidence: null,
+        });
+      }
+      if (justifyingCase.accusedId === b || justifyingCase.victimId === b) {
+        edges.push({
+          id: `p-${b}-${justifyingCase.caseId}`,
+          sourceId: String(b),
+          targetId: `case-${justifyingCase.caseId}`,
+          type: justifyingCase.accusedId === b ? 'ACCUSED_IN' : 'VICTIM_IN',
+          confidence: null,
+        });
+      }
+      edges.push({ id: `occ-${justifyingCase.caseId}`, sourceId: `case-${justifyingCase.caseId}`, targetId: `location-${justifyingCase.unitId}`, type: 'OCCURRED_AT', confidence: null });
+    }
+    edges.push(...sharesMoWithEdges(path, tuples));
+    return capSubgraph(nodes, edges);
+  }
+
+  const seeds = buildRepeatOffenders(1, limit).map((o) => o.personId);
+  return egoNetworkNodesAndEdges(seeds, tuples);
+}
+
 export async function getMockResponse(
   path: string,
   options: RequestInit,
@@ -567,6 +935,35 @@ export async function getMockResponse(
 
   const caseExplainMatch = path.match(/^\/api\/cases\/(\d+)\/explain$/);
   if (caseExplainMatch) return mockCaseExplanation(Number(caseExplainMatch[1]));
+
+  if (path.startsWith('/api/network/subgraph?')) {
+    const query = new URLSearchParams(path.split('?')[1]);
+    return buildSubgraph(
+      query.get('focus') ?? 'top-offenders',
+      Number(query.get('limit') ?? 10),
+      query.get('personId') ? Number(query.get('personId')) : undefined,
+      Number(query.get('hops') ?? 2),
+      query.get('communityId') ? Number(query.get('communityId')) : undefined,
+      query.get('from') ? Number(query.get('from')) : undefined,
+      query.get('to') ? Number(query.get('to')) : undefined,
+      Number(query.get('maxHops') ?? 6),
+    );
+  }
+
+  if (path.startsWith('/api/network/repeat-offenders?')) {
+    const query = new URLSearchParams(path.split('?')[1]);
+    return buildRepeatOffenders(Number(query.get('minCases') ?? 2), Number(query.get('limit') ?? 10));
+  }
+
+  if (path.startsWith('/api/network/communities?')) {
+    const query = new URLSearchParams(path.split('?')[1]);
+    return buildCommunities(Number(query.get('minSize') ?? 3));
+  }
+
+  if (path.startsWith('/api/network/path?')) {
+    const query = new URLSearchParams(path.split('?')[1]);
+    return buildNetworkPath(Number(query.get('from')), Number(query.get('to')), Number(query.get('maxHops') ?? 6));
+  }
 
   return undefined;
 }

@@ -22,4 +22,26 @@ describe('App', () => {
     render(<App />);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Admin / Audit' })).toBeInTheDocument());
   });
+
+  it('an SCRB_ANALYST can reach /network', async () => {
+    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+      token: 'jwt', roles: ['SCRB_ANALYST'], username: 'demo.analyst', login: vi.fn(), logout: vi.fn(),
+    });
+    window.history.pushState({}, '', '/network');
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Network / Link Analysis' })).toBeInTheDocument());
+  });
+
+  it('a DISTRICT_SUPERVISOR is redirected away from /network (real backend rejects them with 403)', async () => {
+    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+      token: 'jwt', roles: ['DISTRICT_SUPERVISOR'], username: 'demo.district-supervisor', login: vi.fn(), logout: vi.fn(),
+    });
+    window.history.pushState({}, '', '/network');
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Command Center'));
+  });
 });
