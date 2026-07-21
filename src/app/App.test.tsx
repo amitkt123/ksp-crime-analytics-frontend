@@ -44,4 +44,17 @@ describe('App', () => {
 
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Command Center'));
   });
+
+  it('a DISTRICT_SUPERVISOR can reach /sociological', async () => {
+    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+      token: 'jwt', roles: ['DISTRICT_SUPERVISOR'], username: 'demo.district-supervisor', login: vi.fn(), logout: vi.fn(),
+    });
+    window.history.pushState({}, '', '/sociological');
+
+    render(<App />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1, name: 'Sociological & Predictive' })).toBeInTheDocument(),
+    );
+  });
 });

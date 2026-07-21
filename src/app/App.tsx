@@ -10,6 +10,7 @@ import { CommandCenterScreen } from '../screens/command-center/CommandCenterScre
 import { CaseExplorerScreen } from '../screens/case-explorer/CaseExplorerScreen';
 import { CaseDetailScreen } from '../screens/case-explorer/CaseDetailScreen';
 import { NetworkScreen } from '../screens/network/NetworkScreen';
+import { SociologicalScreen } from '../screens/sociological/SociologicalScreen';
 
 const queryClient = new QueryClient();
 
@@ -70,10 +71,7 @@ function AuthenticatedShell() {
           path="/sociological"
           element={
             <ProtectedRoute allowedRoles={['DISTRICT_SUPERVISOR', 'SCRB_ANALYST', 'POLICYMAKER']}>
-              <>
-                <Header title="Sociological & Predictive" />
-                <ScreenPlaceholder title="Sociological & Predictive" />
-              </>
+              <SociologicalScreen />
             </ProtectedRoute>
           }
         />
