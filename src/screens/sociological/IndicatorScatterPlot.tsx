@@ -25,9 +25,9 @@ export function IndicatorScatterPlot({ label, yLabel, points, regression, isStro
       <div className="indicator-scatter-head">
         <span className="indicator-scatter-label">{label}</span>
         <div className="indicator-scatter-badges">
-          {isStrongest && <span className="chip r-badge strongest">Strongest driver</span>}
+          {isStrongest && <span className="chip strongest">Strongest driver</span>}
           {regression ? (
-            <span className="chip r-badge mono">r = {regression.r.toFixed(2)}</span>
+            <span className="chip predicted mono">r = {regression.r.toFixed(2)}</span>
           ) : null}
         </div>
       </div>
