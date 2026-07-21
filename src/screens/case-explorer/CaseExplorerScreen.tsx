@@ -6,15 +6,7 @@ import { useCases, type CaseFilters, type CaseStatus } from '../../api/caseApi';
 import { useStationBoundaries } from '../../api/geoApi';
 import { CaseList } from './CaseList';
 import { CaseHeatmapView } from './CaseHeatmapView';
-
-const CRIME_TYPE_OPTIONS: Array<{ crimeSubHeadId: number; crimeSubHeadName: string }> = [
-  { crimeSubHeadId: 101, crimeSubHeadName: 'Theft of Motor Vehicle' },
-  { crimeSubHeadId: 102, crimeSubHeadName: 'House Break-in' },
-  { crimeSubHeadId: 103, crimeSubHeadName: 'Chain Snatching' },
-  { crimeSubHeadId: 104, crimeSubHeadName: 'Cyber Financial Fraud' },
-  { crimeSubHeadId: 105, crimeSubHeadName: 'Assault' },
-  { crimeSubHeadId: 106, crimeSubHeadName: 'Cattle Theft' },
-];
+import { CRIME_TYPE_OPTIONS } from '../../constants/crimeTypes';
 
 export function CaseExplorerScreen() {
   const { token } = useAuth();
