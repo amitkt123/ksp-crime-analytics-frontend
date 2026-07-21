@@ -17,12 +17,20 @@ const forecasts: PredictiveRiskForecastResponse[] = [
 ];
 
 describe('RiskForecastChart', () => {
-  it('renders every station with its predicted count and backtest error', () => {
+  it('renders a legend for the two bar series', () => {
+    render(<RiskForecastChart forecasts={forecasts} />);
+
+    expect(screen.getByText('Predicted')).toBeInTheDocument();
+    expect(screen.getByText('Backtest actual')).toBeInTheDocument();
+  });
+
+  it('renders every station with its predicted count, backtest-actual count, and error', () => {
     render(<RiskForecastChart forecasts={forecasts} />);
 
     expect(screen.getByText('Halasuru PS')).toBeInTheDocument();
     expect(screen.getByText('Madikeri PS')).toBeInTheDocument();
     expect(screen.getByText('14.2')).toBeInTheDocument();
+    expect(screen.getByText('12.0')).toBeInTheDocument();
     expect(screen.getByText('±1.1')).toBeInTheDocument();
   });
 

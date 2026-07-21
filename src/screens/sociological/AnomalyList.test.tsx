@@ -10,13 +10,26 @@ const anomalies: CaseAnomalyResponse[] = [
     baselineMeanDelayDays: 4.2, zScore: 3.9,
     explanation: 'Registration delay of 19 days is 3.9 standard deviations above the baseline mean of 4.2 days',
   },
+  {
+    caseMasterId: 9002, crimeNo: '103/2026/3/44', registrationDelayDays: 8,
+    baselineMeanDelayDays: 3.1, zScore: 2.3,
+    explanation: 'Registration delay of 8 days is 2.3 standard deviations above the baseline mean of 3.1 days',
+  },
 ];
 
 describe('AnomalyList', () => {
+  it('renders a severity legend for the delay-vs-zscore scatter', () => {
+    render(<AnomalyList anomalies={anomalies} />);
+
+    expect(screen.getByText('Critical')).toBeInTheDocument();
+    expect(screen.getByText('High')).toBeInTheDocument();
+    expect(screen.getByText('Moderate')).toBeInTheDocument();
+  });
+
   it('renders the flagged count and each anomaly', () => {
     render(<AnomalyList anomalies={anomalies} />);
 
-    expect(screen.getByText('1 flagged')).toBeInTheDocument();
+    expect(screen.getByText('2 flagged')).toBeInTheDocument();
     expect(screen.getByText('101/2026/5/12')).toBeInTheDocument();
     expect(screen.getByText('19-day registration delay')).toBeInTheDocument();
   });
@@ -32,9 +45,10 @@ describe('AnomalyList', () => {
     expect(screen.queryByText(anomalies[0].explanation)).not.toBeInTheDocument();
   });
 
-  it('shows a message when there are no anomalies', () => {
+  it('shows a message and no severity legend when there are no anomalies', () => {
     render(<AnomalyList anomalies={[]} />);
 
     expect(screen.getByText('No registration-delay anomalies for this crime type.')).toBeInTheDocument();
+    expect(screen.queryByText('Critical')).not.toBeInTheDocument();
   });
 });
