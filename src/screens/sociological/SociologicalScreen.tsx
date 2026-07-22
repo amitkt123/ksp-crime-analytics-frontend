@@ -3,9 +3,12 @@ import { useAuth } from '../../auth/AuthContext';
 import { Header } from '../../app/Header';
 import { CRIME_TYPE_OPTIONS } from '../../constants/crimeTypes';
 import { useDistrictCorrelation, usePredictiveRisk, useCaseAnomalies } from '../../api/sociologicalApi';
+import { useDistrictBoundaries } from '../../api/geoApi';
 import { CorrelationScatterChart } from './CorrelationScatterChart';
 import { RiskForecastChart } from './RiskForecastChart';
 import { AnomalyList } from './AnomalyList';
+import { IndicatorChoroplethMap, type ChoroplethMode } from './IndicatorChoroplethMap';
+import type { IndicatorKey } from './indicators';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2, CURRENT_YEAR - 3, CURRENT_YEAR - 4];
@@ -14,14 +17,18 @@ export function SociologicalScreen() {
   const { token } = useAuth();
   const [year, setYear] = useState(CURRENT_YEAR);
   const [crimeSubHeadId, setCrimeSubHeadId] = useState<number | ''>('');
+  const [mapMode, setMapMode] = useState<ChoroplethMode>('indicator');
+  const [mapIndicator, setMapIndicator] = useState<IndicatorKey>('literacyRate');
+  const [selectedDistrictId, setSelectedDistrictId] = useState<number | null>(null);
 
   const resolvedCrimeSubHeadId = crimeSubHeadId === '' ? undefined : crimeSubHeadId;
   const correlationQuery = useDistrictCorrelation(token, year);
   const riskQuery = usePredictiveRisk(token, resolvedCrimeSubHeadId);
   const anomaliesQuery = useCaseAnomalies(token, resolvedCrimeSubHeadId);
+  const boundariesQuery = useDistrictBoundaries(token);
 
-  const isLoading = correlationQuery.isLoading || riskQuery.isLoading || anomaliesQuery.isLoading;
-  const isError = correlationQuery.isError || riskQuery.isError || anomaliesQuery.isError;
+  const isLoading = correlationQuery.isLoading || riskQuery.isLoading || anomaliesQuery.isLoading || boundariesQuery.isLoading;
+  const isError = correlationQuery.isError || riskQuery.isError || anomaliesQuery.isError || boundariesQuery.isError;
 
   if (isLoading) {
     return (
@@ -48,6 +55,7 @@ export function SociologicalScreen() {
               correlationQuery.refetch();
               riskQuery.refetch();
               anomaliesQuery.refetch();
+              boundariesQuery.refetch();
             }}
           >
             Retry
@@ -55,6 +63,13 @@ export function SociologicalScreen() {
         </main>
       </>
     );
+  }
+
+  // Sums every matching station's forecast into its district -- the full result set,
+  // not RiskForecastChart's own top-10 slice, so the map reflects every station.
+  const riskByDistrict = new Map<number, number>();
+  for (const forecast of riskQuery.data!) {
+    riskByDistrict.set(forecast.districtId, (riskByDistrict.get(forecast.districtId) ?? 0) + forecast.predictedCount);
   }
 
   return (
@@ -82,7 +97,18 @@ export function SociologicalScreen() {
       </Header>
       <main className="main">
         <section className="pane map-pane" aria-label="Socio-economic correlation">
-          <CorrelationScatterChart districts={correlationQuery.data!} />
+          <IndicatorChoroplethMap
+            boundaries={boundariesQuery.data!}
+            mode={mapMode}
+            onModeChange={setMapMode}
+            indicator={mapIndicator}
+            onIndicatorChange={setMapIndicator}
+            districts={correlationQuery.data!}
+            riskByDistrict={riskByDistrict}
+            selectedDistrictId={selectedDistrictId}
+            onDistrictSelect={setSelectedDistrictId}
+          />
+          <CorrelationScatterChart districts={correlationQuery.data!} highlightedDistrictId={selectedDistrictId} />
         </section>
         <aside className="pane side-pane" aria-label="Predictive risk and case anomalies">
           <RiskForecastChart forecasts={riskQuery.data!} />
