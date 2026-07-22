@@ -47,4 +47,13 @@ describe('ProtectedRoute', () => {
     renderAt('/admin');
     expect(screen.getByText('Admin Screen')).toBeInTheDocument();
   });
+
+  it('renders the children for SUPER_ADMIN even when the role is not in allowedRoles', () => {
+    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+      token: 'jwt', roles: ['SUPER_ADMIN'], username: 'demo.superadmin', login: vi.fn(), logout: vi.fn(),
+    });
+
+    renderAt('/admin');
+    expect(screen.getByText('Admin Screen')).toBeInTheDocument();
+  });
 });
