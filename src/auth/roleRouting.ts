@@ -5,6 +5,7 @@ export const ROLE_DEFAULT_ROUTE: Record<string, string> = {
   SCRB_ANALYST: '/command-center',
   POLICYMAKER: '/command-center',
   ADMIN: '/admin',
+  SUPER_ADMIN: '/command-center',
 };
 
 export function defaultRouteForRoles(roles: string[]): string {
