@@ -136,6 +136,16 @@
 .chip.strongest { background: var(--status-good-fill); color: var(--status-good-ink); }
 .chip.highlighted { background: var(--alert-fill); color: var(--alert); }
 
+/* Deliberately not .map-card/.map-canvas (DistrictMap.tsx's classes) -- those rely on
+   the canvas absolutely filling its card via inset:0, which only works when the canvas
+   is the card's only content. This card also has a header toggle and a legend in normal
+   flow alongside the canvas, so it needs its own non-absolute layout. */
+.choropleth-card { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
+.choropleth-canvas { position: relative; width: 100%; height: 220px; border-radius: 10px; overflow: hidden; }
+.choropleth-legend { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
+.choropleth-legend-ramp { width: 80px; height: 8px; border-radius: 4px; }
+.choropleth-legend-label { margin-left: 4px; }
+
 .breadcrumb-back { border: none; background: none; padding: 0; color: var(--real); font: inherit; cursor: pointer; }
 .breadcrumb-back:hover { text-decoration: underline; }
 .station-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
