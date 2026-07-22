@@ -1,17 +1,7 @@
 import { linearRegression, type RegressionResult } from './linearRegression';
 import { IndicatorScatterPlot, type IndicatorScatterPoint } from './IndicatorScatterPlot';
+import { INDICATOR_OPTIONS, Y_LABEL, type IndicatorKey } from './indicators';
 import type { DistrictCorrelationResponse } from '../../api/sociologicalApi';
-
-type IndicatorKey = 'literacyRate' | 'unemploymentRate' | 'urbanizationRate' | 'perCapitaIncome';
-
-const INDICATOR_OPTIONS: Array<{ key: IndicatorKey; label: string }> = [
-  { key: 'literacyRate', label: 'Literacy rate' },
-  { key: 'unemploymentRate', label: 'Unemployment rate' },
-  { key: 'urbanizationRate', label: 'Urbanization rate' },
-  { key: 'perCapitaIncome', label: 'Per-capita income' },
-];
-
-const Y_LABEL = 'Cases per 100k population';
 
 interface IndicatorPanel {
   key: IndicatorKey;
@@ -22,14 +12,16 @@ interface IndicatorPanel {
 
 interface CorrelationScatterChartProps {
   districts: DistrictCorrelationResponse[];
+  highlightedDistrictId?: number | null;
 }
 
-export function CorrelationScatterChart({ districts }: CorrelationScatterChartProps) {
+export function CorrelationScatterChart({ districts, highlightedDistrictId = null }: CorrelationScatterChartProps) {
   const panels: IndicatorPanel[] = INDICATOR_OPTIONS.map((option) => {
     // Raw caseCount is population-confounded (Bengaluru Urban has more cases than
     // Kodagu mostly because it has more people) -- rate per 100k is the metric that
     // actually answers the challenge's "why behind the where".
     const points: IndicatorScatterPoint[] = districts.map((d) => ({
+      districtId: d.districtId,
       districtName: d.districtName,
       x: d[option.key],
       y: d.population > 0 ? (d.caseCount / d.population) * 100000 : 0,
@@ -59,6 +51,7 @@ export function CorrelationScatterChart({ districts }: CorrelationScatterChartPr
             points={panel.points}
             regression={panel.regression}
             isStrongest={panel.key === strongestKey}
+            highlightedDistrictId={highlightedDistrictId}
           />
         ))}
       </div>

@@ -41,4 +41,16 @@ describe('CorrelationScatterChart', () => {
 
     expect(screen.getByText('Not enough data for a trend line.')).toBeInTheDocument();
   });
+
+  it('passes highlightedDistrictId through to every panel', () => {
+    render(<CorrelationScatterChart districts={districts} highlightedDistrictId={1} />);
+
+    expect(screen.getAllByText('District A')).toHaveLength(4);
+  });
+
+  it('shows no highlight badges when highlightedDistrictId is not provided', () => {
+    render(<CorrelationScatterChart districts={districts} />);
+
+    expect(screen.queryByText('District A')).not.toBeInTheDocument();
+  });
 });
