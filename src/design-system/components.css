@@ -134,6 +134,7 @@
 .indicator-scatter-badges { display: flex; align-items: center; gap: 6px; }
 .indicator-scatter-empty { color: var(--muted); font-size: 12px; padding: 24px 0; text-align: center; }
 .chip.strongest { background: var(--status-good-fill); color: var(--status-good-ink); }
+.chip.highlighted { background: var(--alert-fill); color: var(--alert); }
 
 .breadcrumb-back { border: none; background: none; padding: 0; color: var(--real); font: inherit; cursor: pointer; }
 .breadcrumb-back:hover { text-decoration: underline; }
