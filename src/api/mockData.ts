@@ -5,6 +5,12 @@
 import { STATIONS_BY_DISTRICT } from './generatedStationFixtures';
 import { featureCentroid } from '../screens/command-center/geoBounds';
 import { STATION_CENTROIDS } from './generatedStationCentroids';
+import { CRIME_TYPE_OPTIONS } from '../constants/crimeTypes';
+import type {
+  DistrictCorrelationResponse,
+  PredictiveRiskForecastResponse,
+  CaseAnomalyResponse,
+} from './sociologicalApi';
 
 // districtId assignments here match the ones baked into
 // public/data/karnataka-districts.geojson (alphabetical order) so boundaries and
@@ -889,6 +895,96 @@ function buildSubgraph(focus: string, limit: number, personId: number | undefine
   return egoNetworkNodesAndEdges(seeds, tuples);
 }
 
+// Deterministic (no Math.random) so fixtures are stable across reloads and in tests.
+const MOCK_CORRELATION: DistrictCorrelationResponse[] = MOCK_DISTRICTS.map((d) => ({
+  districtId: d.districtId,
+  districtName: d.districtName,
+  caseCount: d.caseCount,
+  population: 400_000 + d.districtId * 137_000 + (d.districtId % 5) * 50_000,
+  literacyRate: Number((68 + (d.districtId % 11) * 1.8).toFixed(1)),
+  unemploymentRate: Number((2.5 + (d.districtId % 7) * 0.6).toFixed(1)),
+  urbanizationRate: Number((20 + (d.districtId % 9) * 7.5).toFixed(1)),
+  perCapitaIncome: 90_000 + (d.districtId % 13) * 18_000,
+}));
+
+function buildPredictiveRisk(): PredictiveRiskForecastResponse[] {
+  const entries: PredictiveRiskForecastResponse[] = [];
+  const districtIds = [5, 3, 17, 11]; // Bengaluru Urban, Belagavi, Kalaburagi, Dakshina Kannada
+  for (const districtId of districtIds) {
+    const stations = (STATIONS_BY_DISTRICT[districtId] ?? []).slice(0, 3);
+    stations.forEach((station, stationIdx) => {
+      CRIME_TYPE_OPTIONS.slice(0, 2).forEach((crimeType, typeIdx) => {
+        const seed = station.unitId + typeIdx * 7 + stationIdx;
+        const backtestActualCount = 4 + (seed % 9);
+        const backtestPredictedCount = Number((backtestActualCount + (((seed % 5) - 2) * 0.6)).toFixed(1));
+        entries.push({
+          unitId: station.unitId,
+          unitName: station.unitName,
+          districtId,
+          crimeSubHeadId: crimeType.crimeSubHeadId,
+          crimeSubHeadName: crimeType.crimeSubHeadName,
+          predictedCount: Number((backtestActualCount + 1 + (seed % 6) * 0.4).toFixed(1)),
+          backtestActualCount,
+          backtestPredictedCount,
+          backtestAbsoluteError: Number(Math.abs(backtestActualCount - backtestPredictedCount).toFixed(1)),
+        });
+      });
+    });
+  }
+  return entries;
+}
+const MOCK_PREDICTIVE_RISK = buildPredictiveRisk();
+
+function predictiveRisk(crimeSubHeadId: string | null): PredictiveRiskForecastResponse[] {
+  return crimeSubHeadId
+    ? MOCK_PREDICTIVE_RISK.filter((f) => f.crimeSubHeadId === Number(crimeSubHeadId))
+    : MOCK_PREDICTIVE_RISK;
+}
+
+interface MockCaseAnomaly extends CaseAnomalyResponse {
+  crimeSubHeadId: number;
+}
+
+const MOCK_CASE_ANOMALIES: MockCaseAnomaly[] = [
+  {
+    caseMasterId: 90121, crimeNo: '101/2026/5/238', registrationDelayDays: 21, baselineMeanDelayDays: 4.6,
+    zScore: 4.1, crimeSubHeadId: 101,
+    explanation: 'Registration delay of 21 days is 4.1 standard deviations above the baseline mean of 4.6 days',
+  },
+  {
+    caseMasterId: 90144, crimeNo: '102/2026/17/94', registrationDelayDays: 15, baselineMeanDelayDays: 5.1,
+    zScore: 3.2, crimeSubHeadId: 102,
+    explanation: 'Registration delay of 15 days is 3.2 standard deviations above the baseline mean of 5.1 days',
+  },
+  {
+    caseMasterId: 90167, crimeNo: '104/2026/5/311', registrationDelayDays: 12, baselineMeanDelayDays: 3.8,
+    zScore: 2.9, crimeSubHeadId: 104,
+    explanation: 'Registration delay of 12 days is 2.9 standard deviations above the baseline mean of 3.8 days',
+  },
+  {
+    caseMasterId: 90183, crimeNo: '101/2026/11/58', registrationDelayDays: 9, baselineMeanDelayDays: 4.0,
+    zScore: 2.6, crimeSubHeadId: 101,
+    explanation: 'Registration delay of 9 days is 2.6 standard deviations above the baseline mean of 4.0 days',
+  },
+  {
+    caseMasterId: 90205, crimeNo: '103/2026/3/17', registrationDelayDays: 8, baselineMeanDelayDays: 3.5,
+    zScore: 2.3, crimeSubHeadId: 103,
+    explanation: 'Registration delay of 8 days is 2.3 standard deviations above the baseline mean of 3.5 days',
+  },
+  {
+    caseMasterId: 90228, crimeNo: '105/2026/17/72', registrationDelayDays: 7, baselineMeanDelayDays: 3.2,
+    zScore: 2.1, crimeSubHeadId: 105,
+    explanation: 'Registration delay of 7 days is 2.1 standard deviations above the baseline mean of 3.2 days',
+  },
+];
+
+function caseAnomalies(crimeSubHeadId: string | null): CaseAnomalyResponse[] {
+  const filtered = crimeSubHeadId
+    ? MOCK_CASE_ANOMALIES.filter((a) => a.crimeSubHeadId === Number(crimeSubHeadId))
+    : MOCK_CASE_ANOMALIES;
+  return filtered.map(({ crimeSubHeadId: _crimeSubHeadId, ...rest }) => rest);
+}
+
 export async function getMockResponse(
   path: string,
   options: RequestInit,
@@ -901,6 +997,17 @@ export async function getMockResponse(
   if (path === '/api/me') return MOCK_ME_BY_TOKEN[token ?? ''] ?? MOCK_ME;
   if (path === '/api/command-center/summary') return MOCK_SUMMARY;
   if (path === '/api/alerts/emerging') return MOCK_ALERTS;
+  if (path === '/api/sociological/correlation' || path.startsWith('/api/sociological/correlation?')) {
+    return MOCK_CORRELATION;
+  }
+  if (path === '/api/sociological/predictive-risk' || path.startsWith('/api/sociological/predictive-risk?')) {
+    const query = new URLSearchParams(path.split('?')[1] ?? '');
+    return predictiveRisk(query.get('crimeSubHeadId'));
+  }
+  if (path === '/api/sociological/case-anomalies' || path.startsWith('/api/sociological/case-anomalies?')) {
+    const query = new URLSearchParams(path.split('?')[1] ?? '');
+    return caseAnomalies(query.get('crimeSubHeadId'));
+  }
   if (path === '/api/geo/districts') return MOCK_DISTRICTS;
   if (path === '/api/geo/districts/boundaries') return loadBoundaries();
   if (path === '/api/geo/districts/time-of-day') return { buckets: districtTimeOfDayBuckets() };
