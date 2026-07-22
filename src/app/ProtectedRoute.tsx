@@ -14,7 +14,7 @@ export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) 
   if (!token) {
     return <Navigate to="/login" replace />;
   }
-  const isAllowed = roles.some((role) => allowedRoles.includes(role));
+  const isAllowed = roles.includes('SUPER_ADMIN') || roles.some((role) => allowedRoles.includes(role));
   if (!isAllowed) {
     return <Navigate to={defaultRouteForRoles(roles)} replace />;
   }

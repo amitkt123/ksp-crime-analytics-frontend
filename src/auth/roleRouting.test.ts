@@ -17,6 +17,10 @@ describe('defaultRouteForRoles', () => {
     expect(defaultRouteForRoles(['ADMIN'])).toBe('/admin');
   });
 
+  it('routes Super Admin to Command Center', () => {
+    expect(defaultRouteForRoles(['SUPER_ADMIN'])).toBe('/command-center');
+  });
+
   it('falls back to Command Center for an unrecognized or empty role list', () => {
     expect(defaultRouteForRoles([])).toBe('/command-center');
     expect(defaultRouteForRoles(['SOMETHING_UNKNOWN'])).toBe('/command-center');
