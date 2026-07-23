@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '../auth/AuthContext';
 import { LoginScreen } from '../auth/LoginScreen';
+import { ROUTE_ALLOWED_ROLES } from '../auth/roleRouting';
 import { ProtectedRoute } from './ProtectedRoute';
 import { Rail } from './Rail';
 import { Header } from './Header';
@@ -39,7 +40,7 @@ function AuthenticatedShell() {
         <Route
           path="/command-center"
           element={
-            <ProtectedRoute allowedRoles={['DISTRICT_SUPERVISOR', 'SCRB_ANALYST', 'POLICYMAKER']}>
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/command-center']}>
               <CommandCenterScreen />
             </ProtectedRoute>
           }
@@ -47,12 +48,7 @@ function AuthenticatedShell() {
         <Route
           path="/insights"
           element={
-            <ProtectedRoute
-              allowedRoles={[
-                'INVESTIGATOR', 'STATION_SUPERVISOR', 'DISTRICT_SUPERVISOR',
-                'SCRB_ANALYST', 'POLICYMAKER', 'ADMIN', 'SUPER_ADMIN',
-              ]}
-            >
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/insights']}>
               <InsightsScreen />
             </ProtectedRoute>
           }
@@ -60,7 +56,7 @@ function AuthenticatedShell() {
         <Route
           path="/case-explorer"
           element={
-            <ProtectedRoute allowedRoles={['INVESTIGATOR', 'STATION_SUPERVISOR']}>
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/case-explorer']}>
               <CaseExplorerScreen />
             </ProtectedRoute>
           }
@@ -68,7 +64,7 @@ function AuthenticatedShell() {
         <Route
           path="/case-explorer/:caseId"
           element={
-            <ProtectedRoute allowedRoles={['INVESTIGATOR', 'STATION_SUPERVISOR']}>
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/case-explorer']}>
               <CaseDetailScreen />
             </ProtectedRoute>
           }
@@ -76,7 +72,7 @@ function AuthenticatedShell() {
         <Route
           path="/network"
           element={
-            <ProtectedRoute allowedRoles={['SCRB_ANALYST']}>
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/network']}>
               <NetworkScreen />
             </ProtectedRoute>
           }
@@ -84,7 +80,7 @@ function AuthenticatedShell() {
         <Route
           path="/sociological"
           element={
-            <ProtectedRoute allowedRoles={['DISTRICT_SUPERVISOR', 'SCRB_ANALYST', 'POLICYMAKER']}>
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/sociological']}>
               <SociologicalScreen />
             </ProtectedRoute>
           }
@@ -92,7 +88,7 @@ function AuthenticatedShell() {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/admin']}>
               <>
                 <Header title="Admin / Audit" />
                 <ScreenPlaceholder title="Admin / Audit" />

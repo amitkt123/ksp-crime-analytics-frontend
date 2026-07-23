@@ -1,4 +1,6 @@
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
+import { canAccessRoute } from '../auth/roleRouting';
 
 const NAV_ITEMS = [
   { path: '/command-center', label: 'Command Center', icon: GridIcon },
@@ -10,9 +12,12 @@ const NAV_ITEMS = [
 ];
 
 export function Rail() {
+  const { roles } = useAuth();
+  const visibleItems = NAV_ITEMS.filter((item) => canAccessRoute(roles, item.path));
+
   return (
     <nav className="rail" aria-label="Primary">
-      {NAV_ITEMS.map(({ path, label, icon: Icon }) => (
+      {visibleItems.map(({ path, label, icon: Icon }) => (
         <NavLink key={path} to={path} className="rail-item">
           <Icon />
           <span className="rail-tip">{label}</span>
