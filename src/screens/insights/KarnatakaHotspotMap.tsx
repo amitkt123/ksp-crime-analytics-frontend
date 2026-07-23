@@ -66,14 +66,14 @@ export function KarnatakaHotspotMap({ boundaries, points }: KarnatakaHotspotMapP
             ['get', 'crimeHead'],
             ...crimeHeads.flatMap((head, i) => [head, CRIME_HEAD_COLORS[i % CRIME_HEAD_COLORS.length]]),
             '#8493B0',
-          ],
+          ] as never,
           'circle-opacity': 0.65,
           'circle-stroke-width': 1,
           'circle-stroke-color': '#ffffff',
         },
       });
 
-      map.fitBounds(featureCollectionBounds(boundaries), { padding: 30 });
+      map.fitBounds(featureCollectionBounds(boundaries as never), { padding: 30 });
     });
 
     return () => map.remove();
