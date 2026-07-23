@@ -55,20 +55,30 @@ export function SankeyChart({ nodeLabels, links, width = 640, height = 260 }: Sa
         })}
       </g>
       <g>
-        {nodes.map((node, i) => (
-          <g key={node.name}>
-            <rect
-              x={node.x0}
-              y={node.y0}
-              width={(node.x1 ?? 0) - (node.x0 ?? 0)}
-              height={(node.y1 ?? 0) - (node.y0 ?? 0)}
-              fill={NODE_COLORS[i % NODE_COLORS.length]}
-            />
-            <text x={(node.x1 ?? 0) + 6} y={((node.y0 ?? 0) + (node.y1 ?? 0)) / 2} dy="0.35em" fontSize={10.5} fill="var(--text)">
-              {node.name} ({(node.value ?? 0).toLocaleString()})
-            </text>
-          </g>
-        ))}
+        {nodes.map((node, i) => {
+          const isRightEdge = (node.x1 ?? 0) > width - 20;
+          return (
+            <g key={node.name}>
+              <rect
+                x={node.x0}
+                y={node.y0}
+                width={(node.x1 ?? 0) - (node.x0 ?? 0)}
+                height={(node.y1 ?? 0) - (node.y0 ?? 0)}
+                fill={NODE_COLORS[i % NODE_COLORS.length]}
+              />
+              <text
+                x={isRightEdge ? (node.x0 ?? 0) - 6 : (node.x1 ?? 0) + 6}
+                y={((node.y0 ?? 0) + (node.y1 ?? 0)) / 2}
+                dy="0.35em"
+                textAnchor={isRightEdge ? 'end' : 'start'}
+                fontSize={10.5}
+                fill="var(--text)"
+              >
+                {node.name} ({(node.value ?? 0).toLocaleString()})
+              </text>
+            </g>
+          );
+        })}
       </g>
     </svg>
   );
