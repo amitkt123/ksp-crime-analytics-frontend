@@ -58,7 +58,7 @@ describe('App', () => {
     );
   });
 
-  it('an INVESTIGATOR can reach /insights (no role restriction on this route)', async () => {
+  it('an INVESTIGATOR hitting /insights is redirected to /overview (no role restriction on this route)', async () => {
     vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
       token: 'jwt', roles: ['INVESTIGATOR'], username: 'demo.investigator', login: vi.fn(), logout: vi.fn(),
     });
@@ -66,10 +66,10 @@ describe('App', () => {
 
     render(<App />);
 
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument());
   });
 
-  it('a POLICYMAKER can also reach /insights', async () => {
+  it('a POLICYMAKER hitting /insights is also redirected to /overview', async () => {
     vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
       token: 'jwt', roles: ['POLICYMAKER'], username: 'demo.policymaker', login: vi.fn(), logout: vi.fn(),
     });
@@ -77,7 +77,7 @@ describe('App', () => {
 
     render(<App />);
 
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Insights' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument());
   });
 
   it('an unauthenticated user hitting /insights is redirected to login', () => {

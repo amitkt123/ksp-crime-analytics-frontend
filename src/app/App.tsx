@@ -12,7 +12,11 @@ import { CaseExplorerScreen } from '../screens/case-explorer/CaseExplorerScreen'
 import { CaseDetailScreen } from '../screens/case-explorer/CaseDetailScreen';
 import { NetworkScreen } from '../screens/network/NetworkScreen';
 import { SociologicalScreen } from '../screens/sociological/SociologicalScreen';
-import { InsightsScreen } from '../screens/insights/InsightsScreen';
+import { OverviewScreen } from '../screens/insights/OverviewScreen';
+import { CrimeTrendsScreen } from '../screens/insights/CrimeTrendsScreen';
+import { DemographicsScreen } from '../screens/insights/DemographicsScreen';
+import { InvestigationNetworkScreen } from '../screens/insights/InvestigationNetworkScreen';
+import { JudicialUnitsScreen } from '../screens/insights/JudicialUnitsScreen';
 
 const queryClient = new QueryClient();
 
@@ -45,11 +49,44 @@ function AuthenticatedShell() {
             </ProtectedRoute>
           }
         />
+        <Route path="/insights" element={<Navigate to="/overview" replace />} />
         <Route
-          path="/insights"
+          path="/overview"
           element={
-            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/insights']}>
-              <InsightsScreen />
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/overview']}>
+              <OverviewScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/crime-trends"
+          element={
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/crime-trends']}>
+              <CrimeTrendsScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/demographics"
+          element={
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/demographics']}>
+              <DemographicsScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/investigation-network"
+          element={
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/investigation-network']}>
+              <InvestigationNetworkScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/judicial-units"
+          element={
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/judicial-units']}>
+              <JudicialUnitsScreen />
             </ProtectedRoute>
           }
         />
