@@ -53,7 +53,15 @@ export function CrimeTrendsTab() {
         )}
       </InsightCard>
 
-      <InsightCard title="Crime Head Trend by Month" live={false} note="Stacked monthly volume across the top crime heads.">
+      <InsightCard
+        title="Crime Head Trend by Month"
+        live={false}
+        note="Stacked monthly volume across the top crime heads."
+        expand={{
+          columns: ['Month', ...CRIME_HEADS_DEMO],
+          rows: monthlyTrend.map((p) => [p.monthLabel, ...CRIME_HEADS_DEMO.map((h) => p[h] as number)]),
+        }}
+      >
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={monthlyTrend}>
             <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
@@ -79,11 +87,17 @@ export function CrimeTrendsTab() {
         title="Cohort Analysis — Case Closure Velocity"
         live={false}
         note="% of each monthly cohort chargesheeted within N months of registration."
+        expand={{ columns: ['Cohort', 'Lag', '% Chargesheeted'], rows: cohort.map((c) => [c.cohortLabel, c.lagLabel, `${Math.round(c.pct * 100)}%`]) }}
       >
         <HeatmapGrid rows={cohortRows} cols={cohortCols} cells={cohortCells} />
       </InsightCard>
 
-      <InsightCard title="District × Crime Head Hotspot Matrix" live={false} note="Case counts per district per crime head.">
+      <InsightCard
+        title="District × Crime Head Hotspot Matrix"
+        live={false}
+        note="Case counts per district per crime head."
+        expand={{ columns: ['District', 'Crime Head', 'Count'], rows: matrix.map((m) => [m.districtName, m.crimeHead, m.count]) }}
+      >
         <HeatmapGrid rows={matrixRows} cols={matrixCols} cells={matrixCells} />
       </InsightCard>
 
