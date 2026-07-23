@@ -25,17 +25,22 @@ export function DemographicsTab() {
 
   return (
     <div className="insight-grid">
-      <InsightCard title="Victim Gender" live={false}>
+      <InsightCard title="Victim Gender" live={false} expand={{ columns: ['Gender', 'Count'], rows: victimGender.map((g) => [g.gender, g.count]) }}>
         <Donut slices={victimGender.map((g) => ({ label: g.gender, value: g.count }))} />
       </InsightCard>
-      <InsightCard title="Accused Gender" live={false}>
+      <InsightCard title="Accused Gender" live={false} expand={{ columns: ['Gender', 'Count'], rows: accusedGender.map((g) => [g.gender, g.count]) }}>
         <Donut slices={accusedGender.map((g) => ({ label: g.gender, value: g.count }))} />
       </InsightCard>
-      <InsightCard title="Complainant Gender" live={false}>
+      <InsightCard title="Complainant Gender" live={false} expand={{ columns: ['Gender', 'Count'], rows: complainantGender.map((g) => [g.gender, g.count]) }}>
         <Donut slices={complainantGender.map((g) => ({ label: g.gender, value: g.count }))} />
       </InsightCard>
 
-      <InsightCard title="Age Distribution — Victims vs Accused" live={false} note="5-year age bands.">
+      <InsightCard
+        title="Age Distribution — Victims vs Accused"
+        live={false}
+        note="5-year age bands."
+        expand={{ columns: ['Band', 'Victims', 'Accused'], rows: ageDistribution.map((a) => [a.band, a.victims, a.accused]) }}
+      >
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={ageDistribution}>
             <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
@@ -49,13 +54,13 @@ export function DemographicsTab() {
         </ResponsiveContainer>
       </InsightCard>
 
-      <InsightCard title="Complainant Religion" live={false}>
+      <InsightCard title="Complainant Religion" live={false} expand={{ columns: ['Religion', 'Count'], rows: religion.map((r) => [r.label, r.count]) }}>
         <RankedBarList items={religion.map((r) => ({ label: r.label, value: r.count }))} />
       </InsightCard>
-      <InsightCard title="Complainant Caste Category" live={false}>
+      <InsightCard title="Complainant Caste Category" live={false} expand={{ columns: ['Caste', 'Count'], rows: caste.map((c) => [c.label, c.count]) }}>
         <RankedBarList items={caste.map((c) => ({ label: c.label, value: c.count }))} />
       </InsightCard>
-      <InsightCard title="Complainant Occupation" live={false}>
+      <InsightCard title="Complainant Occupation" live={false} expand={{ columns: ['Occupation', 'Count'], rows: occupation.map((o) => [o.label, o.count]) }}>
         <RankedBarList items={occupation.map((o) => ({ label: o.label, value: o.count }))} />
       </InsightCard>
 
