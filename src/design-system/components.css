@@ -382,3 +382,11 @@ table.case-table a:hover { text-decoration: underline; }
 .donut-chart { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .donut-total { font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 700; fill: var(--text); }
 .donut-total-label { font-size: 9px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* ---- Insights screen: heatmap grid (cohort velocity, district x crime-head matrix) ---- */
+.heatmap-grid { display: flex; flex-direction: column; gap: 2px; overflow-x: auto; }
+.heatmap-row { display: flex; gap: 2px; }
+.heatmap-corner { width: 90px; flex-shrink: 0; }
+.heatmap-col-label { width: 56px; flex-shrink: 0; font-size: 9px; color: var(--muted); text-align: center; }
+.heatmap-row-label { width: 90px; flex-shrink: 0; font-size: 10.5px; color: var(--text); display: flex; align-items: center; }
+.heatmap-cell { width: 56px; height: 26px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 9.5px; color: #fff; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; }
