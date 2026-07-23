@@ -32,7 +32,7 @@ describe('CrimeTrendsTab', () => {
 
     render(<CrimeTrendsTab />);
 
-    const card = screen.getByText('Crime Head Distribution').closest('.insight-card')!;
+    const card = screen.getByText('Crime Head Distribution').closest<HTMLElement>('.insight-card')!;
     expect(card.querySelector('.chip.predicted')).toBeNull();
     expect(within(card).getAllByText('Crimes Against Property').length).toBeGreaterThan(0);
   });

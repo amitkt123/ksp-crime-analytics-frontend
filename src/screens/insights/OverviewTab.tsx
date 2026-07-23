@@ -1,7 +1,6 @@
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { useAuth } from '../../auth/AuthContext';
 import { useMe } from '../../api/meApi';
-import { useCommandCenterSummary } from '../../api/commandCenterApi';
 import { useDistrictSummaries } from '../../api/geoApi';
 import { useCases, type CaseSummaryResponse } from '../../api/caseApi';
 import { canShowLiveRecentFirs } from '../../api/insightsApi';
@@ -20,7 +19,6 @@ import { CaseList } from '../case-explorer/CaseList';
 export function OverviewTab() {
   const { token, roles } = useAuth();
   const meQuery = useMe(token);
-  const summaryQuery = useCommandCenterSummary(token);
   const districtSummariesQuery = useDistrictSummaries(token);
 
   const unitId = meQuery.data?.unitId ?? null;
