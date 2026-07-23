@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 
 const NAV_ITEMS = [
   { path: '/command-center', label: 'Command Center' },
+  { path: '/insights', label: 'Insights' },
   { path: '/case-explorer', label: 'Case Explorer' },
   { path: '/network', label: 'Network / Link Analysis' },
   { path: '/sociological', label: 'Sociological & Predictive' },

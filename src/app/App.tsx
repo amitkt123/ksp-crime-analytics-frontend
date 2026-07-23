@@ -11,6 +11,7 @@ import { CaseExplorerScreen } from '../screens/case-explorer/CaseExplorerScreen'
 import { CaseDetailScreen } from '../screens/case-explorer/CaseDetailScreen';
 import { NetworkScreen } from '../screens/network/NetworkScreen';
 import { SociologicalScreen } from '../screens/sociological/SociologicalScreen';
+import { InsightsScreen } from '../screens/insights/InsightsScreen';
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,19 @@ function AuthenticatedShell() {
           element={
             <ProtectedRoute allowedRoles={['DISTRICT_SUPERVISOR', 'SCRB_ANALYST', 'POLICYMAKER']}>
               <CommandCenterScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/insights"
+          element={
+            <ProtectedRoute
+              allowedRoles={[
+                'INVESTIGATOR', 'STATION_SUPERVISOR', 'DISTRICT_SUPERVISOR',
+                'SCRB_ANALYST', 'POLICYMAKER', 'ADMIN', 'SUPER_ADMIN',
+              ]}
+            >
+              <InsightsScreen />
             </ProtectedRoute>
           }
         />

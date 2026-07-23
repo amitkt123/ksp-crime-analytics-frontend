@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { Rail } from './Rail';
 
 describe('Rail', () => {
-  it('renders all 5 screen links with the current one marked active', () => {
+  it('renders all 6 screen links with the current one marked active', () => {
     render(
       <MemoryRouter initialEntries={['/case-explorer']}>
         <Rail />
@@ -12,6 +12,7 @@ describe('Rail', () => {
     );
 
     expect(screen.getByText('Command Center')).toBeInTheDocument();
+    expect(screen.getByText('Insights')).toBeInTheDocument();
     expect(screen.getByText('Case Explorer')).toBeInTheDocument();
     expect(screen.getByText('Network / Link Analysis')).toBeInTheDocument();
     expect(screen.getByText('Sociological & Predictive')).toBeInTheDocument();
