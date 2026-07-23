@@ -29,11 +29,16 @@ export function JudicialUnitsTab() {
 
   return (
     <div className="insight-grid">
-      <InsightCard title="Court-wise Pending Cases" live={false} note="Top 12 courts by pending load.">
+      <InsightCard
+        title="Court-wise Pending Cases"
+        live={false}
+        note="Top 12 courts by pending load."
+        expand={{ columns: ['Court', 'Pending'], rows: courtPending.map((c) => [c.court, c.pending]) }}
+      >
         <RankedBarList items={courtPending.map((c) => ({ label: c.court, value: c.pending }))} />
       </InsightCard>
 
-      <InsightCard title="Final Report Outcome" live={false}>
+      <InsightCard title="Final Report Outcome" live={false} expand={{ columns: ['Outcome', 'Count'], rows: outcome.map((o) => [o.outcome, o.count]) }}>
         <Donut slices={outcome.map((o) => ({ label: o.outcome, value: o.count }))} />
       </InsightCard>
 
@@ -67,7 +72,11 @@ export function JudicialUnitsTab() {
         </div>
       </InsightCard>
 
-      <InsightCard title="Employee Rank Distribution" live={false}>
+      <InsightCard
+        title="Employee Rank Distribution"
+        live={false}
+        expand={{ columns: ['Rank', 'Headcount'], rows: rankDistribution.map((r) => [r.rank, r.headcount]) }}
+      >
         <RankedBarList items={rankDistribution.map((r) => ({ label: r.rank, value: r.headcount }))} />
       </InsightCard>
 
