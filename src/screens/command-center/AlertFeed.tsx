@@ -1,23 +1,21 @@
 import { useState } from 'react';
-import { EvidencePanel, type EvidenceData } from '../../design-system/EvidencePanel';
+import { EvidencePanel } from '../../design-system/EvidencePanel';
 import { alertSeverity, type EmergingAlertResponse } from '../../api/alertsApi';
+import { useAuth } from '../../auth/AuthContext';
+import { useExplainTrendAlert, toEvidenceData } from '../../api/agentApi';
 
 interface AlertFeedProps {
   alerts: EmergingAlertResponse[];
 }
 
 export function AlertFeed({ alerts }: AlertFeedProps) {
+  const { token } = useAuth();
   const [selected, setSelected] = useState<EmergingAlertResponse | null>(null);
+  const explainQuery = useExplainTrendAlert(token, selected?.unitId ?? null, selected?.crimeSubHeadId ?? null, selected != null);
 
-  const evidenceData: EvidenceData | null = selected && {
-    claim: selected.explanation,
-    confidence: Math.min(1, selected.zScore / 5),
-    confidenceLabel: 'Deviation confidence',
-    method: 'Trend & Anomaly Engine · z-score',
-    baseline: '8-week trailing mean',
-    generatedAt: new Date().toLocaleString(),
-    records: [`${selected.unitName} · ${selected.crimeSubHeadName}`],
-  };
+  const evidenceData = selected && explainQuery.data
+    ? toEvidenceData(explainQuery.data, '8-week trailing mean', [`${selected.unitName} · ${selected.crimeSubHeadName}`])
+    : null;
 
   return (
     <>
