@@ -32,11 +32,20 @@ export function InvestigationNetworkTab() {
 
   return (
     <div className="insight-grid">
-      <InsightCard title="Crime Head ↔ Act Linkage" live={false} note="Flow weight = number of act-section associations linking a crime head to a legal act.">
+      <InsightCard
+        title="Crime Head ↔ Act Linkage"
+        live={false}
+        note="Flow weight = number of act-section associations linking a crime head to a legal act."
+        expand={{ columns: ['Linkage', 'Cases'], rows: linkage.map((l) => [l.label, l.count]) }}
+      >
         <ChordDiagram labels={linkageMatrix.labels} matrix={linkageMatrix.matrix} />
       </InsightCard>
 
-      <InsightCard title="Arrests vs Surrenders by Month" live={false}>
+      <InsightCard
+        title="Arrests vs Surrenders by Month"
+        live={false}
+        expand={{ columns: ['Month', 'Arrests', 'Surrenders'], rows: arrestsVsSurrenders.map((a) => [a.monthLabel, a.arrests, a.surrenders]) }}
+      >
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={arrestsVsSurrenders}>
             <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
