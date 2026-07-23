@@ -645,3 +645,34 @@ export function getUnitPerformanceDemo(): UnitPerformanceRow[] {
     { unitName: 'Ballari Town PS', caseCount: 241, pendingSharePct: 26, avgResolutionDays: 43 },
   ];
 }
+
+// ---- Global KPI strip (shown on every page's Header) ----
+
+export interface GlobalKpiStripDemo {
+  totalFirs: number;
+  heinousPct: number;
+  chargesheetRatePct: number;
+  avgDaysToChargesheet: number;
+  pendingInvestigation: number;
+  accusedArrestedPct: number;
+}
+
+// Reuses getCaseJourneyStages()/getGravityMixDemo() for 4 of the 6 numbers so this strip
+// never disagrees with the Overview page's own Case Journey/Gravity cards.
+export function getGlobalKpiStripDemo(): GlobalKpiStripDemo {
+  const journey = getCaseJourneyStages();
+  const gravity = getGravityMixDemo();
+  const totalFirs = journey[0].count;
+  const chargesheeted = journey.find((j) => j.stage === 'Chargesheeted')?.count ?? 0;
+  const pendingInvestigation = journey.find((j) => j.stage === 'Under Investigation')?.count ?? 0;
+  const heinous = gravity.find((g) => g.gravity === 'Heinous')?.count ?? 0;
+  const gravityTotal = gravity.reduce((sum, g) => sum + g.count, 0);
+  return {
+    totalFirs,
+    heinousPct: Math.round((heinous / gravityTotal) * 1000) / 10,
+    chargesheetRatePct: Math.round((chargesheeted / totalFirs) * 1000) / 10,
+    avgDaysToChargesheet: 46,
+    pendingInvestigation,
+    accusedArrestedPct: 61.4,
+  };
+}

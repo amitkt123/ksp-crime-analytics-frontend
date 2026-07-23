@@ -10,7 +10,8 @@
 .pill-nav-item[aria-current="page"] { background: var(--real); color: #ffffff; border-color: var(--real); }
 
 /* ---- header / filter bar ---- */
-.header { grid-area: header; background: linear-gradient(120deg, #0b2340 0%, #123a63 100%); color: #fff; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 18px; padding: 0 20px; min-width: 0; }
+.header { grid-area: header; background: linear-gradient(120deg, #0b2340 0%, #123a63 100%); color: #fff; display: flex; flex-direction: column; min-width: 0; }
+.header-top-row { display: flex; align-items: center; gap: 18px; padding: 0 20px; height: 60px; min-width: 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
 .title-block { display: flex; flex-direction: column; gap: 1px; margin-right: 6px; flex-shrink: 0; }
 .title-block h1 { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px; letter-spacing: -0.01em; margin: 0; }
 .header .title-block h1 { color: #ffffff; }
@@ -19,6 +20,14 @@
 .header .role-chip { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); }
 .header .role-text .name { color: #fff; }
 .header .role-text .rank { color: rgba(255,255,255,0.7); }
+
+.kpi-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; padding: 12px 20px; background: #0e2c50; }
+.kpi { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 9px 12px; color: #fff; min-width: 0; }
+.kpi .val { font-size: 19px; font-weight: 700; line-height: 1.1; font-family: 'Space Grotesk', sans-serif; white-space: nowrap; }
+.kpi .lbl { font-size: 10px; color: #a9bad2; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 1100px) {
+  .kpi-strip { grid-template-columns: repeat(3, 1fr); }
+}
 .filters { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .filters::-webkit-scrollbar { display: none; }
 .filter-field { display: flex; align-items: center; gap: 6px; padding: 7px 11px; background: var(--canvas); border: 1px solid var(--line); border-radius: 7px; font-size: 12.5px; color: var(--text); cursor: pointer; white-space: nowrap; flex-shrink: 0; }
