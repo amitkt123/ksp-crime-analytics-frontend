@@ -6,6 +6,7 @@ import { STATIONS_BY_DISTRICT } from './generatedStationFixtures';
 import { featureCentroid } from '../screens/command-center/geoBounds';
 import { STATION_CENTROIDS } from './generatedStationCentroids';
 import { CRIME_TYPE_OPTIONS } from '../constants/crimeTypes';
+import { formatCrimeNo, CASE_CATEGORY_CODES } from '../utils/crimeNumber';
 import type {
   DistrictCorrelationResponse,
   PredictiveRiskForecastResponse,
@@ -333,6 +334,7 @@ function mockLocation(unitId: number, index: number): { lat: number; lng: number
 // rotates through crime type and status so a station's list isn't visually uniform.
 function mockCaseSummaries(unitId: number, unitName: string) {
   const district = findDistrictName(unitId);
+  const districtId = findStationDistrictId(unitId) ?? 0;
   return Array.from({ length: CASES_PER_STATION }, (_, index) => {
     const crimeType = CASE_CRIME_TYPES[(unitId + index) % CASE_CRIME_TYPES.length];
     const status = CASE_STATUSES[index % CASE_STATUSES.length];
@@ -347,7 +349,7 @@ function mockCaseSummaries(unitId: number, unitName: string) {
       crimeSubHeadName: crimeType.crimeSubHeadName,
       status,
       firDate: offsetDate('2026-06-01', -dayOffset),
-      crimeNumber: `FIR-2026-KA-${String(unitId).padStart(3, '0')}${String(index).padStart(2, '0')}`,
+      crimeNumber: formatCrimeNo(CASE_CATEGORY_CODES.FIR, districtId, unitId, 2026, index + 1),
       station: unitName,
       district,
       gravity,

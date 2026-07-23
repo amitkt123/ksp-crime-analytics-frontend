@@ -24,7 +24,7 @@ const detail: caseApiModule.CaseDetailResponse = {
   crimeSubHeadName: 'Chain Snatching',
   status: 'under_investigation',
   firDate: '2026-05-26',
-  crimeNumber: 'FIR-2026-KA-17600',
+  crimeNumber: '100050176202600001',
   gravity: 'serious',
   narrative: 'Chain Snatching reported to Whitefield PS.',
   parties: [
@@ -94,7 +94,7 @@ describe('CaseDetailScreen', () => {
 
     expect(screen.getAllByText('276/2026').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Under Investigation').length).toBeGreaterThan(0);
-    expect(screen.getByText('FIR-2026-KA-17600')).toBeInTheDocument();
+    expect(screen.getByText('100050176202600001')).toBeInTheDocument();
     expect(screen.getByText('Serious')).toBeInTheDocument();
     expect(screen.getByText('Complainant')).toBeInTheDocument();
     expect(screen.getByText('Victim')).toBeInTheDocument();

@@ -14,7 +14,7 @@ const cases: CaseSummaryResponse[] = [
     crimeSubHeadName: 'Chain Snatching',
     status: 'registered',
     firDate: '2026-05-26',
-    crimeNumber: 'FIR-2026-KA-17600',
+    crimeNumber: '100050176202600001',
     station: 'Whitefield PS',
     district: 'Bengaluru Urban',
     gravity: 'serious',
@@ -30,7 +30,7 @@ describe('CaseList', () => {
     );
 
     const row = screen.getAllByRole('row')[1];
-    expect(within(row).getByText('FIR-2026-KA-17600')).toBeInTheDocument();
+    expect(within(row).getByText('100050176202600001')).toBeInTheDocument();
     expect(within(row).getByText('276/2026')).toBeInTheDocument();
     expect(within(row).getByText('Bengaluru Urban')).toBeInTheDocument();
     expect(within(row).getByText('Chain Snatching')).toBeInTheDocument();

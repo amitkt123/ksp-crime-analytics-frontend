@@ -170,7 +170,7 @@ describe('getMockResponse cases list', () => {
       crimeSubHeadName: 'Chain Snatching',
       status: 'registered',
       firDate: '2026-05-26',
-      crimeNumber: 'FIR-2026-KA-17600',
+      crimeNumber: '100050176202600001',
       station: 'Whitefield PS',
     });
     expect(typeof result[0].district).toBe('string');

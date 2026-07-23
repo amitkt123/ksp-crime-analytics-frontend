@@ -6,6 +6,7 @@
 // just plain data, always on.
 
 import type { CaseSummaryResponse } from './caseApi';
+import { formatCrimeNo, formatCaseNo, CASE_CATEGORY_CODES } from '../utils/crimeNumber';
 
 const MONTH_LABELS = ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
 
@@ -45,15 +46,16 @@ export interface CaseCategorySlice {
   count: number;
 }
 
-// CaseCategory (FIR/UDR/Zero FIR/PAR/NCR) has no backend field anywhere -- distinct from
+// CaseCategory (FIR/UDR/Zero FIR/PAR) has no backend field anywhere -- distinct from
 // commandCenterApi's categoryMix, which is crime-HEAD breakdown, not FIR-type breakdown.
+// Only these four categories are defined in the ER doc's CaseCategory table/CrimeNo
+// convention (docs/Police_FIR_ER_Diagram.md) -- "NCR" isn't a documented category.
 export function getCaseCategoryMixDemo(): CaseCategorySlice[] {
   return [
-    { category: 'FIR', count: 8736 },
+    { category: 'FIR', count: 9360 },
     { category: 'UDR', count: 1248 },
     { category: 'Zero FIR', count: 998 },
     { category: 'PAR', count: 874 },
-    { category: 'NCR', count: 624 },
   ];
 }
 
@@ -69,15 +71,24 @@ export function getGravityMixDemo(): GravitySlice[] {
   ];
 }
 
-const RECENT_FIRS_DEMO_ROWS: Array<[string, string, string, string, string]> = [
-  ['FIR26051201', '202612345', 'Theft of Motor Vehicle', 'Whitefield PS', 'Bengaluru Urban'],
-  ['FIR26051202', '202612346', 'Chain Snatching', 'Koramangala PS', 'Bengaluru Urban'],
-  ['FIR26051203', '202612347', 'Cheating', 'Mysuru Town PS', 'Mysuru'],
-  ['FIR26051204', '202612348', 'Grievous Hurt', 'Belagavi Town PS', 'Belagavi'],
-  ['FIR26051205', '202612349', 'Online Financial Fraud', 'Tumakuru Town PS', 'Tumakuru'],
-  ['FIR26051206', '202612350', 'Burglary', 'Kalaburagi Town PS', 'Kalaburagi'],
-  ['FIR26051207', '202612351', 'Dowry Death', 'Ballari Town PS', 'Ballari'],
-  ['FIR26051208', '202612352', 'NDPS Violations', 'Hubli SubUrban PS', 'Dharwad'],
+interface RecentFirDemoSeed {
+  districtId: number;
+  unitId: number;
+  serial: number;
+  crimeSubHeadName: string;
+  station: string;
+  district: string;
+}
+
+const RECENT_FIRS_DEMO_SEEDS: RecentFirDemoSeed[] = [
+  { districtId: 5, unitId: 176, serial: 12345, crimeSubHeadName: 'Theft of Motor Vehicle', station: 'Whitefield PS', district: 'Bengaluru Urban' },
+  { districtId: 5, unitId: 188, serial: 12346, crimeSubHeadName: 'Chain Snatching', station: 'Koramangala PS', district: 'Bengaluru Urban' },
+  { districtId: 22, unitId: 240, serial: 12347, crimeSubHeadName: 'Cheating', station: 'Mysuru Town PS', district: 'Mysuru' },
+  { districtId: 3, unitId: 310, serial: 12348, crimeSubHeadName: 'Grievous Hurt', station: 'Belagavi Town PS', district: 'Belagavi' },
+  { districtId: 26, unitId: 405, serial: 12349, crimeSubHeadName: 'Online Financial Fraud', station: 'Tumakuru Town PS', district: 'Tumakuru' },
+  { districtId: 17, unitId: 512, serial: 12350, crimeSubHeadName: 'Burglary', station: 'Kalaburagi Town PS', district: 'Kalaburagi' },
+  { districtId: 2, unitId: 330, serial: 12351, crimeSubHeadName: 'Dowry Death', station: 'Ballari Town PS', district: 'Ballari' },
+  { districtId: 13, unitId: 260, serial: 12352, crimeSubHeadName: 'NDPS Violations', station: 'Hubli SubUrban PS', district: 'Dharwad' },
 ];
 
 // Negative caseIds mark these as synthetic -- never a real case-explorer link target. The
@@ -86,18 +97,18 @@ const RECENT_FIRS_DEMO_ROWS: Array<[string, string, string, string, string]> = [
 export function getRecentFirsDemo(): CaseSummaryResponse[] {
   const statuses = ['registered', 'under_investigation', 'closed'] as const;
   const gravities = ['heinous', 'serious', 'minor'] as const;
-  return RECENT_FIRS_DEMO_ROWS.map(([crimeNumber, caseNumber, crimeSubHeadName, station, district], i) => ({
+  return RECENT_FIRS_DEMO_SEEDS.map((seed, i) => ({
     caseId: -1000 - i,
-    caseNumber,
+    caseNumber: formatCaseNo(2026, seed.serial),
     unitId: -1,
-    unitName: station,
+    unitName: seed.station,
     crimeSubHeadId: -1,
-    crimeSubHeadName,
+    crimeSubHeadName: seed.crimeSubHeadName,
     status: statuses[i % statuses.length],
     firDate: `2026-0${(i % 9) + 1}-1${i % 9}`,
-    crimeNumber,
-    station,
-    district,
+    crimeNumber: formatCrimeNo(CASE_CATEGORY_CODES.FIR, seed.districtId, seed.unitId, 2026, seed.serial),
+    station: seed.station,
+    district: seed.district,
     gravity: gravities[i % gravities.length],
   }));
 }
