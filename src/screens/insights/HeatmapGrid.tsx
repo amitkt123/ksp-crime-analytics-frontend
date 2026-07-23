@@ -11,9 +11,9 @@ interface HeatmapGridProps {
   cells: HeatmapCell[];
 }
 
-// Fixed rgba over the dark-theme --real hex (57,135,229) -- acceptable since this app is
-// dark-theme-only by design (see the approved spec's "Dark theme only" decision), so there's no
-// light-theme variant of this color to keep in sync.
+// Fixed rgba over the light-theme --real hex (18,58,99 = navy #123a63). Kept as a literal
+// rather than var(--real) because CSS custom properties can't be used inside an rgba()
+// alpha channel computation here; must be kept in sync if --real's hex changes.
 export function HeatmapGrid({ rows, cols, cells }: HeatmapGridProps) {
   const lookup = new Map(cells.map((c) => [`${c.row}|${c.col}`, c]));
 
@@ -40,7 +40,7 @@ export function HeatmapGrid({ rows, cols, cells }: HeatmapGridProps) {
                 key={col}
                 className="heatmap-cell"
                 role="cell"
-                style={{ background: `rgba(57, 135, 229, ${intensity})` }}
+                style={{ background: `rgba(18, 58, 99, ${intensity})` }}
               >
                 {cell?.display ?? '—'}
               </div>
