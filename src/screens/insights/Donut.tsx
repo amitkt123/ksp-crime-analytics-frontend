@@ -5,15 +5,17 @@ export interface DonutSlice {
 
 interface DonutProps {
   slices: DonutSlice[];
+  colorForLabel?: (label: string) => string | undefined;
 }
 
 const SLOT_COLORS = ['var(--cat-1)', 'var(--cat-2)', 'var(--cat-3)', 'var(--cat-4)', 'var(--cat-5)', 'var(--muted-2)'];
 const RADIUS = 60;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-export function Donut({ slices }: DonutProps) {
+export function Donut({ slices, colorForLabel }: DonutProps) {
   const total = slices.reduce((sum, s) => sum + s.value, 0);
   let cumulative = 0;
+  const colorOf = (label: string, i: number) => colorForLabel?.(label) ?? SLOT_COLORS[i % SLOT_COLORS.length];
 
   return (
     <div className="donut-chart">
@@ -30,7 +32,7 @@ export function Donut({ slices }: DonutProps) {
                 key={slice.label}
                 r={RADIUS}
                 fill="none"
-                stroke={SLOT_COLORS[i % SLOT_COLORS.length]}
+                stroke={colorOf(slice.label, i)}
                 strokeWidth={24}
                 strokeDasharray={`${dash} ${gap}`}
                 strokeDashoffset={offset}
@@ -48,7 +50,7 @@ export function Donut({ slices }: DonutProps) {
       <div className="cat-legend">
         {slices.map((slice, i) => (
           <span key={slice.label} className="cat-legend-item">
-            <span className="cat-swatch" style={{ background: SLOT_COLORS[i % SLOT_COLORS.length] }} />
+            <span className="cat-swatch" style={{ background: colorOf(slice.label, i) }} />
             {slice.label} ({total === 0 ? 0 : Math.round((slice.value / total) * 100)}%)
           </span>
         ))}

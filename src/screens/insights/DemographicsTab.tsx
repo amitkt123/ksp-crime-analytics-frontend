@@ -13,6 +13,10 @@ import { InsightCard } from './InsightCard';
 import { Donut } from './Donut';
 import { RankedBarList } from './RankedBarList';
 
+function genderColor(label: string): string | undefined {
+  return label === 'Female' ? '#e8608f' : undefined;
+}
+
 export function DemographicsTab() {
   const victimGender = getVictimGenderDemo();
   const accusedGender = getAccusedGenderDemo();
@@ -26,13 +30,13 @@ export function DemographicsTab() {
   return (
     <div className="insight-grid">
       <InsightCard title="Victim Gender" live={false} expand={{ columns: ['Gender', 'Count'], rows: victimGender.map((g) => [g.gender, g.count]) }}>
-        <Donut slices={victimGender.map((g) => ({ label: g.gender, value: g.count }))} />
+        <Donut slices={victimGender.map((g) => ({ label: g.gender, value: g.count }))} colorForLabel={genderColor} />
       </InsightCard>
       <InsightCard title="Accused Gender" live={false} expand={{ columns: ['Gender', 'Count'], rows: accusedGender.map((g) => [g.gender, g.count]) }}>
-        <Donut slices={accusedGender.map((g) => ({ label: g.gender, value: g.count }))} />
+        <Donut slices={accusedGender.map((g) => ({ label: g.gender, value: g.count }))} colorForLabel={genderColor} />
       </InsightCard>
       <InsightCard title="Complainant Gender" live={false} expand={{ columns: ['Gender', 'Count'], rows: complainantGender.map((g) => [g.gender, g.count]) }}>
-        <Donut slices={complainantGender.map((g) => ({ label: g.gender, value: g.count }))} />
+        <Donut slices={complainantGender.map((g) => ({ label: g.gender, value: g.count }))} colorForLabel={genderColor} />
       </InsightCard>
 
       <InsightCard

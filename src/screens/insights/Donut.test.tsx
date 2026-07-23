@@ -14,4 +14,15 @@ describe('Donut', () => {
     render(<Donut slices={[{ label: 'Empty', value: 0 }]} />);
     expect(screen.getByText(/Empty \(0%\)/)).toBeInTheDocument();
   });
+
+  it('uses colorForLabel to override a specific slice color when provided', () => {
+    const { container } = render(
+      <Donut
+        slices={[{ label: 'Male', value: 60 }, { label: 'Female', value: 40 }]}
+        colorForLabel={(label) => (label === 'Female' ? '#e8608f' : undefined)}
+      />,
+    );
+    const circles = container.querySelectorAll('circle');
+    expect(circles[1]).toHaveAttribute('stroke', '#e8608f');
+  });
 });
