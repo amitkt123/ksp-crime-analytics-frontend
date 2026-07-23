@@ -65,10 +65,8 @@ export interface CaseFilters {
   q?: string;
 }
 
-// GET /api/cases/:caseId/explain -- not implemented by any real backend yet; see
-// docs/superpowers/specs/2026-07-18-case-explorer-extensions-design.md for the
-// contract a real Insight & Explanation Agent should fulfil. Mocked in
-// mockData.ts in the meantime, same convention as every other endpoint here.
+// GET /api/cases/:caseId/explain -- backed by AgentExplainService.explainCase
+// (Phase 5 completion), same convention as every other real endpoint here.
 export interface CaseExplanationResponse {
   claim: string;
   confidence: number;
