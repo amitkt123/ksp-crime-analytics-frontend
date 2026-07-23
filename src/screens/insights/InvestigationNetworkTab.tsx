@@ -6,12 +6,14 @@ import {
   getRepeatOffendersDemo,
   getFirstTimeVsRepeatDemo,
   getCrimeHeadActLinkageDemo,
+  getCrimeHeadActMatrixDemo,
   getArrestsVsSurrendersDemo,
   getIoLeaderboardDemo,
 } from '../../api/demoAnalyticsData';
 import { InsightCard } from './InsightCard';
 import { Donut } from './Donut';
 import { RankedBarList } from './RankedBarList';
+import { ChordDiagram } from './ChordDiagram';
 
 export function InvestigationNetworkTab() {
   const { token, roles } = useAuth();
@@ -20,6 +22,7 @@ export function InvestigationNetworkTab() {
   const sampleOffendersQuery = useRepeatOffenders(token, 1, 500);
 
   const linkage = getCrimeHeadActLinkageDemo();
+  const linkageMatrix = getCrimeHeadActMatrixDemo();
   const arrestsVsSurrenders = getArrestsVsSurrendersDemo();
   const ioLeaderboard = getIoLeaderboardDemo();
   const demoRepeatOffenders = getRepeatOffendersDemo();
@@ -29,8 +32,8 @@ export function InvestigationNetworkTab() {
 
   return (
     <div className="insight-grid">
-      <InsightCard title="Crime Head ↔ Act Linkage" live={false} note="Rendered as ranked linkage bars, not a chord diagram.">
-        <RankedBarList items={linkage.map((l) => ({ label: l.label, value: l.count }))} />
+      <InsightCard title="Crime Head ↔ Act Linkage" live={false} note="Flow weight = number of act-section associations linking a crime head to a legal act.">
+        <ChordDiagram labels={linkageMatrix.labels} matrix={linkageMatrix.matrix} />
       </InsightCard>
 
       <InsightCard title="Arrests vs Surrenders by Month" live={false}>

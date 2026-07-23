@@ -403,6 +403,36 @@ export function getCrimeHeadActLinkageDemo(): LinkageBar[] {
   ];
 }
 
+export interface CrimeHeadActMatrix {
+  labels: string[];
+  matrix: number[][];
+}
+
+// Derives a symmetric bipartite matrix (crime heads x acts) from the same edge list
+// getCrimeHeadActLinkageDemo() already returns, so the chord diagram and the ranked-bar
+// fallback never disagree on the underlying counts.
+export function getCrimeHeadActMatrixDemo(): CrimeHeadActMatrix {
+  const linkage = getCrimeHeadActLinkageDemo();
+  const heads: string[] = [];
+  const acts: string[] = [];
+  const edges: Array<[string, string, number]> = [];
+  linkage.forEach(({ label, count }) => {
+    const [head, act] = label.split(' → ');
+    if (!heads.includes(head)) heads.push(head);
+    if (!acts.includes(act)) acts.push(act);
+    edges.push([head, act, count]);
+  });
+  const labels = [...heads, ...acts];
+  const matrix: number[][] = Array.from({ length: labels.length }, () => Array(labels.length).fill(0));
+  edges.forEach(([head, act, count]) => {
+    const hi = labels.indexOf(head);
+    const ai = labels.indexOf(act);
+    matrix[hi][ai] = count;
+    matrix[ai][hi] = count;
+  });
+  return { labels, matrix };
+}
+
 export interface ArrestSurrenderPoint {
   monthLabel: string;
   arrests: number;
