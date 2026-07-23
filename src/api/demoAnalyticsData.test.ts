@@ -10,6 +10,14 @@ import {
   getDistrictCrimeHeadMatrix,
   getIncidentHotspotsDemo,
   CRIME_HEADS_DEMO,
+  getVictimGenderDemo,
+  getAccusedGenderDemo,
+  getComplainantGenderDemo,
+  getAgeDistributionDemo,
+  getReligionDemo,
+  getCasteDemo,
+  getOccupationDemo,
+  getVictimGenderByCrimeHeadDemo,
 } from './demoAnalyticsData';
 
 describe('demoAnalyticsData: Overview + Crime Trends', () => {
@@ -83,6 +91,41 @@ describe('demoAnalyticsData: Overview + Crime Trends', () => {
       expect(p.lat).toBeLessThan(19);
       expect(p.lon).toBeGreaterThan(73);
       expect(p.lon).toBeLessThan(79);
+    });
+  });
+});
+
+describe('demoAnalyticsData: Demographics', () => {
+  it('all three gender donuts have exactly Male/Female/Third Gender slices with positive counts', () => {
+    [getVictimGenderDemo(), getAccusedGenderDemo(), getComplainantGenderDemo()].forEach((slices) => {
+      expect(slices.map((s) => s.gender).sort()).toEqual(['Female', 'Male', 'Third Gender'].sort());
+      slices.forEach((s) => expect(s.count).toBeGreaterThan(0));
+    });
+  });
+
+  it('getAgeDistributionDemo covers 16 five-year bands from 0-4 to 75+ with a single peak', () => {
+    const bands = getAgeDistributionDemo();
+    expect(bands).toHaveLength(16);
+    expect(bands[0].band).toBe('0-4');
+    expect(bands[bands.length - 1].band).toBe('75+');
+    const peakIndex = bands.reduce((best, b, i) => (b.victims > bands[best].victims ? i : best), 0);
+    expect(peakIndex).toBeGreaterThan(0);
+    expect(peakIndex).toBeLessThan(bands.length - 1);
+  });
+
+  it('religion, caste, and occupation demo bars each have positive counts and unique labels', () => {
+    [getReligionDemo(), getCasteDemo(), getOccupationDemo()].forEach((rows) => {
+      const labels = rows.map((r) => r.label);
+      expect(new Set(labels).size).toBe(labels.length);
+      rows.forEach((r) => expect(r.count).toBeGreaterThan(0));
+    });
+  });
+
+  it('getVictimGenderByCrimeHeadDemo has one row per demo crime head, percentages summing to ~100', () => {
+    const rows = getVictimGenderByCrimeHeadDemo();
+    expect(rows).toHaveLength(5);
+    rows.forEach((row) => {
+      expect(row.malePct + row.femalePct + row.thirdGenderPct).toBe(100);
     });
   });
 });

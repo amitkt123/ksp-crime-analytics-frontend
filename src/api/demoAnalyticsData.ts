@@ -218,3 +218,114 @@ export function getIncidentHotspotsDemo(): DemoHotspotPoint[] {
   });
   return points;
 }
+
+// ---- Demographics ----
+
+export interface GenderSlice {
+  gender: string;
+  count: number;
+}
+
+export function getVictimGenderDemo(): GenderSlice[] {
+  return [
+    { gender: 'Male', count: 5310 },
+    { gender: 'Female', count: 6890 },
+    { gender: 'Third Gender', count: 280 },
+  ];
+}
+
+export function getAccusedGenderDemo(): GenderSlice[] {
+  return [
+    { gender: 'Male', count: 10820 },
+    { gender: 'Female', count: 1520 },
+    { gender: 'Third Gender', count: 140 },
+  ];
+}
+
+export function getComplainantGenderDemo(): GenderSlice[] {
+  return [
+    { gender: 'Male', count: 7240 },
+    { gender: 'Female', count: 5100 },
+    { gender: 'Third Gender', count: 140 },
+  ];
+}
+
+export interface AgeBandCount {
+  band: string;
+  victims: number;
+  accused: number;
+}
+
+const AGE_BANDS = [
+  '0-4', '5-9', '10-14', '15-19', '20-24', '25-29', '30-34', '35-39',
+  '40-44', '45-49', '50-54', '55-59', '60-64', '65-69', '70-74', '75+',
+];
+
+export function getAgeDistributionDemo(): AgeBandCount[] {
+  const peakIndex = 6; // 30-34 band
+  return AGE_BANDS.map((band, i) => {
+    const distance = Math.abs(i - peakIndex);
+    return {
+      band,
+      victims: Math.max(20, Math.round(620 - distance * distance * 9)),
+      accused: Math.max(15, Math.round(540 - distance * distance * 8)),
+    };
+  });
+}
+
+export interface LabeledCount {
+  label: string;
+  count: number;
+}
+
+export function getReligionDemo(): LabeledCount[] {
+  return [
+    { label: 'Hindu', count: 8985 },
+    { label: 'Muslim', count: 1872 },
+    { label: 'Christian', count: 874 },
+    { label: 'Jain', count: 250 },
+    { label: 'Sikh', count: 125 },
+    { label: 'Buddhist', count: 250 },
+    { label: 'Other', count: 124 },
+  ];
+}
+
+export function getCasteDemo(): LabeledCount[] {
+  return [
+    { label: 'General', count: 2746 },
+    { label: 'OBC', count: 4742 },
+    { label: 'SC', count: 2496 },
+    { label: 'ST', count: 1498 },
+    { label: 'Other', count: 998 },
+  ];
+}
+
+export function getOccupationDemo(): LabeledCount[] {
+  return [
+    { label: 'Farmer', count: 2246 },
+    { label: 'Govt Employee', count: 1248 },
+    { label: 'Private Employee', count: 2496 },
+    { label: 'Business', count: 1872 },
+    { label: 'Student', count: 1498 },
+    { label: 'Daily Wage Labour', count: 1747 },
+    { label: 'Homemaker', count: 998 },
+    { label: 'Unemployed', count: 375 },
+  ];
+}
+
+export interface GenderCrimeHeadCrossTab {
+  crimeHead: string;
+  malePct: number;
+  femalePct: number;
+  thirdGenderPct: number;
+}
+
+export function getVictimGenderByCrimeHeadDemo(): GenderCrimeHeadCrossTab[] {
+  return [
+    { crimeHead: 'Crimes Against Body', malePct: 62, femalePct: 36, thirdGenderPct: 2 },
+    { crimeHead: 'Crimes Against Property', malePct: 58, femalePct: 40, thirdGenderPct: 2 },
+    { crimeHead: 'Crimes Against Women', malePct: 3, femalePct: 96, thirdGenderPct: 1 },
+    { crimeHead: 'Economic Offences', malePct: 54, femalePct: 44, thirdGenderPct: 2 },
+    { crimeHead: 'Cyber Crimes', malePct: 49, femalePct: 49, thirdGenderPct: 2 },
+  ];
+}
