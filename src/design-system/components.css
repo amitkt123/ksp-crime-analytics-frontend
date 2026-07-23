@@ -379,6 +379,11 @@ table.case-table a:hover { text-decoration: underline; }
 
 /* ---- Insights screen: shared card + donut primitives ---- */
 .insight-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+.insight-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.insight-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+@media (max-width: 900px) {
+  .insight-grid-2, .insight-grid-3 { grid-template-columns: 1fr; }
+}
 .insight-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .insight-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .insight-card-head h3 { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; margin: 0; }
