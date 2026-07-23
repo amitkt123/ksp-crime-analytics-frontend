@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { UseQueryResult } from '@tanstack/react-query';
 import * as AuthContextModule from '../../auth/AuthContext';
@@ -91,7 +91,8 @@ describe('NetworkScreen', () => {
     mockNetworkQueries();
 
     render(<NetworkScreen />);
-    await userEvent.click(await screen.findByText('Suresh Naik'));
+    const offenderRail = await screen.findByRole('complementary');
+    await userEvent.click(await within(offenderRail).findByText('Suresh Naik'));
 
     expect(await screen.findByRole('dialog', { name: 'Evidence panel' })).toBeInTheDocument();
     await waitFor(() => expect(networkApiModule.useSubgraph).toHaveBeenLastCalledWith('jwt', { focus: 'person', personId: 5001, hops: 2 }));

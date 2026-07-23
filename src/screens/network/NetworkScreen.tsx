@@ -177,7 +177,7 @@ export function NetworkScreen() {
           communityByLabel={communityByLabel}
           pathEndpointIds={pathEndpoints.map(String)}
           pathMemberIds={(pathQuery.data?.personIds ?? []).map(String)}
-          onPersonClick={handlePersonClick}
+          onNodeClick={(node) => handlePersonClick(personIdOfNode(node))}
         />
         <PathFindingBar
           pathMode={pathMode}
