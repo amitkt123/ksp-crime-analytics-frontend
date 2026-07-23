@@ -2,14 +2,19 @@ import { describe, it, expect } from 'vitest';
 import { computeForceLayout } from './networkLayout';
 import type { GraphNodeResponse, GraphEdgeResponse } from '../../api/networkApi';
 
+const NULL_DETAIL_FIELDS = {
+  crimeNo: null, caseNo: null, crimeRegisteredDate: null, gravityWeight: null, moKeywordTags: null,
+  locationKey: null, latitude: null, longitude: null,
+} as const;
+
 const nodes: GraphNodeResponse[] = [
-  { id: '1', type: 'PERSON', label: 'Suresh Naik', confidence: 0.8 },
-  { id: '2', type: 'PERSON', label: 'Vijay Kumar', confidence: 0.7 },
-  { id: 'case-1', type: 'CASE', label: '276/2026', confidence: null },
+  { id: '1', type: 'PERSON', label: 'Suresh Naik', confidence: 0.8, ...NULL_DETAIL_FIELDS },
+  { id: '2', type: 'PERSON', label: 'Vijay Kumar', confidence: 0.7, ...NULL_DETAIL_FIELDS },
+  { id: 'case-1', type: 'CASE', label: '276/2026', confidence: null, ...NULL_DETAIL_FIELDS },
 ];
 const edges: GraphEdgeResponse[] = [
-  { id: 'e1', sourceId: '1', targetId: 'case-1', type: 'ACCUSED_IN', confidence: null },
-  { id: 'e2', sourceId: '2', targetId: 'case-1', type: 'VICTIM_IN', confidence: null },
+  { id: 'e1', sourceId: '1', targetId: 'case-1', type: 'ACCUSED_IN', confidence: null, sharedCaseLabel: null },
+  { id: 'e2', sourceId: '2', targetId: 'case-1', type: 'VICTIM_IN', confidence: null, sharedCaseLabel: null },
 ];
 
 describe('computeForceLayout', () => {
@@ -36,7 +41,7 @@ describe('computeForceLayout', () => {
   });
 
   it('ignores an edge referencing a node not in the node list', () => {
-    const edgesWithDangling: GraphEdgeResponse[] = [...edges, { id: 'e3', sourceId: '1', targetId: 'ghost', type: 'ACCUSED_IN', confidence: null }];
+    const edgesWithDangling: GraphEdgeResponse[] = [...edges, { id: 'e3', sourceId: '1', targetId: 'ghost', type: 'ACCUSED_IN', confidence: null, sharedCaseLabel: null }];
     expect(() => computeForceLayout(nodes, edgesWithDangling)).not.toThrow();
   });
 });
