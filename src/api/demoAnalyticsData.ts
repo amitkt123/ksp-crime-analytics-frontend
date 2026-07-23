@@ -560,25 +560,41 @@ export interface UnitCaseLoad {
   caseCount: number;
 }
 
-const DISTRICT_UNITS_DEMO: Record<string, string[]> = {
-  'Bengaluru Urban': ['Whitefield PS', 'Koramangala PS', 'Yeshwanthpur PS', 'Electronic City PS'],
-  Mysuru: ['Mysuru Town PS', 'Mysuru Rural PS', 'Nazarbad PS'],
-  Tumakuru: ['Tumakuru Town PS', 'Tumakuru Rural PS', 'Tumakuru Circle Office'],
-  Belagavi: ['Belagavi Town PS', 'Belagavi Rural PS', 'Belagavi Circle Office'],
-  Kalaburagi: ['Kalaburagi Town PS', 'Kalaburagi Rural PS'],
-};
+const ALL_DISTRICT_NAMES_DEMO = [
+  'Bagalkote', 'Ballari', 'Belagavi', 'Bengaluru Rural', 'Bengaluru Urban', 'Bidar',
+  'Chamarajanagara', 'Chikkaballapura', 'Chikkamagaluru', 'Chitradurga', 'Dakshina Kannada',
+  'Davanagere', 'Dharwad', 'Gadag', 'Hassan', 'Haveri', 'Kalaburagi', 'Kodagu', 'Kolar',
+  'Koppal', 'Mandya', 'Mysuru', 'Raichur', 'Ramanagara', 'Shivamogga', 'Tumakuru', 'Udupi',
+  'Uttara Kannada', 'Vijayapura', 'Yadgir',
+];
 
 const DISTRICT_WEIGHTS_DEMO: Record<string, number> = {
-  'Bengaluru Urban': 1840,
-  Mysuru: 687,
-  Tumakuru: 678,
-  Belagavi: 586,
-  Kalaburagi: 526,
+  Bagalkote: 89, Ballari: 350, Belagavi: 586, 'Bengaluru Rural': 107, 'Bengaluru Urban': 1840,
+  Bidar: 282, Chamarajanagara: 349, Chikkaballapura: 187, Chikkamagaluru: 80, Chitradurga: 289,
+  'Dakshina Kannada': 396, Davanagere: 327, Dharwad: 293, Gadag: 182, Hassan: 422, Haveri: 449,
+  Kalaburagi: 526, Kodagu: 265, Kolar: 253, Koppal: 127, Mandya: 288, Mysuru: 687, Raichur: 269,
+  Ramanagara: 458, Shivamogga: 406, Tumakuru: 678, Udupi: 401, 'Uttara Kannada': 185,
+  Vijayapura: 451, Yadgir: 268,
 };
+
+// Unit names for the 25 districts beyond the original 5 curated ones are generated
+// formulaically ("{District} Town/Rural PS") rather than hand-invented, matching the
+// same synthetic-station-naming convention the reference prototype's own generator uses.
+function districtUnitNames(districtName: string): string[] {
+  const curated: Record<string, string[]> = {
+    'Bengaluru Urban': ['Whitefield PS', 'Koramangala PS', 'Yeshwanthpur PS', 'Electronic City PS'],
+    Mysuru: ['Mysuru Town PS', 'Mysuru Rural PS', 'Nazarbad PS'],
+    Tumakuru: ['Tumakuru Town PS', 'Tumakuru Rural PS', 'Tumakuru Circle Office'],
+    Belagavi: ['Belagavi Town PS', 'Belagavi Rural PS', 'Belagavi Circle Office'],
+    Kalaburagi: ['Kalaburagi Town PS', 'Kalaburagi Rural PS'],
+  };
+  return curated[districtName] ?? [`${districtName} Town PS`, `${districtName} Rural PS`];
+}
 
 export function getDistrictUnitCaseLoadDemo(): UnitCaseLoad[] {
   const rows: UnitCaseLoad[] = [];
-  Object.entries(DISTRICT_UNITS_DEMO).forEach(([districtName, units]) => {
+  ALL_DISTRICT_NAMES_DEMO.forEach((districtName) => {
+    const units = districtUnitNames(districtName);
     const share = Math.round(DISTRICT_WEIGHTS_DEMO[districtName] / units.length);
     units.forEach((unitName, i) => {
       rows.push({ districtName, unitName, caseCount: Math.max(20, share - i * Math.round(share * 0.12)) });
