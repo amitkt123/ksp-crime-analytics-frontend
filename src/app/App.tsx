@@ -4,7 +4,7 @@ import { AuthProvider } from '../auth/AuthContext';
 import { LoginScreen } from '../auth/LoginScreen';
 import { ROUTE_ALLOWED_ROLES } from '../auth/roleRouting';
 import { ProtectedRoute } from './ProtectedRoute';
-import { Rail } from './Rail';
+import { TopNavPills } from './TopNavPills';
 import { Header } from './Header';
 import { ScreenPlaceholder } from './ScreenPlaceholder';
 import { CommandCenterScreen } from '../screens/command-center/CommandCenterScreen';
@@ -38,7 +38,7 @@ export function App() {
 function AuthenticatedShell() {
   return (
     <div className="shell">
-      <Rail />
+      <TopNavPills />
       <Routes>
         <Route path="/" element={<Navigate to="/command-center" replace />} />
         <Route
