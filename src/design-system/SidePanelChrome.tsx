@@ -26,6 +26,7 @@ export function SidePanelChrome({ open, onClose, title, className, children }: S
       <aside className={`evidence open${className ? ` ${className}` : ''}`} role="dialog" aria-label={title} aria-modal="true">
         <div className="evidence-head">
           <h3>{title}</h3>
+          {/* Derived from title, not hardcoded: consumers' tests assert accessible name via `Close ${title}` (e.g. "Close Evidence panel") — decoupling this would silently break those assertions. */}
           <button className="evidence-close" aria-label={`Close ${title}`} onClick={onClose}>
             ×
           </button>
