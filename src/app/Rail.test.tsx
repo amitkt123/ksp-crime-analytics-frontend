@@ -21,4 +21,18 @@ describe('Rail', () => {
     const caseExplorerLink = screen.getByRole('link', { name: 'Case Explorer' });
     expect(caseExplorerLink).toHaveAttribute('aria-current', 'page');
   });
+
+  it('renders every nav item with both an icon and visible label text', () => {
+    render(
+      <MemoryRouter>
+        <Rail />
+      </MemoryRouter>,
+    );
+    const labels = ['Command Center', 'Insights', 'Case Explorer', 'Network / Link Analysis', 'Sociological & Predictive', 'Admin / Audit'];
+    labels.forEach((label) => {
+      const link = screen.getByText(label).closest('a')!;
+      expect(link).toBeInTheDocument();
+      expect(link.querySelector('svg')).not.toBeNull();
+    });
+  });
 });

@@ -1,19 +1,18 @@
 .shell {
-  display: grid; grid-template-columns: 60px 1fr; grid-template-rows: 60px 1fr;
+  display: grid; grid-template-columns: 208px 1fr; grid-template-rows: 60px 1fr;
   grid-template-areas: "rail header" "rail main"; height: 100vh; min-height: 640px;
 }
 
-/* ---- left icon rail ---- */
-.rail { grid-area: rail; background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding: 14px 0; gap: 4px; }
+/* ---- left labeled nav rail ---- */
+.rail { grid-area: rail; background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: stretch; padding: 14px 10px; gap: 2px; }
 .rail-mark { width: 32px; height: 32px; display: grid; place-items: center; margin-bottom: 14px; color: var(--text); }
 .rail-mark svg { width: 20px; height: 20px; }
-.rail-item { position: relative; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 8px; color: var(--muted); background: transparent; border: none; cursor: pointer; transition: background 0.15s ease, color 0.15s ease; }
-.rail-item svg { width: 19px; height: 19px; }
+.rail-item { position: relative; display: flex; align-items: center; gap: 11px; height: 40px; padding: 0 10px; border-radius: 8px; color: var(--muted); background: transparent; border: none; cursor: pointer; transition: background 0.15s ease, color 0.15s ease; text-decoration: none; }
+.rail-item svg { width: 19px; height: 19px; flex-shrink: 0; }
 .rail-item:hover { background: var(--panel-raised); color: var(--text); }
 .rail-item[aria-current="page"] { color: var(--real); background: var(--real-fill); }
-.rail-item[aria-current="page"]::before { content: ""; position: absolute; left: -14px; top: 8px; bottom: 8px; width: 3px; background: var(--real); border-radius: 0 3px 3px 0; }
-.rail-tip { position: absolute; left: 52px; padding: 5px 9px; background: var(--text); color: var(--canvas); font-size: 12px; font-weight: 500; white-space: nowrap; border-radius: 5px; opacity: 0; pointer-events: none; transform: translateX(-4px); transition: opacity 0.12s ease, transform 0.12s ease; z-index: 40; }
-.rail-item:hover .rail-tip, .rail-item:focus-visible .rail-tip { opacity: 1; transform: translateX(0); }
+.rail-item[aria-current="page"]::before { content: ""; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 3px; background: var(--real); border-radius: 0 3px 3px 0; }
+.rail-tip { font-size: 12.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 1; }
 
 /* ---- header / filter bar ---- */
 .header { grid-area: header; background: var(--panel); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 18px; padding: 0 20px; min-width: 0; }
