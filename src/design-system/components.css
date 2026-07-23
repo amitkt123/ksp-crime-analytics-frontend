@@ -422,7 +422,7 @@ table.case-table a:hover { text-decoration: underline; }
 .heatmap-corner { width: 90px; flex-shrink: 0; }
 .heatmap-col-label { width: 56px; flex-shrink: 0; font-size: 9px; color: var(--muted); text-align: center; }
 .heatmap-row-label { width: 90px; flex-shrink: 0; font-size: 10.5px; color: var(--text); display: flex; align-items: center; }
-.heatmap-cell { width: 56px; height: 26px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 9.5px; color: #fff; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; }
+.heatmap-cell { width: 56px; height: 26px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 9.5px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; }
 
 /* ---- Insights screen shell ---- */
 .insights-main { padding: 16px 24px 40px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }

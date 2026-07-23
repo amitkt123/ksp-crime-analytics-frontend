@@ -35,12 +35,15 @@ export function HeatmapGrid({ rows, cols, cells }: HeatmapGridProps) {
           {cols.map((col) => {
             const cell = lookup.get(`${row}|${col}`);
             const intensity = Math.min(1, Math.max(0, cell?.intensity ?? 0));
+            // Below ~45% intensity the navy fill is light enough that dark text reads better;
+            // above it, the fill is dark enough that only white text stays legible.
+            const textColor = intensity < 0.45 ? 'var(--text)' : '#ffffff';
             return (
               <div
                 key={col}
                 className="heatmap-cell"
                 role="cell"
-                style={{ background: `rgba(18, 58, 99, ${intensity})` }}
+                style={{ background: `rgba(18, 58, 99, ${intensity})`, color: textColor }}
               >
                 {cell?.display ?? '—'}
               </div>

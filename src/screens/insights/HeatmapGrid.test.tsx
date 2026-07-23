@@ -21,4 +21,20 @@ describe('HeatmapGrid', () => {
     render(<HeatmapGrid rows={['Aug', 'Sep']} cols={['M+0']} cells={[cells[0]]} />);
     expect(screen.getByText('—')).toBeInTheDocument();
   });
+
+  it('uses dark text on low-intensity (light) cells and light text on high-intensity (dark) cells', () => {
+    const { container } = render(
+      <HeatmapGrid
+        rows={['R1']}
+        cols={['C1', 'C2']}
+        cells={[
+          { row: 'R1', col: 'C1', intensity: 0.1, display: 'low' },
+          { row: 'R1', col: 'C2', intensity: 0.9, display: 'high' },
+        ]}
+      />,
+    );
+    const heatmapCells = container.querySelectorAll('.heatmap-cell');
+    expect(heatmapCells[0]).toHaveStyle({ color: 'var(--text)' });
+    expect(heatmapCells[1]).toHaveStyle({ color: '#ffffff' });
+  });
 });
