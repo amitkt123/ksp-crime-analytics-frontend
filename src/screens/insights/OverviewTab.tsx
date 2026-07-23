@@ -41,7 +41,12 @@ export function OverviewTab() {
 
   return (
     <div className="insight-grid">
-      <InsightCard title="Registrations vs Chargesheeted" live={false} note="Monthly, last 12 months.">
+      <InsightCard
+        title="Registrations vs Chargesheeted"
+        live={false}
+        note="Monthly, last 12 months."
+        expand={{ columns: ['Month', 'Registered', 'Chargesheeted'], rows: trend.map((t) => [t.monthLabel, t.registered, t.chargesheeted]) }}
+      >
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={trend}>
             <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
@@ -54,15 +59,29 @@ export function OverviewTab() {
         </ResponsiveContainer>
       </InsightCard>
 
-      <InsightCard title="Case Journey" live={false} note="Registration through final outcome.">
+      <InsightCard
+        title="Case Journey"
+        live={false}
+        note="Registration through final outcome."
+        expand={{ columns: ['Stage', 'Count'], rows: journey.map((j) => [j.stage, j.count]) }}
+      >
         <SankeyChart nodeLabels={journeySankey.nodeLabels} links={journeySankey.links} />
       </InsightCard>
 
-      <InsightCard title="Case Category Mix" live={false} note="FIR / UDR / Zero FIR / PAR / NCR.">
+      <InsightCard
+        title="Case Category Mix"
+        live={false}
+        note="FIR / UDR / Zero FIR / PAR."
+        expand={{ columns: ['Category', 'Count'], rows: categoryMixDemo.map((c) => [c.category, c.count]) }}
+      >
         <Donut slices={categoryMixDemo.map((c) => ({ label: c.category, value: c.count }))} />
       </InsightCard>
 
-      <InsightCard title="Gravity of Offence" live={false}>
+      <InsightCard
+        title="Gravity of Offence"
+        live={false}
+        expand={{ columns: ['Gravity', 'Count'], rows: gravityDemo.map((g) => [g.gravity, g.count]) }}
+      >
         <Donut slices={gravityDemo.map((g) => ({ label: g.gravity, value: g.count }))} />
       </InsightCard>
 
