@@ -44,7 +44,7 @@ export function CaseLoadTreemap({ data, width = 1080, height = 520 }: CaseLoadTr
     return treemap<{ name: string }>().tile(treemapBinary).size([width, height]).paddingTop(HEADER_HEIGHT).paddingInner(2)(h as never);
   }, [districts, width, height]);
 
-  const districtLayoutNodes = (root.children ?? []) as Array<{
+  const districtLayoutNodes = (root.children ?? []) as unknown as Array<{
     data: DistrictNode;
     x0: number; y0: number; x1: number; y1: number;
     children?: Array<{ data: { name: string; value: number }; x0: number; y0: number; x1: number; y1: number }>;
