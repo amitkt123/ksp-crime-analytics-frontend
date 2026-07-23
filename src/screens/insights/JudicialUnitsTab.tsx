@@ -1,4 +1,3 @@
-import { Treemap, ResponsiveContainer, Tooltip } from 'recharts';
 import {
   getCourtPendingDemo,
   getFinalReportOutcomeDemo,
@@ -9,6 +8,7 @@ import {
 import { InsightCard } from './InsightCard';
 import { Donut } from './Donut';
 import { RankedBarList } from './RankedBarList';
+import { CaseLoadTreemap } from './CaseLoadTreemap';
 
 export function JudicialUnitsTab() {
   const courtPending = getCourtPendingDemo();
@@ -16,16 +16,6 @@ export function JudicialUnitsTab() {
   const unitCaseLoad = getDistrictUnitCaseLoadDemo();
   const rankDistribution = getRankDistributionDemo();
   const unitPerformance = getUnitPerformanceDemo();
-
-  const treemapData = Object.entries(
-    unitCaseLoad.reduce<Record<string, { districtName: string; unitName: string; caseCount: number }[]>>((acc, row) => {
-      (acc[row.districtName] ??= []).push(row);
-      return acc;
-    }, {}),
-  ).map(([districtName, units]) => ({
-    name: districtName,
-    children: units.map((u) => ({ name: u.unitName, size: u.caseCount })),
-  }));
 
   return (
     <>
@@ -46,11 +36,7 @@ export function JudicialUnitsTab() {
 
       <div className="insight-grid" style={{ marginTop: 16 }}>
         <InsightCard title="District → Unit Case Load" live={false} note="Area = FIRs registered per unit, across all 30 Karnataka districts.">
-          <ResponsiveContainer width="100%" height={200}>
-            <Treemap data={treemapData} dataKey="size" stroke="var(--panel)" fill="var(--real)">
-              <Tooltip contentStyle={{ background: 'var(--panel)', border: '1px solid var(--line)', fontSize: 11 }} />
-            </Treemap>
-          </ResponsiveContainer>
+          <CaseLoadTreemap data={unitCaseLoad} height={520} />
           {/* Recharts' Treemap only renders cell labels above a pixel-size threshold, so the
               breakdown is repeated here as plain text -- reliable regardless of rendered cell size. */}
           <div className="case-table-wrap">
