@@ -66,6 +66,8 @@ export function InvestigationNetworkTab() {
           live={false}
           note="Flow weight = number of act-section associations linking a crime head to a legal act."
           expand={{ columns: ['Linkage', 'Cases'], rows: linkage.map((l) => [l.label, l.count]) }}
+          expandedContent={<ChordDiagram labels={linkageMatrix.labels} matrix={linkageMatrix.matrix} size={640} />}
+          expandLayout="side"
         >
           <ChordDiagram labels={linkageMatrix.labels} matrix={linkageMatrix.matrix} />
         </InsightCard>

@@ -8,9 +8,10 @@ export interface ChartLightboxProps {
   rows: Array<Array<string | number>>;
   onClose: () => void;
   children: ReactNode;
+  layout?: 'stacked' | 'side';
 }
 
-export function ChartLightbox({ open, title, columns, rows, onClose, children }: ChartLightboxProps) {
+export function ChartLightbox({ open, title, columns, rows, onClose, children, layout = 'stacked' }: ChartLightboxProps) {
   useEffect(() => {
     if (!open) return;
     function handleKey(event: KeyboardEvent) {
@@ -25,33 +26,35 @@ export function ChartLightbox({ open, title, columns, rows, onClose, children }:
   return (
     <>
       <div className="scrim open" onClick={onClose} />
-      <div className="chart-lightbox" role="dialog" aria-label={`${title} - expanded`} aria-modal="true">
+      <div className={`chart-lightbox${layout === 'side' ? ' layout-side' : ''}`} role="dialog" aria-label={`${title} - expanded`} aria-modal="true">
         <div className="chart-lightbox-head">
           <h3>{title}</h3>
           <button className="evidence-close" aria-label="Close expanded chart" onClick={onClose}>
             ×
           </button>
         </div>
-        <div className="chart-lightbox-chart">{children}</div>
-        <div className="chart-lightbox-table case-table-wrap">
-          <table className="case-table">
-            <thead>
-              <tr>
-                {columns.map((c) => (
-                  <th key={c}>{c}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, i) => (
-                <tr key={i}>
-                  {row.map((cell, j) => (
-                    <td key={j}>{cell}</td>
+        <div className="chart-lightbox-body">
+          <div className="chart-lightbox-chart">{children}</div>
+          <div className="chart-lightbox-table case-table-wrap">
+            <table className="case-table">
+              <thead>
+                <tr>
+                  {columns.map((c) => (
+                    <th key={c}>{c}</th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((row, i) => (
+                  <tr key={i}>
+                    {row.map((cell, j) => (
+                      <td key={j}>{cell}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </>

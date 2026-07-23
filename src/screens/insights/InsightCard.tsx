@@ -14,9 +14,11 @@ interface InsightCardProps {
   live: boolean;
   children: ReactNode;
   expand?: InsightCardExpand;
+  expandedContent?: ReactNode;
+  expandLayout?: 'stacked' | 'side';
 }
 
-export function InsightCard({ title, note, live, children, expand }: InsightCardProps) {
+export function InsightCard({ title, note, live, children, expand, expandedContent, expandLayout }: InsightCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
@@ -35,8 +37,15 @@ export function InsightCard({ title, note, live, children, expand }: InsightCard
       {note && <p className="insight-card-note">{note}</p>}
       <div className="insight-card-body">{children}</div>
       {expand && (
-        <ChartLightbox open={isExpanded} title={title} columns={expand.columns} rows={expand.rows} onClose={() => setIsExpanded(false)}>
-          {children}
+        <ChartLightbox
+          open={isExpanded}
+          title={title}
+          columns={expand.columns}
+          rows={expand.rows}
+          onClose={() => setIsExpanded(false)}
+          layout={expandLayout}
+        >
+          {expandedContent ?? children}
         </ChartLightbox>
       )}
     </div>

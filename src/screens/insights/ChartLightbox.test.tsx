@@ -36,4 +36,22 @@ describe('ChartLightbox', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  it('applies the side-by-side layout class when layout="side"', () => {
+    const { container } = render(
+      <ChartLightbox open title="Chord" columns={['A', 'B']} rows={[]} onClose={vi.fn()} layout="side">
+        <p>chart</p>
+      </ChartLightbox>,
+    );
+    expect(container.querySelector('.chart-lightbox')).toHaveClass('layout-side');
+  });
+
+  it('defaults to the stacked layout when layout is omitted', () => {
+    const { container } = render(
+      <ChartLightbox open title="Chart" columns={['A']} rows={[]} onClose={vi.fn()}>
+        <p>chart</p>
+      </ChartLightbox>,
+    );
+    expect(container.querySelector('.chart-lightbox')).not.toHaveClass('layout-side');
+  });
 });

@@ -41,4 +41,21 @@ describe('InsightCard', () => {
     );
     expect(screen.queryByLabelText('Expand Top Districts')).not.toBeInTheDocument();
   });
+
+  it('renders expandedContent instead of children inside the lightbox, when provided', () => {
+    render(
+      <InsightCard
+        title="Chord"
+        live={false}
+        expand={{ columns: ['A'], rows: [] }}
+        expandedContent={<p>big chart</p>}
+      >
+        <p>small chart</p>
+      </InsightCard>,
+    );
+    fireEvent.click(screen.getByLabelText('Expand Chord'));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('big chart')).toBeInTheDocument();
+    expect(within(dialog).queryByText('small chart')).not.toBeInTheDocument();
+  });
 });
