@@ -41,13 +41,13 @@ export function SankeyChart({ nodeLabels, links, width = 640, height = 260 }: Sa
     <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} role="img" aria-label="Case journey sankey diagram">
       <g>
         {laidOutLinks.map((link, i) => {
-          const sourceIndex = typeof link.source === 'object' ? (link.source as SankeyNode<NodeDatum, SankeyLinkInput>).index! : link.source;
+          const targetIndex = typeof link.target === 'object' ? (link.target as SankeyNode<NodeDatum, SankeyLinkInput>).index! : link.target;
           return (
             <path
               key={i}
               d={pathGenerator(link as SankeyLink<NodeDatum, SankeyLinkInput>) ?? undefined}
               fill="none"
-              stroke={NODE_COLORS[sourceIndex % NODE_COLORS.length]}
+              stroke={NODE_COLORS[targetIndex % NODE_COLORS.length]}
               strokeOpacity={0.35}
               strokeWidth={Math.max(1, link.width ?? 1)}
             />
