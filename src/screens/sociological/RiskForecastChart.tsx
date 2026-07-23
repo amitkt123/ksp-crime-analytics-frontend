@@ -1,3 +1,7 @@
+import { useState } from 'react';
+import { useAuth } from '../../auth/AuthContext';
+import { EvidencePanel } from '../../design-system/EvidencePanel';
+import { useExplainRiskForecast, toEvidenceData } from '../../api/agentApi';
 import type { PredictiveRiskForecastResponse } from '../../api/sociologicalApi';
 
 interface RiskForecastChartProps {
@@ -7,6 +11,13 @@ interface RiskForecastChartProps {
 const TOP_N = 10;
 
 export function RiskForecastChart({ forecasts }: RiskForecastChartProps) {
+  const { token } = useAuth();
+  const [selected, setSelected] = useState<PredictiveRiskForecastResponse | null>(null);
+  const explainQuery = useExplainRiskForecast(token, selected?.unitId ?? null, selected?.crimeSubHeadId ?? null, selected != null);
+  const evidenceData = selected && explainQuery.data
+    ? toEvidenceData(explainQuery.data, 'Backtest against most recent completed period', [selected.unitName])
+    : null;
+
   const ranked = [...forecasts].sort((a, b) => b.predictedCount - a.predictedCount).slice(0, TOP_N);
 
   if (ranked.length === 0) {
@@ -34,10 +45,11 @@ export function RiskForecastChart({ forecasts }: RiskForecastChartProps) {
       </div>
       <div className="cat-bars">
         {ranked.map((f) => (
-          <div
+          <button
             key={`${f.unitId}-${f.crimeSubHeadId}`}
             className="cat-bar-row risk-bar-row"
             title={`Backtest: predicted ${f.backtestPredictedCount.toFixed(1)} vs actual ${f.backtestActualCount}`}
+            onClick={() => setSelected(f)}
           >
             <span className="cat-bar-label">{f.unitName}</span>
             <div className="risk-bar-group">
@@ -61,9 +73,10 @@ export function RiskForecastChart({ forecasts }: RiskForecastChartProps) {
               </div>
             </div>
             <span className="chip mono">±{f.backtestAbsoluteError.toFixed(1)}</span>
-          </div>
+          </button>
         ))}
       </div>
+      <EvidencePanel data={evidenceData} onClose={() => setSelected(null)} />
     </section>
   );
 }

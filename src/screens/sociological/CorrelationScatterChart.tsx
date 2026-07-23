@@ -1,3 +1,7 @@
+import { useState } from 'react';
+import { useAuth } from '../../auth/AuthContext';
+import { EvidencePanel } from '../../design-system/EvidencePanel';
+import { useExplainCorrelation, toEvidenceData } from '../../api/agentApi';
 import { linearRegression, type RegressionResult } from './linearRegression';
 import { IndicatorScatterPlot, type IndicatorScatterPoint } from './IndicatorScatterPlot';
 import { INDICATOR_OPTIONS, Y_LABEL, type IndicatorKey } from './indicators';
@@ -13,9 +17,17 @@ interface IndicatorPanel {
 interface CorrelationScatterChartProps {
   districts: DistrictCorrelationResponse[];
   highlightedDistrictId?: number | null;
+  year: number;
 }
 
-export function CorrelationScatterChart({ districts, highlightedDistrictId = null }: CorrelationScatterChartProps) {
+export function CorrelationScatterChart({ districts, highlightedDistrictId = null, year }: CorrelationScatterChartProps) {
+  const { token } = useAuth();
+  const [selected, setSelected] = useState<DistrictCorrelationResponse | null>(null);
+  const explainQuery = useExplainCorrelation(token, selected?.districtId ?? null, year, selected != null);
+  const evidenceData = selected && explainQuery.data
+    ? toEvidenceData(explainQuery.data, `Year ${year}`, [selected.districtName])
+    : null;
+
   const panels: IndicatorPanel[] = INDICATOR_OPTIONS.map((option) => {
     // Raw caseCount is population-confounded (Bengaluru Urban has more cases than
     // Kodagu mostly because it has more people) -- rate per 100k is the metric that
@@ -52,9 +64,14 @@ export function CorrelationScatterChart({ districts, highlightedDistrictId = nul
             regression={panel.regression}
             isStrongest={panel.key === strongestKey}
             highlightedDistrictId={highlightedDistrictId}
+            onPointClick={(districtId) => {
+              const district = districts.find((d) => d.districtId === districtId);
+              if (district) setSelected(district);
+            }}
           />
         ))}
       </div>
+      <EvidencePanel data={evidenceData} onClose={() => setSelected(null)} />
     </section>
   );
 }

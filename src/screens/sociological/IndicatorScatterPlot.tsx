@@ -15,6 +15,7 @@ interface IndicatorScatterPlotProps {
   regression: RegressionResult | null;
   isStrongest: boolean;
   highlightedDistrictId?: number | null;
+  onPointClick?: (districtId: number) => void;
 }
 
 export function splitHighlightedPoint<T extends { districtId: number }>(
@@ -34,6 +35,7 @@ export function IndicatorScatterPlot({
   regression,
   isStrongest,
   highlightedDistrictId = null,
+  onPointClick,
 }: IndicatorScatterPlotProps) {
   const xValues = points.map((p) => p.x);
   const minX = Math.min(...xValues);
@@ -89,10 +91,17 @@ export function IndicatorScatterPlot({
               strokeWidth={1.5}
               ifOverflow="extendDomain"
             />
-            <Scatter data={basePoints} fill="var(--real)" />
+            <Scatter
+              data={basePoints}
+              fill="var(--real)"
+              cursor={onPointClick ? 'pointer' : undefined}
+              onClick={(point: IndicatorScatterPoint) => onPointClick?.(point.districtId)}
+            />
             {highlightedPoint && (
               <Scatter
                 data={[highlightedPoint]}
+                cursor={onPointClick ? 'pointer' : undefined}
+                onClick={(point: IndicatorScatterPoint) => onPointClick?.(point.districtId)}
                 shape={(props: { cx?: number; cy?: number }) => (
                   <circle cx={props.cx} cy={props.cy} r={7} fill="var(--alert)" stroke="var(--panel)" strokeWidth={2} />
                 )}

@@ -108,11 +108,11 @@ export function SociologicalScreen() {
             selectedDistrictId={selectedDistrictId}
             onDistrictSelect={setSelectedDistrictId}
           />
-          <CorrelationScatterChart districts={correlationQuery.data!} highlightedDistrictId={selectedDistrictId} />
+          <CorrelationScatterChart districts={correlationQuery.data!} highlightedDistrictId={selectedDistrictId} year={year} />
         </section>
         <aside className="pane side-pane" aria-label="Predictive risk and case anomalies">
           <RiskForecastChart forecasts={riskQuery.data!} />
-          <AnomalyList anomalies={anomaliesQuery.data!} />
+          <AnomalyList anomalies={anomaliesQuery.data!} crimeSubHeadId={resolvedCrimeSubHeadId} />
         </aside>
       </main>
     </>

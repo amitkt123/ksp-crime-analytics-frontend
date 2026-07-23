@@ -7,6 +7,7 @@ import * as AuthContextModule from '../../auth/AuthContext';
 import * as meApiModule from '../../api/meApi';
 import * as sociologicalApiModule from '../../api/sociologicalApi';
 import * as geoApiModule from '../../api/geoApi';
+import * as agentApiModule from '../../api/agentApi';
 import type { ChoroplethMode } from './IndicatorChoroplethMap';
 import type { IndicatorKey } from './indicators';
 import { SociologicalScreen } from './SociologicalScreen';
@@ -78,6 +79,15 @@ function mockAllQueriesSuccess() {
   vi.spyOn(sociologicalApiModule, 'usePredictiveRisk').mockReturnValue(mockSuccess(risk));
   vi.spyOn(sociologicalApiModule, 'useCaseAnomalies').mockReturnValue(mockSuccess(anomalies));
   vi.spyOn(geoApiModule, 'useDistrictBoundaries').mockReturnValue(mockSuccess(boundaries));
+  vi.spyOn(agentApiModule, 'useExplainCorrelation').mockReturnValue(
+    mockSuccess(undefined as unknown as agentApiModule.AgentExplainResponse),
+  );
+  vi.spyOn(agentApiModule, 'useExplainRiskForecast').mockReturnValue(
+    mockSuccess(undefined as unknown as agentApiModule.AgentExplainResponse),
+  );
+  vi.spyOn(agentApiModule, 'useExplainCaseAnomaly').mockReturnValue(
+    mockSuccess(undefined as unknown as agentApiModule.AgentExplainResponse),
+  );
 }
 
 function renderScreen() {

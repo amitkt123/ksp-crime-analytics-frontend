@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { CartesianGrid, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from 'recharts';
-import { EvidencePanel, type EvidenceData } from '../../design-system/EvidencePanel';
+import { EvidencePanel } from '../../design-system/EvidencePanel';
 import { alertSeverity, type AlertSeverity } from '../../api/alertsApi';
 import type { CaseAnomalyResponse } from '../../api/sociologicalApi';
+import { useAuth } from '../../auth/AuthContext';
+import { useExplainCaseAnomaly, toEvidenceData } from '../../api/agentApi';
 
 interface AnomalyListProps {
   anomalies: CaseAnomalyResponse[];
+  crimeSubHeadId?: number;
 }
 
 const SEVERITY_COLOR: Record<AlertSeverity, string> = {
@@ -17,20 +20,16 @@ const SEVERITY_COLOR: Record<AlertSeverity, string> = {
 const SEVERITY_ORDER: AlertSeverity[] = ['critical', 'high', 'moderate'];
 const SEVERITY_LABEL: Record<AlertSeverity, string> = { critical: 'Critical', high: 'High', moderate: 'Moderate' };
 
-export function AnomalyList({ anomalies }: AnomalyListProps) {
+export function AnomalyList({ anomalies, crimeSubHeadId }: AnomalyListProps) {
+  const { token } = useAuth();
   const [selected, setSelected] = useState<CaseAnomalyResponse | null>(null);
+  const explainQuery = useExplainCaseAnomaly(token, selected?.caseMasterId ?? null, crimeSubHeadId ?? null, selected != null);
 
   const ranked = [...anomalies].sort((a, b) => b.zScore - a.zScore);
 
-  const evidenceData: EvidenceData | null = selected && {
-    claim: selected.explanation,
-    confidence: Math.min(1, selected.zScore / 5),
-    confidenceLabel: 'Deviation confidence',
-    method: 'Sociological Anomaly Detection · registration-delay z-score',
-    baseline: `District baseline mean delay: ${selected.baselineMeanDelayDays.toFixed(1)} days`,
-    generatedAt: new Date().toLocaleString(),
-    records: [selected.crimeNo],
-  };
+  const evidenceData = selected && explainQuery.data
+    ? toEvidenceData(explainQuery.data, `District baseline mean delay: ${selected.baselineMeanDelayDays.toFixed(1)} days`, [selected.crimeNo])
+    : null;
 
   return (
     <>
