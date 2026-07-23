@@ -5,6 +5,7 @@ import type { UseQueryResult } from '@tanstack/react-query';
 import * as AuthContextModule from '../../auth/AuthContext';
 import * as meApiModule from '../../api/meApi';
 import * as networkApiModule from '../../api/networkApi';
+import * as agentApiModule from '../../api/agentApi';
 import { NetworkScreen } from './NetworkScreen';
 
 function mockSuccess<T>(data: T) {
@@ -21,6 +22,15 @@ const offenders: networkApiModule.RepeatOffenderResponse[] = [
   { personId: 5001, displayName: 'Suresh Naik', caseCount: 3, gravityWeight: 9, confidenceScore: 0.73 },
 ];
 
+const explainOffenderResponse: agentApiModule.AgentExplainResponse = {
+  narrative: 'Suresh Naik is linked to 2 co-accused association(s) and 1 shared-MO case(s).',
+  evidence: {
+    claim: 'offender network', supportingRecordIds: ['101/2026'], queryOrMethod: 'get_co_accused_and_mo_similar',
+    confidence: 0.75, generatedAt: '2026-07-19T06:00:00Z', modelVersion: 'template-stub-v1',
+  },
+  agentAvailable: true,
+};
+
 function mockAuth() {
   vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
     token: 'jwt', roles: ['SCRB_ANALYST'], username: 'demo.analyst', login: vi.fn(), logout: vi.fn(),
@@ -30,11 +40,15 @@ function mockAuth() {
   );
 }
 
-function mockNetworkQueries(overrides: Partial<{ subgraph: UseQueryResult<networkApiModule.SubgraphResponse, Error> }> = {}) {
+function mockNetworkQueries(overrides: Partial<{
+  subgraph: UseQueryResult<networkApiModule.SubgraphResponse, Error>;
+  explainOffender: UseQueryResult<agentApiModule.AgentExplainResponse, Error>;
+}> = {}) {
   vi.spyOn(networkApiModule, 'useSubgraph').mockReturnValue(overrides.subgraph ?? mockSuccess(subgraph));
   vi.spyOn(networkApiModule, 'useRepeatOffenders').mockReturnValue(mockSuccess(offenders));
   vi.spyOn(networkApiModule, 'useCommunities').mockReturnValue(mockSuccess([{ communityId: 2, size: 1, memberDisplayNames: ['Suresh Naik'] }]));
   vi.spyOn(networkApiModule, 'useNetworkPath').mockReturnValue(mockSuccess(null));
+  vi.spyOn(agentApiModule, 'useExplainOffender').mockReturnValue(overrides.explainOffender ?? mockSuccess(explainOffenderResponse));
 }
 
 describe('NetworkScreen', () => {
@@ -86,7 +100,7 @@ describe('NetworkScreen', () => {
     expect(await screen.findByText('No linked records for this view.')).toBeInTheDocument();
   });
 
-  it('clicking the repeat-offender rail card switches focus to that person and opens the evidence panel', async () => {
+  it('clicking the repeat-offender rail card switches focus to that person and opens the evidence panel with the fetched narrative', async () => {
     mockAuth();
     mockNetworkQueries();
 
@@ -94,6 +108,8 @@ describe('NetworkScreen', () => {
     await userEvent.click(await screen.findByText('Suresh Naik'));
 
     expect(await screen.findByRole('dialog', { name: 'Evidence panel' })).toBeInTheDocument();
+    expect(screen.getByText(explainOffenderResponse.narrative!)).toBeInTheDocument();
+    expect(agentApiModule.useExplainOffender).toHaveBeenLastCalledWith('jwt', 5001, true);
     await waitFor(() => expect(networkApiModule.useSubgraph).toHaveBeenLastCalledWith('jwt', { focus: 'person', personId: 5001, hops: 2 }));
   });
 

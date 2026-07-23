@@ -11,7 +11,8 @@ import {
   type RepeatOffenderResponse,
   type SubgraphParams,
 } from '../../api/networkApi';
-import { EvidencePanel, type EvidenceData } from '../../design-system/EvidencePanel';
+import { EvidencePanel } from '../../design-system/EvidencePanel';
+import { useExplainOffender, toEvidenceData } from '../../api/agentApi';
 import { NetworkGraphCanvas } from './NetworkGraphCanvas';
 import { PathFindingBar } from './PathFindingBar';
 import { CommunityLegend } from './CommunityLegend';
@@ -50,6 +51,11 @@ export function NetworkScreen() {
   const offendersQuery = useRepeatOffenders(token);
   const communitiesQuery = useCommunities(token);
   const pathQuery = useNetworkPath(token, pathEndpoints[0] ?? null, pathEndpoints[1] ?? null, 6);
+
+  const selectedPersonId = selectedPerson
+    ? (selectedPerson.source === 'offender' ? selectedPerson.data.personId : personIdOfNode(selectedPerson.data))
+    : null;
+  const explainQuery = useExplainOffender(token, selectedPersonId, selectedPerson != null);
 
   const communityByLabel = useMemo(() => {
     const map = new Map<string, number>();
@@ -131,30 +137,11 @@ export function NetworkScreen() {
     setPathEndpoints([]);
   }
 
-  const generatedAt = subgraphQuery.data?.generatedAt ?? new Date().toISOString();
   const supportingCaseLabels = nodes.filter((n) => n.type === 'CASE').slice(0, 3).map((n) => n.label);
 
-  const evidenceData: EvidenceData | null = selectedPerson && (
-    selectedPerson.source === 'offender'
-      ? {
-          claim: `${selectedPerson.data.displayName} is linked to ${selectedPerson.data.caseCount} case(s), gravity-weighted score ${selectedPerson.data.gravityWeight}.`,
-          confidence: selectedPerson.data.confidenceScore,
-          confidenceLabel: 'Identity-resolution confidence',
-          method: 'graph-service repeat-offender ranking',
-          baseline: 'Statewide',
-          generatedAt,
-          records: supportingCaseLabels,
-        }
-      : {
-          claim: `${selectedPerson.data.label} appears in the current network view.`,
-          confidence: selectedPerson.data.confidence ?? 0,
-          confidenceLabel: 'Identity-resolution confidence',
-          method: 'graph-service subgraph query',
-          baseline: 'Statewide',
-          generatedAt,
-          records: supportingCaseLabels,
-        }
-  );
+  const evidenceData = selectedPerson && explainQuery.data
+    ? toEvidenceData(explainQuery.data, 'Statewide', supportingCaseLabels)
+    : null;
 
   if (nodes.length === 0) {
     return (
