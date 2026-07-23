@@ -7,6 +7,7 @@ import { canShowLiveRecentFirs } from '../../api/insightsApi';
 import {
   getOverviewTrend,
   getCaseJourneyStages,
+  getCaseJourneySankeyDemo,
   getCaseCategoryMixDemo,
   getGravityMixDemo,
   getRecentFirsDemo,
@@ -14,6 +15,7 @@ import {
 import { InsightCard } from './InsightCard';
 import { Donut } from './Donut';
 import { RankedBarList } from './RankedBarList';
+import { SankeyChart } from './SankeyChart';
 import { CaseList } from '../case-explorer/CaseList';
 
 export function OverviewTab() {
@@ -27,6 +29,7 @@ export function OverviewTab() {
 
   const trend = getOverviewTrend();
   const journey = getCaseJourneyStages();
+  const journeySankey = getCaseJourneySankeyDemo();
   const categoryMixDemo = getCaseCategoryMixDemo();
   const gravityDemo = getGravityMixDemo();
   const demoRecentFirs = getRecentFirsDemo();
@@ -52,7 +55,7 @@ export function OverviewTab() {
       </InsightCard>
 
       <InsightCard title="Case Journey" live={false} note="Registration through final outcome.">
-        <RankedBarList items={journey.map((j) => ({ label: j.stage, value: j.count }))} />
+        <SankeyChart nodeLabels={journeySankey.nodeLabels} links={journeySankey.links} />
       </InsightCard>
 
       <InsightCard title="Case Category Mix" live={false} note="FIR / UDR / Zero FIR / PAR / NCR.">

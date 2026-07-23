@@ -41,6 +41,23 @@ export function getCaseJourneyStages(): CaseJourneyStage[] {
   ];
 }
 
+export interface CaseJourneySankeyData {
+  nodeLabels: string[];
+  links: Array<{ source: number; target: number; value: number }>;
+}
+
+// Single source of truth is getCaseJourneyStages(): index 0 (Registered) fans out to every
+// later stage. Registered's own count (12480) equals the sum of the other four stages, so
+// this models "of everything registered, here's where it currently stands" -- not a lossy
+// multi-hop funnel.
+export function getCaseJourneySankeyDemo(): CaseJourneySankeyData {
+  const stages = getCaseJourneyStages();
+  return {
+    nodeLabels: stages.map((s) => s.stage),
+    links: stages.slice(1).map((stage, i) => ({ source: 0, target: i + 1, value: stage.count })),
+  };
+}
+
 export interface CaseCategorySlice {
   category: string;
   count: number;
