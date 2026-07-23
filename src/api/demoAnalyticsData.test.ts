@@ -167,7 +167,7 @@ describe('demoAnalyticsData: Investigation Network + Judicial & Units', () => {
 
   it('getIoLeaderboardDemo rows have masked-style officer names and a rate in [0,100]', () => {
     getIoLeaderboardDemo().forEach((row) => {
-      expect(row.officer).toMatch(/^\S\*+ \S\*+$/);
+      expect(row.displayName).toMatch(/^\S\*+ \S\*+$/);
       expect(row.chargesheetRatePct).toBeGreaterThanOrEqual(0);
       expect(row.chargesheetRatePct).toBeLessThanOrEqual(100);
     });

@@ -403,6 +403,10 @@ export function getVictimGenderByCrimeHeadDemo(): GenderCrimeHeadCrossTab[] {
 
 export interface RepeatOffenderDemoRow {
   displayName: string;
+  realName: string;
+  age: number;
+  gender: string;
+  topCrimeHead: string;
   caseCount: number;
 }
 
@@ -410,16 +414,16 @@ export interface RepeatOffenderDemoRow {
 // SCRB_ANALYST/SUPER_ADMIN (STATE scope + rawCaseAccess=true required).
 export function getRepeatOffendersDemo(): RepeatOffenderDemoRow[] {
   return [
-    { displayName: 'M**** K****', caseCount: 7 },
-    { displayName: 'R**** P****', caseCount: 6 },
-    { displayName: 'S**** N****', caseCount: 5 },
-    { displayName: 'A**** V****', caseCount: 5 },
-    { displayName: 'G**** H****', caseCount: 4 },
-    { displayName: 'D**** S****', caseCount: 4 },
-    { displayName: 'K**** B****', caseCount: 3 },
-    { displayName: 'P**** M****', caseCount: 3 },
-    { displayName: 'V**** T****', caseCount: 2 },
-    { displayName: 'N**** L****', caseCount: 2 },
+    { displayName: 'M**** K****', realName: 'Manjunath Kumar', age: 34, gender: 'Male', topCrimeHead: 'Crimes Against Property', caseCount: 7 },
+    { displayName: 'R**** P****', realName: 'Ravindra Poojary', age: 29, gender: 'Male', topCrimeHead: 'Economic Offences', caseCount: 6 },
+    { displayName: 'S**** N****', realName: 'Suresh Naik', age: 41, gender: 'Male', topCrimeHead: 'Crimes Against Property', caseCount: 5 },
+    { displayName: 'A**** V****', realName: 'Anitha Vasu', age: 37, gender: 'Female', topCrimeHead: 'Cyber Crime', caseCount: 5 },
+    { displayName: 'G**** H****', realName: 'Girish Hegde', age: 26, gender: 'Male', topCrimeHead: 'Crimes Against Body', caseCount: 4 },
+    { displayName: 'D**** S****', realName: 'Deepak Shetty', age: 45, gender: 'Male', topCrimeHead: 'Economic Offences', caseCount: 4 },
+    { displayName: 'K**** B****', realName: 'Kavya Bhat', age: 31, gender: 'Female', topCrimeHead: 'Cyber Crime', caseCount: 3 },
+    { displayName: 'P**** M****', realName: 'Prakash Murthy', age: 38, gender: 'Male', topCrimeHead: 'Crimes Against Property', caseCount: 3 },
+    { displayName: 'V**** T****', realName: 'Vinay Tantry', age: 24, gender: 'Male', topCrimeHead: 'Crimes Against Body', caseCount: 2 },
+    { displayName: 'N**** L****', realName: 'Nandini Lobo', age: 33, gender: 'Female', topCrimeHead: 'Economic Offences', caseCount: 2 },
   ];
 }
 
@@ -489,23 +493,27 @@ export function getArrestsVsSurrendersDemo(): ArrestSurrenderPoint[] {
 }
 
 export interface IoLeaderboardRow {
-  officer: string;
+  displayName: string;
+  realName: string;
+  rank: string;
   unit: string;
+  district: string;
   casesHandled: number;
+  arrests: number;
   chargesheetRatePct: number;
   avgDaysToChargesheet: number;
 }
 
 export function getIoLeaderboardDemo(): IoLeaderboardRow[] {
   return [
-    { officer: 'R**** K****', unit: 'Whitefield PS', casesHandled: 84, chargesheetRatePct: 71, avgDaysToChargesheet: 42 },
-    { officer: 'S**** M****', unit: 'Hubli SubUrban PS', casesHandled: 76, chargesheetRatePct: 68, avgDaysToChargesheet: 47 },
-    { officer: 'P**** N****', unit: 'Mysuru Town PS', casesHandled: 71, chargesheetRatePct: 74, avgDaysToChargesheet: 39 },
-    { officer: 'V**** G****', unit: 'Belagavi Rural PS', casesHandled: 68, chargesheetRatePct: 65, avgDaysToChargesheet: 51 },
-    { officer: 'A**** S****', unit: 'Kalaburagi Town PS', casesHandled: 63, chargesheetRatePct: 70, avgDaysToChargesheet: 44 },
-    { officer: 'D**** R****', unit: 'Tumakuru Circle Office', casesHandled: 59, chargesheetRatePct: 66, avgDaysToChargesheet: 49 },
-    { officer: 'K**** P****', unit: 'Ballari Town PS', casesHandled: 55, chargesheetRatePct: 72, avgDaysToChargesheet: 41 },
-    { officer: 'N**** H****', unit: 'Shivamogga Rural PS', casesHandled: 52, chargesheetRatePct: 63, avgDaysToChargesheet: 53 },
+    { displayName: 'R**** K****', realName: 'Ravi Kumar', rank: 'Police Inspector', unit: 'Whitefield PS', district: 'Bengaluru Urban', casesHandled: 84, arrests: 61, chargesheetRatePct: 71, avgDaysToChargesheet: 42 },
+    { displayName: 'S**** M****', realName: 'Santosh Mallya', rank: 'Sub-Inspector', unit: 'Hubli SubUrban PS', district: 'Dharwad', casesHandled: 76, arrests: 52, chargesheetRatePct: 68, avgDaysToChargesheet: 47 },
+    { displayName: 'P**** N****', realName: 'Prakash Naidu', rank: 'Police Inspector', unit: 'Mysuru Town PS', district: 'Mysuru', casesHandled: 71, arrests: 55, chargesheetRatePct: 74, avgDaysToChargesheet: 39 },
+    { displayName: 'V**** G****', realName: 'Vikram Gowda', rank: 'Sub-Inspector', unit: 'Belagavi Rural PS', district: 'Belagavi', casesHandled: 68, arrests: 46, chargesheetRatePct: 65, avgDaysToChargesheet: 51 },
+    { displayName: 'A**** S****', realName: 'Anand Shetty', rank: 'Circle Inspector', unit: 'Kalaburagi Town PS', district: 'Kalaburagi', casesHandled: 63, arrests: 44, chargesheetRatePct: 70, avgDaysToChargesheet: 44 },
+    { displayName: 'D**** R****', realName: 'Deepak Rao', rank: 'Sub-Inspector', unit: 'Tumakuru Circle Office', district: 'Tumakuru', casesHandled: 59, arrests: 39, chargesheetRatePct: 66, avgDaysToChargesheet: 49 },
+    { displayName: 'K**** P****', realName: 'Kiran Patil', rank: 'Police Inspector', unit: 'Ballari Town PS', district: 'Ballari', casesHandled: 55, arrests: 41, chargesheetRatePct: 72, avgDaysToChargesheet: 41 },
+    { displayName: 'N**** H****', realName: 'Nagaraj Hegde', rank: 'Sub-Inspector', unit: 'Shivamogga Rural PS', district: 'Shivamogga', casesHandled: 52, arrests: 33, chargesheetRatePct: 63, avgDaysToChargesheet: 53 },
   ];
 }
 
