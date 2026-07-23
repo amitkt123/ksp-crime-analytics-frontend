@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ScatterChart, Scatter, ZAxis,
 } from 'recharts';
 import { useAuth } from '../../auth/AuthContext';
 import { useCommandCenterSummary } from '../../api/commandCenterApi';
-import { useHotspots } from '../../api/geoApi';
+import { useHotspots, useDistrictBoundaries } from '../../api/geoApi';
 import { canShowLiveHotspots } from '../../api/insightsApi';
 import {
   CRIME_HEADS_DEMO,
@@ -18,12 +17,14 @@ import {
 import { CategoryMixChart } from '../command-center/CategoryMixChart';
 import { InsightCard } from './InsightCard';
 import { HeatmapGrid, type HeatmapCell } from './HeatmapGrid';
+import { KarnatakaHotspotMap } from './KarnatakaHotspotMap';
 
 export function CrimeTrendsTab() {
   const { token, roles } = useAuth();
   const summaryQuery = useCommandCenterSummary(token);
   const liveHotspots = canShowLiveHotspots(roles);
   const hotspotsQuery = useHotspots(token, liveHotspots);
+  const boundariesQuery = useDistrictBoundaries(token);
   const [matrixDistrictFilter, setMatrixDistrictFilter] = useState('');
 
   const monthlyTrend = getCrimeHeadMonthlyTrend();
@@ -129,33 +130,23 @@ export function CrimeTrendsTab() {
               : "Cluster hotspots aren't available for unit-scoped roles — showing representative data."
           }
         >
-          {liveHotspots ? (
+          {boundariesQuery.isLoading ? (
+            <p>Loading…</p>
+          ) : boundariesQuery.isError ? (
+            <p role="alert">Couldn't load district boundaries.</p>
+          ) : liveHotspots ? (
             hotspotsQuery.isLoading ? (
               <p>Loading…</p>
             ) : hotspotsQuery.isError ? (
               <p role="alert">Couldn't load hotspot clusters.</p>
             ) : (
-              <ResponsiveContainer width="100%" height={260}>
-                <ScatterChart margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
-                  <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
-                  <XAxis type="number" dataKey="centroidLon" name="Longitude" stroke="var(--muted)" fontSize={10} />
-                  <YAxis type="number" dataKey="centroidLat" name="Latitude" stroke="var(--muted)" fontSize={10} />
-                  <ZAxis type="number" dataKey="caseCount" range={[40, 300]} />
-                  <Tooltip cursor={{ stroke: 'var(--line)' }} />
-                  <Scatter data={hotspotsQuery.data ?? []} fill="var(--real)" fillOpacity={0.6} />
-                </ScatterChart>
-              </ResponsiveContainer>
+              <KarnatakaHotspotMap
+                boundaries={boundariesQuery.data!}
+                points={(hotspotsQuery.data ?? []).map((h) => ({ lat: h.centroidLat, lon: h.centroidLon, crimeHead: 'Cluster', count: h.caseCount }))}
+              />
             )
           ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <ScatterChart margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
-                <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
-                <XAxis type="number" dataKey="lon" name="Longitude" stroke="var(--muted)" fontSize={10} />
-                <YAxis type="number" dataKey="lat" name="Latitude" stroke="var(--muted)" fontSize={10} />
-                <Tooltip cursor={{ stroke: 'var(--line)' }} />
-                <Scatter data={demoHotspots} fill="var(--predicted)" fillOpacity={0.6} />
-              </ScatterChart>
-            </ResponsiveContainer>
+            <KarnatakaHotspotMap boundaries={boundariesQuery.data!} points={demoHotspots} />
           )}
         </InsightCard>
       </div>

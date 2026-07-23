@@ -7,6 +7,18 @@ import * as commandCenterApiModule from '../../api/commandCenterApi';
 import * as geoApiModule from '../../api/geoApi';
 import { CrimeTrendsScreen } from './CrimeTrendsScreen';
 
+vi.mock('maplibre-gl', () => {
+  function MockMap(this: Record<string, unknown>) {
+    this.on = vi.fn((event: string, cb: () => void) => { if (event === 'load') cb(); });
+    this.addSource = vi.fn();
+    this.addLayer = vi.fn();
+    this.getSource = vi.fn();
+    this.fitBounds = vi.fn();
+    this.remove = vi.fn();
+  }
+  return { default: { Map: vi.fn(MockMap) } };
+});
+
 function queryResult<T>(data: T) {
   return { data, isLoading: false, isError: false, refetch: vi.fn() } as never;
 }
@@ -25,6 +37,7 @@ describe('CrimeTrendsScreen', () => {
       }),
     );
     vi.spyOn(geoApiModule, 'useHotspots').mockReturnValue(queryResult([]));
+    vi.spyOn(geoApiModule, 'useDistrictBoundaries').mockReturnValue(queryResult({ type: 'FeatureCollection', features: [] }));
 
     render(
       <MemoryRouter>

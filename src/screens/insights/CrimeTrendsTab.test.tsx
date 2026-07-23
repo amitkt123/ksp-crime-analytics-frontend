@@ -5,6 +5,18 @@ import * as commandCenterApiModule from '../../api/commandCenterApi';
 import * as geoApiModule from '../../api/geoApi';
 import { CrimeTrendsTab } from './CrimeTrendsTab';
 
+vi.mock('maplibre-gl', () => {
+  function MockMap(this: Record<string, unknown>) {
+    this.on = vi.fn((event: string, cb: () => void) => { if (event === 'load') cb(); });
+    this.addSource = vi.fn();
+    this.addLayer = vi.fn();
+    this.getSource = vi.fn();
+    this.fitBounds = vi.fn();
+    this.remove = vi.fn();
+  }
+  return { default: { Map: vi.fn(MockMap) } };
+});
+
 function queryResult<T>(data: T, overrides: Partial<{ isLoading: boolean; isError: boolean }> = {}) {
   return { data, isLoading: false, isError: false, refetch: vi.fn(), ...overrides } as never;
 }
@@ -18,6 +30,8 @@ const summary = {
   ],
 };
 
+const boundaries = { type: 'FeatureCollection' as const, features: [] };
+
 function mockAuth(roles: string[]) {
   vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
     token: 'jwt', roles, username: 'demo', login: vi.fn(), logout: vi.fn(),
@@ -29,6 +43,7 @@ describe('CrimeTrendsTab', () => {
     mockAuth(['SCRB_ANALYST']);
     vi.spyOn(commandCenterApiModule, 'useCommandCenterSummary').mockReturnValue(queryResult(summary));
     vi.spyOn(geoApiModule, 'useHotspots').mockReturnValue(queryResult([]));
+    vi.spyOn(geoApiModule, 'useDistrictBoundaries').mockReturnValue(queryResult(boundaries));
 
     render(<CrimeTrendsTab />);
 
@@ -41,6 +56,7 @@ describe('CrimeTrendsTab', () => {
     mockAuth(['INVESTIGATOR']);
     vi.spyOn(commandCenterApiModule, 'useCommandCenterSummary').mockReturnValue(queryResult(summary));
     vi.spyOn(geoApiModule, 'useHotspots').mockReturnValue(queryResult(undefined));
+    vi.spyOn(geoApiModule, 'useDistrictBoundaries').mockReturnValue(queryResult(boundaries));
 
     render(<CrimeTrendsTab />);
 
@@ -52,6 +68,7 @@ describe('CrimeTrendsTab', () => {
     mockAuth(['DISTRICT_SUPERVISOR']);
     vi.spyOn(commandCenterApiModule, 'useCommandCenterSummary').mockReturnValue(queryResult(summary));
     vi.spyOn(geoApiModule, 'useHotspots').mockReturnValue(queryResult([]));
+    vi.spyOn(geoApiModule, 'useDistrictBoundaries').mockReturnValue(queryResult(boundaries));
 
     render(<CrimeTrendsTab />);
 
@@ -63,6 +80,7 @@ describe('CrimeTrendsTab', () => {
     mockAuth(['SCRB_ANALYST']);
     vi.spyOn(commandCenterApiModule, 'useCommandCenterSummary').mockReturnValue(queryResult(summary));
     vi.spyOn(geoApiModule, 'useHotspots').mockReturnValue(queryResult([]));
+    vi.spyOn(geoApiModule, 'useDistrictBoundaries').mockReturnValue(queryResult(boundaries));
 
     render(<CrimeTrendsTab />);
 

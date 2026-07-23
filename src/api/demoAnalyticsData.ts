@@ -225,6 +225,7 @@ export interface DemoHotspotPoint {
   lat: number;
   lon: number;
   crimeHead: string;
+  count: number;
 }
 
 // Fallback for roles GeoAnalyticsQueryService.hotspots() 403s (INVESTIGATOR/STATION_SUPERVISOR
@@ -245,6 +246,7 @@ export function getIncidentHotspotsDemo(): DemoHotspotPoint[] {
         lat: Number((lat + Math.sin(angle + ci) * 0.18).toFixed(4)),
         lon: Number((lon + Math.cos(angle + ci) * 0.18).toFixed(4)),
         crimeHead: CRIME_HEADS_DEMO[(ci + i) % CRIME_HEADS_DEMO.length],
+        count: 8 + ((ci * 7 + i * 3) % 40),
       });
     }
   });
