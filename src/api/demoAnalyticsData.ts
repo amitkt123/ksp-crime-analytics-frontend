@@ -329,3 +329,196 @@ export function getVictimGenderByCrimeHeadDemo(): GenderCrimeHeadCrossTab[] {
     { crimeHead: 'Cyber Crimes', malePct: 49, femalePct: 49, thirdGenderPct: 2 },
   ];
 }
+
+// ---- Investigation Network ----
+
+export interface RepeatOffenderDemoRow {
+  displayName: string;
+  caseCount: number;
+}
+
+// Fallback for roles NetworkQueryService.requireFullNetworkAccess() 403s -- everyone except
+// SCRB_ANALYST/SUPER_ADMIN (STATE scope + rawCaseAccess=true required).
+export function getRepeatOffendersDemo(): RepeatOffenderDemoRow[] {
+  return [
+    { displayName: 'M**** K****', caseCount: 7 },
+    { displayName: 'R**** P****', caseCount: 6 },
+    { displayName: 'S**** N****', caseCount: 5 },
+    { displayName: 'A**** V****', caseCount: 5 },
+    { displayName: 'G**** H****', caseCount: 4 },
+    { displayName: 'D**** S****', caseCount: 4 },
+    { displayName: 'K**** B****', caseCount: 3 },
+    { displayName: 'P**** M****', caseCount: 3 },
+    { displayName: 'V**** T****', caseCount: 2 },
+    { displayName: 'N**** L****', caseCount: 2 },
+  ];
+}
+
+export function getFirstTimeVsRepeatDemo(): { firstTime: number; repeat: number } {
+  return { firstTime: 9840, repeat: 1720 };
+}
+
+export interface LinkageBar {
+  label: string;
+  count: number;
+}
+
+export function getCrimeHeadActLinkageDemo(): LinkageBar[] {
+  return [
+    { label: 'Crimes Against Property → IPC', count: 4680 },
+    { label: 'Crimes Against Body → IPC', count: 3120 },
+    { label: 'Crimes Against Women → IPC', count: 1580 },
+    { label: 'Economic Offences → IPC', count: 900 },
+    { label: 'Cyber Crimes → IT Act 2000', count: 780 },
+    { label: 'Economic Offences → IT Act 2000', count: 640 },
+    { label: 'Crimes Against Women → SC/ST (POA) Act', count: 420 },
+  ];
+}
+
+export interface ArrestSurrenderPoint {
+  monthLabel: string;
+  arrests: number;
+  surrenders: number;
+}
+
+export function getArrestsVsSurrendersDemo(): ArrestSurrenderPoint[] {
+  return MONTH_LABELS.map((monthLabel, i) => ({
+    monthLabel,
+    arrests: 340 + (i % 3) * 22 + i * 4,
+    surrenders: 60 + (i % 4) * 6,
+  }));
+}
+
+export interface IoLeaderboardRow {
+  officer: string;
+  unit: string;
+  casesHandled: number;
+  chargesheetRatePct: number;
+  avgDaysToChargesheet: number;
+}
+
+export function getIoLeaderboardDemo(): IoLeaderboardRow[] {
+  return [
+    { officer: 'R**** K****', unit: 'Whitefield PS', casesHandled: 84, chargesheetRatePct: 71, avgDaysToChargesheet: 42 },
+    { officer: 'S**** M****', unit: 'Hubli SubUrban PS', casesHandled: 76, chargesheetRatePct: 68, avgDaysToChargesheet: 47 },
+    { officer: 'P**** N****', unit: 'Mysuru Town PS', casesHandled: 71, chargesheetRatePct: 74, avgDaysToChargesheet: 39 },
+    { officer: 'V**** G****', unit: 'Belagavi Rural PS', casesHandled: 68, chargesheetRatePct: 65, avgDaysToChargesheet: 51 },
+    { officer: 'A**** S****', unit: 'Kalaburagi Town PS', casesHandled: 63, chargesheetRatePct: 70, avgDaysToChargesheet: 44 },
+    { officer: 'D**** R****', unit: 'Tumakuru Circle Office', casesHandled: 59, chargesheetRatePct: 66, avgDaysToChargesheet: 49 },
+    { officer: 'K**** P****', unit: 'Ballari Town PS', casesHandled: 55, chargesheetRatePct: 72, avgDaysToChargesheet: 41 },
+    { officer: 'N**** H****', unit: 'Shivamogga Rural PS', casesHandled: 52, chargesheetRatePct: 63, avgDaysToChargesheet: 53 },
+  ];
+}
+
+// ---- Judicial & Units ----
+
+export interface CourtPendingRow {
+  court: string;
+  pending: number;
+}
+
+export function getCourtPendingDemo(): CourtPendingRow[] {
+  return [
+    { court: 'Bengaluru City Civil & Sessions Court', pending: 612 },
+    { court: 'Mysuru District & Sessions Court', pending: 348 },
+    { court: 'Belagavi Fast Track Court', pending: 297 },
+    { court: 'Tumakuru JMFC Court', pending: 264 },
+    { court: 'Kalaburagi District & Sessions Court', pending: 231 },
+    { court: 'Ballari Civil Court', pending: 198 },
+    { court: 'Dakshina Kannada JMFC Court', pending: 176 },
+    { court: 'Shivamogga Fast Track Court', pending: 154 },
+    { court: 'Hassan District & Sessions Court', pending: 132 },
+    { court: 'Vijayapura JMFC Court', pending: 118 },
+    { court: 'Raichur Civil Court', pending: 97 },
+    { court: 'Udupi Fast Track Court', pending: 84 },
+  ];
+}
+
+export interface OutcomeSlice {
+  outcome: string;
+  count: number;
+}
+
+export function getFinalReportOutcomeDemo(): OutcomeSlice[] {
+  return [
+    { outcome: 'Chargesheet (A)', count: 6850 },
+    { outcome: 'False Case (B)', count: 850 },
+    { outcome: 'Undetected (C)', count: 570 },
+  ];
+}
+
+export interface UnitCaseLoad {
+  districtName: string;
+  unitName: string;
+  caseCount: number;
+}
+
+const DISTRICT_UNITS_DEMO: Record<string, string[]> = {
+  'Bengaluru Urban': ['Whitefield PS', 'Koramangala PS', 'Yeshwanthpur PS', 'Electronic City PS'],
+  Mysuru: ['Mysuru Town PS', 'Mysuru Rural PS', 'Nazarbad PS'],
+  Tumakuru: ['Tumakuru Town PS', 'Tumakuru Rural PS', 'Tumakuru Circle Office'],
+  Belagavi: ['Belagavi Town PS', 'Belagavi Rural PS', 'Belagavi Circle Office'],
+  Kalaburagi: ['Kalaburagi Town PS', 'Kalaburagi Rural PS'],
+};
+
+const DISTRICT_WEIGHTS_DEMO: Record<string, number> = {
+  'Bengaluru Urban': 1840,
+  Mysuru: 687,
+  Tumakuru: 678,
+  Belagavi: 586,
+  Kalaburagi: 526,
+};
+
+export function getDistrictUnitCaseLoadDemo(): UnitCaseLoad[] {
+  const rows: UnitCaseLoad[] = [];
+  Object.entries(DISTRICT_UNITS_DEMO).forEach(([districtName, units]) => {
+    const share = Math.round(DISTRICT_WEIGHTS_DEMO[districtName] / units.length);
+    units.forEach((unitName, i) => {
+      rows.push({ districtName, unitName, caseCount: Math.max(20, share - i * Math.round(share * 0.12)) });
+    });
+  });
+  return rows;
+}
+
+export interface RankHeadcount {
+  rank: string;
+  headcount: number;
+}
+
+export function getRankDistributionDemo(): RankHeadcount[] {
+  return [
+    { rank: 'DGP', headcount: 1 },
+    { rank: 'ADGP', headcount: 6 },
+    { rank: 'IGP', headcount: 14 },
+    { rank: 'DIG', headcount: 22 },
+    { rank: 'SP', headcount: 34 },
+    { rank: 'Addl. SP', headcount: 41 },
+    { rank: 'DySP', headcount: 96 },
+    { rank: 'Circle Inspector', headcount: 210 },
+    { rank: 'Police Inspector', headcount: 480 },
+    { rank: 'Sub-Inspector', headcount: 920 },
+    { rank: 'ASI', headcount: 1380 },
+    { rank: 'Head Constable', headcount: 2860 },
+    { rank: 'Constable', headcount: 6240 },
+  ];
+}
+
+export interface UnitPerformanceRow {
+  unitName: string;
+  caseCount: number;
+  pendingSharePct: number;
+  avgResolutionDays: number;
+}
+
+export function getUnitPerformanceDemo(): UnitPerformanceRow[] {
+  return [
+    { unitName: 'Whitefield PS', caseCount: 412, pendingSharePct: 28, avgResolutionDays: 46 },
+    { unitName: 'Koramangala PS', caseCount: 388, pendingSharePct: 31, avgResolutionDays: 52 },
+    { unitName: 'Mysuru Town PS', caseCount: 356, pendingSharePct: 24, avgResolutionDays: 41 },
+    { unitName: 'Hubli SubUrban PS', caseCount: 329, pendingSharePct: 33, avgResolutionDays: 55 },
+    { unitName: 'Belagavi Town PS', caseCount: 301, pendingSharePct: 27, avgResolutionDays: 44 },
+    { unitName: 'Tumakuru Town PS', caseCount: 284, pendingSharePct: 29, avgResolutionDays: 48 },
+    { unitName: 'Kalaburagi Town PS', caseCount: 263, pendingSharePct: 35, avgResolutionDays: 58 },
+    { unitName: 'Ballari Town PS', caseCount: 241, pendingSharePct: 26, avgResolutionDays: 43 },
+  ];
+}

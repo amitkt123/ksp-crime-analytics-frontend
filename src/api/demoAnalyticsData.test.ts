@@ -18,6 +18,16 @@ import {
   getCasteDemo,
   getOccupationDemo,
   getVictimGenderByCrimeHeadDemo,
+  getRepeatOffendersDemo,
+  getFirstTimeVsRepeatDemo,
+  getCrimeHeadActLinkageDemo,
+  getArrestsVsSurrendersDemo,
+  getIoLeaderboardDemo,
+  getCourtPendingDemo,
+  getFinalReportOutcomeDemo,
+  getDistrictUnitCaseLoadDemo,
+  getRankDistributionDemo,
+  getUnitPerformanceDemo,
 } from './demoAnalyticsData';
 
 describe('demoAnalyticsData: Overview + Crime Trends', () => {
@@ -126,6 +136,68 @@ describe('demoAnalyticsData: Demographics', () => {
     expect(rows).toHaveLength(5);
     rows.forEach((row) => {
       expect(row.malePct + row.femalePct + row.thirdGenderPct).toBe(100);
+    });
+  });
+});
+
+describe('demoAnalyticsData: Investigation Network + Judicial & Units', () => {
+  it('getRepeatOffendersDemo is sorted descending by caseCount with masked-style names', () => {
+    const rows = getRepeatOffendersDemo();
+    for (let i = 1; i < rows.length; i++) {
+      expect(rows[i].caseCount).toBeLessThanOrEqual(rows[i - 1].caseCount);
+    }
+    rows.forEach((r) => expect(r.displayName).toMatch(/^\S\*+ \S\*+$/));
+  });
+
+  it('getFirstTimeVsRepeatDemo returns two positive counts', () => {
+    const { firstTime, repeat } = getFirstTimeVsRepeatDemo();
+    expect(firstTime).toBeGreaterThan(0);
+    expect(repeat).toBeGreaterThan(0);
+  });
+
+  it('getCrimeHeadActLinkageDemo and getArrestsVsSurrendersDemo produce non-empty positive series', () => {
+    getCrimeHeadActLinkageDemo().forEach((row) => expect(row.count).toBeGreaterThan(0));
+    const arrests = getArrestsVsSurrendersDemo();
+    expect(arrests).toHaveLength(12);
+    arrests.forEach((row) => {
+      expect(row.arrests).toBeGreaterThan(0);
+      expect(row.surrenders).toBeGreaterThan(0);
+    });
+  });
+
+  it('getIoLeaderboardDemo rows have masked-style officer names and a rate in [0,100]', () => {
+    getIoLeaderboardDemo().forEach((row) => {
+      expect(row.officer).toMatch(/^\S\*+ \S\*+$/);
+      expect(row.chargesheetRatePct).toBeGreaterThanOrEqual(0);
+      expect(row.chargesheetRatePct).toBeLessThanOrEqual(100);
+    });
+  });
+
+  it('getCourtPendingDemo and getFinalReportOutcomeDemo are non-empty positive series', () => {
+    expect(getCourtPendingDemo().length).toBeGreaterThan(0);
+    getFinalReportOutcomeDemo().forEach((row) => expect(row.count).toBeGreaterThan(0));
+  });
+
+  it('getDistrictUnitCaseLoadDemo covers multiple units per district, all positive counts', () => {
+    const rows = getDistrictUnitCaseLoadDemo();
+    const byDistrict = new Map<string, number>();
+    rows.forEach((r) => byDistrict.set(r.districtName, (byDistrict.get(r.districtName) ?? 0) + 1));
+    byDistrict.forEach((count) => expect(count).toBeGreaterThan(1));
+    rows.forEach((r) => expect(r.caseCount).toBeGreaterThan(0));
+  });
+
+  it('getRankDistributionDemo forms a pyramid: DGP has the smallest headcount, Constable the largest', () => {
+    const ranks = getRankDistributionDemo();
+    const dgp = ranks.find((r) => r.rank === 'DGP')!;
+    const constable = ranks.find((r) => r.rank === 'Constable')!;
+    expect(dgp.headcount).toBeLessThan(constable.headcount);
+    ranks.forEach((r) => expect(r.headcount).toBeGreaterThan(0));
+  });
+
+  it('getUnitPerformanceDemo rows have a pending share in [0,100]', () => {
+    getUnitPerformanceDemo().forEach((row) => {
+      expect(row.pendingSharePct).toBeGreaterThanOrEqual(0);
+      expect(row.pendingSharePct).toBeLessThanOrEqual(100);
     });
   });
 });
