@@ -33,6 +33,7 @@ export function EntityInspectorPanel({ node, onClose, onReFocus }: EntityInspect
       )}
       {node && node.type === 'LOCATION' && (
         <div className="evidence-meta-list">
+          {/* Skipped when equal to the panel title (node.label) to avoid showing the same string twice. */}
           {node.locationKey && node.locationKey !== node.label && (
             <div className="evidence-meta-row"><span className="k">Location</span><span className="v">{node.locationKey}</span></div>
           )}
