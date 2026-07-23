@@ -139,7 +139,7 @@
 .info-tip { position: relative; display: inline-flex; margin-left: 6px; }
 .info-tip-button { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--muted-2); background: var(--canvas); color: var(--muted); font-size: 10px; font-style: italic; font-family: 'IBM Plex Sans', sans-serif; cursor: pointer; display: grid; place-items: center; padding: 0; }
 .info-tip-button:hover { color: var(--text); border-color: var(--muted); }
-.info-tip-popover { position: absolute; top: 22px; left: 0; z-index: 10; width: 220px; background: var(--text); color: var(--canvas); font-size: 11px; line-height: 1.4; padding: 8px 10px; border-radius: 6px; box-shadow: var(--shadow); }
+.info-tip-popover { position: absolute; top: 22px; right: 0; left: auto; z-index: 10; width: 220px; background: var(--text); color: var(--canvas); font-size: 11px; line-height: 1.4; padding: 8px 10px; border-radius: 6px; box-shadow: var(--shadow); }
 .indicator-scatter-badges { display: flex; align-items: center; gap: 6px; }
 .indicator-scatter-empty { color: var(--muted); font-size: 12px; padding: 24px 0; text-align: center; }
 .chip.strongest { background: var(--status-good-fill); color: var(--status-good-ink); }
