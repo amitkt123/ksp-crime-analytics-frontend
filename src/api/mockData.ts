@@ -736,8 +736,16 @@ function buildNetworkPath(from: number, to: number, maxHops: number) {
   };
 }
 
-type MockGraphNode = { id: string; type: 'PERSON' | 'CASE' | 'LOCATION'; label: string; confidence: number | null };
-type MockGraphEdge = { id: string; sourceId: string; targetId: string; type: string; confidence: number | null };
+type MockGraphNode = {
+  id: string; type: 'PERSON' | 'CASE' | 'LOCATION'; label: string; confidence: number | null;
+  crimeNo: string | null; caseNo: string | null; crimeRegisteredDate: string | null;
+  gravityWeight: number | null; moKeywordTags: string[] | null;
+  locationKey: string | null; latitude: number | null; longitude: number | null;
+};
+type MockGraphEdge = {
+  id: string; sourceId: string; targetId: string; type: string;
+  confidence: number | null; sharedCaseLabel: string | null;
+};
 
 // Caps the node list at 75 and drops any edge whose endpoint didn't survive the
 // cap -- mirrors the real Cypher's own documented invariant (never a dangling
@@ -773,6 +781,7 @@ function sharesMoWithEdges(personIds: number[], tuples: NetworkCaseTuple[]) {
           targetId: String(list[j]),
           type: 'SHARES_MO_WITH',
           confidence: 0.7,
+          sharedCaseLabel: null,
         });
       }
     }
@@ -792,13 +801,29 @@ function egoNetworkNodesAndEdges(seedPersonIds: number[], tuples: NetworkCaseTup
 
   tuples.forEach((t) => {
     if (!seedPersonIds.includes(t.accusedId) && !seedPersonIds.includes(t.victimId)) return;
-    addNode({ id: String(t.accusedId), type: 'PERSON', label: t.accusedName, confidence: confidenceScoreFor(1) });
-    addNode({ id: `case-${t.caseId}`, type: 'CASE', label: `${t.caseNumber}`, confidence: null });
-    addNode({ id: `location-${t.unitId}`, type: 'LOCATION', label: t.unitName, confidence: null });
-    addNode({ id: String(t.victimId), type: 'PERSON', label: t.victimName, confidence: null });
-    edges.push({ id: `acc-${t.accusedId}-${t.caseId}`, sourceId: String(t.accusedId), targetId: `case-${t.caseId}`, type: 'ACCUSED_IN', confidence: null });
-    edges.push({ id: `vic-${t.victimId}-${t.caseId}`, sourceId: String(t.victimId), targetId: `case-${t.caseId}`, type: 'VICTIM_IN', confidence: null });
-    edges.push({ id: `occ-${t.caseId}-${t.unitId}`, sourceId: `case-${t.caseId}`, targetId: `location-${t.unitId}`, type: 'OCCURRED_AT', confidence: null });
+    addNode({
+      id: String(t.accusedId), type: 'PERSON', label: t.accusedName, confidence: confidenceScoreFor(1),
+      crimeNo: null, caseNo: null, crimeRegisteredDate: null, gravityWeight: null, moKeywordTags: null,
+      locationKey: null, latitude: null, longitude: null,
+    });
+    addNode({
+      id: `case-${t.caseId}`, type: 'CASE', label: `${t.caseNumber}`, confidence: null,
+      crimeNo: t.caseNumber, caseNo: t.caseNumber, crimeRegisteredDate: null, gravityWeight: null, moKeywordTags: null,
+      locationKey: null, latitude: null, longitude: null,
+    });
+    addNode({
+      id: `location-${t.unitId}`, type: 'LOCATION', label: t.unitName, confidence: null,
+      crimeNo: null, caseNo: null, crimeRegisteredDate: null, gravityWeight: null, moKeywordTags: null,
+      locationKey: t.unitName, latitude: null, longitude: null,
+    });
+    addNode({
+      id: String(t.victimId), type: 'PERSON', label: t.victimName, confidence: null,
+      crimeNo: null, caseNo: null, crimeRegisteredDate: null, gravityWeight: null, moKeywordTags: null,
+      locationKey: null, latitude: null, longitude: null,
+    });
+    edges.push({ id: `acc-${t.accusedId}-${t.caseId}`, sourceId: String(t.accusedId), targetId: `case-${t.caseId}`, type: 'ACCUSED_IN', confidence: null, sharedCaseLabel: null });
+    edges.push({ id: `vic-${t.victimId}-${t.caseId}`, sourceId: String(t.victimId), targetId: `case-${t.caseId}`, type: 'VICTIM_IN', confidence: null, sharedCaseLabel: null });
+    edges.push({ id: `occ-${t.caseId}-${t.unitId}`, sourceId: `case-${t.caseId}`, targetId: `location-${t.unitId}`, type: 'OCCURRED_AT', confidence: null, sharedCaseLabel: null });
   });
 
   const accusedIdsOnCanvas = nodes.filter((n) => n.type === 'PERSON').map((n) => Number(n.id));
@@ -832,7 +857,11 @@ function buildSubgraph(focus: string, limit: number, personId: number | undefine
       .map((p) => p.personId);
     const nodes: MockGraphNode[] = memberIds.map((id) => {
       const person = persons.get(id)!;
-      return { id: String(id), type: 'PERSON', label: person.displayName, confidence: confidenceScoreFor(person.caseIds.length) };
+      return {
+        id: String(id), type: 'PERSON', label: person.displayName, confidence: confidenceScoreFor(person.caseIds.length),
+        crimeNo: null, caseNo: null, crimeRegisteredDate: null, gravityWeight: null, moKeywordTags: null,
+        locationKey: null, latitude: null, longitude: null,
+      };
     });
     const edges = sharesMoWithEdges(memberIds, tuples);
     return capSubgraph(nodes, edges);
@@ -851,7 +880,11 @@ function buildSubgraph(focus: string, limit: number, personId: number | undefine
     }
     path.forEach((personId2) => {
       const name = personDisplayName(personId2, tuples)!;
-      addNode({ id: String(personId2), type: 'PERSON', label: name, confidence: confidenceScoreFor(1) });
+      addNode({
+        id: String(personId2), type: 'PERSON', label: name, confidence: confidenceScoreFor(1),
+        crimeNo: null, caseNo: null, crimeRegisteredDate: null, gravityWeight: null, moKeywordTags: null,
+        locationKey: null, latitude: null, longitude: null,
+      });
     });
     // A hop can be case-based (a shared tuple, i.e. one is accused and the other
     // victim of the same case) or MO-based (two accused linked only by
@@ -865,8 +898,16 @@ function buildSubgraph(focus: string, limit: number, personId: number | undefine
       const sharedCase = tuples.find((t) => (t.accusedId === a || t.victimId === a) && (t.accusedId === b || t.victimId === b));
       const justifyingCase = sharedCase ?? tuples.find((t) => t.accusedId === a || t.victimId === a) ?? tuples.find((t) => t.accusedId === b || t.victimId === b);
       if (!justifyingCase) continue;
-      addNode({ id: `case-${justifyingCase.caseId}`, type: 'CASE', label: justifyingCase.caseNumber, confidence: null });
-      addNode({ id: `location-${justifyingCase.unitId}`, type: 'LOCATION', label: justifyingCase.unitName, confidence: null });
+      addNode({
+        id: `case-${justifyingCase.caseId}`, type: 'CASE', label: justifyingCase.caseNumber, confidence: null,
+        crimeNo: justifyingCase.caseNumber, caseNo: justifyingCase.caseNumber, crimeRegisteredDate: null, gravityWeight: null, moKeywordTags: null,
+        locationKey: null, latitude: null, longitude: null,
+      });
+      addNode({
+        id: `location-${justifyingCase.unitId}`, type: 'LOCATION', label: justifyingCase.unitName, confidence: null,
+        crimeNo: null, caseNo: null, crimeRegisteredDate: null, gravityWeight: null, moKeywordTags: null,
+        locationKey: justifyingCase.unitName, latitude: null, longitude: null,
+      });
       if (justifyingCase.accusedId === a || justifyingCase.victimId === a) {
         edges.push({
           id: `p-${a}-${justifyingCase.caseId}`,
@@ -874,6 +915,7 @@ function buildSubgraph(focus: string, limit: number, personId: number | undefine
           targetId: `case-${justifyingCase.caseId}`,
           type: justifyingCase.accusedId === a ? 'ACCUSED_IN' : 'VICTIM_IN',
           confidence: null,
+          sharedCaseLabel: null,
         });
       }
       if (justifyingCase.accusedId === b || justifyingCase.victimId === b) {
@@ -883,9 +925,10 @@ function buildSubgraph(focus: string, limit: number, personId: number | undefine
           targetId: `case-${justifyingCase.caseId}`,
           type: justifyingCase.accusedId === b ? 'ACCUSED_IN' : 'VICTIM_IN',
           confidence: null,
+          sharedCaseLabel: null,
         });
       }
-      edges.push({ id: `occ-${justifyingCase.caseId}`, sourceId: `case-${justifyingCase.caseId}`, targetId: `location-${justifyingCase.unitId}`, type: 'OCCURRED_AT', confidence: null });
+      edges.push({ id: `occ-${justifyingCase.caseId}`, sourceId: `case-${justifyingCase.caseId}`, targetId: `location-${justifyingCase.unitId}`, type: 'OCCURRED_AT', confidence: null, sharedCaseLabel: null });
     }
     edges.push(...sharesMoWithEdges(path, tuples));
     return capSubgraph(nodes, edges);
@@ -1042,6 +1085,43 @@ export async function getMockResponse(
 
   const caseExplainMatch = path.match(/^\/api\/cases\/(\d+)\/explain$/);
   if (caseExplainMatch) return mockCaseExplanation(Number(caseExplainMatch[1]));
+
+  if (path.startsWith('/api/network/search?')) {
+    const query = new URLSearchParams(path.split('?')[1]);
+    const q = (query.get('q') ?? '').toLowerCase();
+    const limit = Number(query.get('limit') ?? 10);
+    if (q.length < 2) return [];
+    const tuples = networkCaseTuples();
+    const results: MockGraphNode[] = [];
+    const seen = new Set<string>();
+    tuples.forEach((t) => {
+      if (t.accusedName.toLowerCase().includes(q) && !seen.has(String(t.accusedId))) {
+        seen.add(String(t.accusedId));
+        results.push({
+          id: String(t.accusedId), type: 'PERSON', label: t.accusedName, confidence: confidenceScoreFor(1),
+          crimeNo: null, caseNo: null, crimeRegisteredDate: null, gravityWeight: null, moKeywordTags: null,
+          locationKey: null, latitude: null, longitude: null,
+        });
+      }
+      if (t.caseNumber.toLowerCase().includes(q) && !seen.has(`case-${t.caseId}`)) {
+        seen.add(`case-${t.caseId}`);
+        results.push({
+          id: `case-${t.caseId}`, type: 'CASE', label: t.caseNumber, confidence: null,
+          crimeNo: t.caseNumber, caseNo: t.caseNumber, crimeRegisteredDate: null, gravityWeight: null, moKeywordTags: null,
+          locationKey: null, latitude: null, longitude: null,
+        });
+      }
+      if (t.unitName.toLowerCase().includes(q) && !seen.has(`location-${t.unitId}`)) {
+        seen.add(`location-${t.unitId}`);
+        results.push({
+          id: `location-${t.unitId}`, type: 'LOCATION', label: t.unitName, confidence: null,
+          crimeNo: null, caseNo: null, crimeRegisteredDate: null, gravityWeight: null, moKeywordTags: null,
+          locationKey: t.unitName, latitude: null, longitude: null,
+        });
+      }
+    });
+    return results.slice(0, limit);
+  }
 
   if (path.startsWith('/api/network/subgraph?')) {
     const query = new URLSearchParams(path.split('?')[1]);
