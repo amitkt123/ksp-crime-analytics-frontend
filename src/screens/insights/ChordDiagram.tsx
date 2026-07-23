@@ -20,10 +20,10 @@ export function ChordDiagram({ labels, matrix, size = 320 }: ChordDiagramProps) 
   );
 
   const arcGenerator = useMemo(
-    () => d3arc<never, (typeof chordLayout.groups)[number]>().innerRadius(innerRadius).outerRadius(outerRadius),
+    () => d3arc<(typeof chordLayout.groups)[number]>().innerRadius(innerRadius).outerRadius(outerRadius),
     [innerRadius, outerRadius],
   );
-  const ribbonGenerator = useMemo(() => ribbon<never, (typeof chordLayout)[number]>().radius(innerRadius), [innerRadius]);
+  const ribbonGenerator = useMemo(() => ribbon<(typeof chordLayout)[number], never>().radius(innerRadius), [innerRadius]);
 
   return (
     <svg viewBox={`0 0 ${size} ${size}`} width="100%" height={size} role="img" aria-label="Crime head to act chord diagram">
