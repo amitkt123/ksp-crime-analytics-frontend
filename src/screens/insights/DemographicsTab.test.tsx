@@ -3,13 +3,14 @@ import { render, screen } from '@testing-library/react';
 import { DemographicsTab } from './DemographicsTab';
 
 describe('DemographicsTab', () => {
-  it('renders all 7 cards, every one tagged as demo data', () => {
+  it('renders all 11 cards, every one tagged as demo data', () => {
     render(<DemographicsTab />);
 
     const titles = [
       'Victim Gender', 'Accused Gender', 'Complainant Gender',
       'Age Distribution — Victims vs Accused', 'Complainant Religion', 'Complainant Caste Category',
-      'Complainant Occupation', 'Victim Gender × Crime Head Cross-tab',
+      'Complainant Occupation', 'Accused Religion', 'Accused Caste Category', 'Accused Occupation',
+      'Victim Gender × Crime Head Cross-tab',
     ];
     titles.forEach((title) => {
       const card = screen.getByText(title).closest('.insight-card')!;

@@ -341,6 +341,41 @@ export function getOccupationDemo(): LabeledCount[] {
   ];
 }
 
+export function getAccusedReligionDemo(): LabeledCount[] {
+  return [
+    { label: 'Hindu', count: 9840 },
+    { label: 'Muslim', count: 2120 },
+    { label: 'Christian', count: 640 },
+    { label: 'Jain', count: 110 },
+    { label: 'Sikh', count: 90 },
+    { label: 'Buddhist', count: 160 },
+    { label: 'Other', count: 100 },
+  ];
+}
+
+export function getAccusedCasteDemo(): LabeledCount[] {
+  return [
+    { label: 'General', count: 2140 },
+    { label: 'OBC', count: 5860 },
+    { label: 'SC', count: 2680 },
+    { label: 'ST', count: 1580 },
+    { label: 'Other', count: 800 },
+  ];
+}
+
+export function getAccusedOccupationDemo(): LabeledCount[] {
+  return [
+    { label: 'Farmer', count: 1840 },
+    { label: 'Govt Employee', count: 620 },
+    { label: 'Private Employee', count: 2140 },
+    { label: 'Business', count: 1960 },
+    { label: 'Student', count: 980 },
+    { label: 'Daily Wage Labour', count: 2860 },
+    { label: 'Homemaker', count: 240 },
+    { label: 'Unemployed', count: 2420 },
+  ];
+}
+
 export interface GenderCrimeHeadCrossTab {
   crimeHead: string;
   malePct: number;
