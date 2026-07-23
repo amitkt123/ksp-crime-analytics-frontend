@@ -127,15 +127,19 @@
 .risk-bar-line { display: flex; align-items: center; gap: 8px; }
 .risk-bar-line .cat-bar-track { height: 6px; flex: 1; }
 
-/* Small-multiples correlation grid: 4 mini scatter plots, 2x2 on wide panes,
-   1-column when the pane narrows below room for two side by side. */
-.correlation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 720px) {
-  .correlation-grid { grid-template-columns: 1fr; }
-}
+/* Correlation charts: full-width, stacked one per row (each gets an info tooltip + zoom). */
+.correlation-stack { display: flex; flex-direction: column; gap: 16px; }
+.indicator-scatter-row { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 4px; background: var(--panel); }
+.indicator-scatter-row-head { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-bottom: -6px; }
 .indicator-scatter { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 4px; background: var(--panel); }
 .indicator-scatter-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
 .indicator-scatter-label { font-size: 12.5px; font-weight: 600; }
+
+/* ---- Info tooltip (used on Sociological correlation charts) ---- */
+.info-tip { position: relative; display: inline-flex; margin-left: 6px; }
+.info-tip-button { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--muted-2); background: var(--canvas); color: var(--muted); font-size: 10px; font-style: italic; font-family: 'IBM Plex Sans', sans-serif; cursor: pointer; display: grid; place-items: center; padding: 0; }
+.info-tip-button:hover { color: var(--text); border-color: var(--muted); }
+.info-tip-popover { position: absolute; top: 22px; left: 0; z-index: 10; width: 220px; background: var(--text); color: var(--canvas); font-size: 11px; line-height: 1.4; padding: 8px 10px; border-radius: 6px; box-shadow: var(--shadow); }
 .indicator-scatter-badges { display: flex; align-items: center; gap: 6px; }
 .indicator-scatter-empty { color: var(--muted); font-size: 12px; padding: 24px 0; text-align: center; }
 .chip.strongest { background: var(--status-good-fill); color: var(--status-good-ink); }
