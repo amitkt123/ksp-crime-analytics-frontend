@@ -187,20 +187,19 @@ export interface DistrictCrimeHeadCell {
   count: number;
 }
 
-// Case-count weights copied from mockData.ts's MOCK_DISTRICTS so this matrix's per-district
-// totals are consistent with the numbers Command Center already shows in mock mode.
-const TOP_DISTRICTS_DEMO: Array<[string, number]> = [
-  ['Bengaluru Urban', 1840],
-  ['Mysuru', 687],
-  ['Tumakuru', 678],
-  ['Belagavi', 586],
-  ['Kalaburagi', 526],
-  ['Dakshina Kannada', 396],
-  ['Shivamogga', 406],
-  ['Ballari', 350],
+// Full 30-district weight list, copied from mockData.ts's MOCK_DISTRICTS so this matrix's
+// per-district totals are consistent with the numbers Command Center already shows in mock mode.
+const ALL_DISTRICTS_DEMO: Array<[string, number]> = [
+  ['Bagalkote', 89], ['Ballari', 350], ['Belagavi', 586], ['Bengaluru Rural', 107],
+  ['Bengaluru Urban', 1840], ['Bidar', 282], ['Chamarajanagara', 349], ['Chikkaballapura', 187],
+  ['Chikkamagaluru', 80], ['Chitradurga', 289], ['Dakshina Kannada', 396], ['Davanagere', 327],
+  ['Dharwad', 293], ['Gadag', 182], ['Hassan', 422], ['Haveri', 449], ['Kalaburagi', 526],
+  ['Kodagu', 265], ['Kolar', 253], ['Koppal', 127], ['Mandya', 288], ['Mysuru', 687],
+  ['Raichur', 269], ['Ramanagara', 458], ['Shivamogga', 406], ['Tumakuru', 678],
+  ['Udupi', 401], ['Uttara Kannada', 185], ['Vijayapura', 451], ['Yadgir', 268],
 ];
 
-export function getDistrictCrimeHeadMatrix(): DistrictCrimeHeadCell[] {
+export function getDistrictCrimeHeadMatrix(districtFilter?: string): DistrictCrimeHeadCell[] {
   const headShare: Record<string, number> = {
     'Crimes Against Body': 0.22,
     'Crimes Against Property': 0.35,
@@ -208,13 +207,18 @@ export function getDistrictCrimeHeadMatrix(): DistrictCrimeHeadCell[] {
     'Economic Offences': 0.15,
     'Cyber Crimes': 0.12,
   };
+  const districts = districtFilter ? ALL_DISTRICTS_DEMO.filter(([name]) => name === districtFilter) : ALL_DISTRICTS_DEMO;
   const cells: DistrictCrimeHeadCell[] = [];
-  TOP_DISTRICTS_DEMO.forEach(([districtName, weight]) => {
+  districts.forEach(([districtName, weight]) => {
     CRIME_HEADS_DEMO.forEach((crimeHead) => {
       cells.push({ districtName, crimeHead, count: Math.round(weight * headShare[crimeHead]) });
     });
   });
   return cells;
+}
+
+export function getAllDistrictNamesDemo(): string[] {
+  return ALL_DISTRICTS_DEMO.map(([name]) => name);
 }
 
 export interface DemoHotspotPoint {

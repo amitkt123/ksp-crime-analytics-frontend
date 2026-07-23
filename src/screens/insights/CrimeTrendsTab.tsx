@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ScatterChart, Scatter, ZAxis,
@@ -11,6 +12,7 @@ import {
   getCrimeHeadMonthlyTrend,
   getCohortHeatmap,
   getDistrictCrimeHeadMatrix,
+  getAllDistrictNamesDemo,
   getIncidentHotspotsDemo,
 } from '../../api/demoAnalyticsData';
 import { CategoryMixChart } from '../command-center/CategoryMixChart';
@@ -22,10 +24,12 @@ export function CrimeTrendsTab() {
   const summaryQuery = useCommandCenterSummary(token);
   const liveHotspots = canShowLiveHotspots(roles);
   const hotspotsQuery = useHotspots(token, liveHotspots);
+  const [matrixDistrictFilter, setMatrixDistrictFilter] = useState('');
 
   const monthlyTrend = getCrimeHeadMonthlyTrend();
   const cohort = getCohortHeatmap();
-  const matrix = getDistrictCrimeHeadMatrix();
+  const matrix = getDistrictCrimeHeadMatrix(matrixDistrictFilter || undefined);
+  const allDistrictNames = getAllDistrictNamesDemo();
   const demoHotspots = getIncidentHotspotsDemo();
 
   const cohortCells: HeatmapCell[] = cohort.map((c) => ({
@@ -42,103 +46,119 @@ export function CrimeTrendsTab() {
   const matrixCols = [...new Set(matrix.map((m) => m.crimeHead))];
 
   return (
-    <div className="insight-grid">
-      <InsightCard title="Crime Head Distribution" live>
-        {summaryQuery.isLoading ? (
-          <p>Loading…</p>
-        ) : summaryQuery.isError ? (
-          <p role="alert">Couldn't load crime head data.</p>
-        ) : (
-          <CategoryMixChart categoryMix={summaryQuery.data!.categoryMix} />
-        )}
-      </InsightCard>
-
-      <InsightCard
-        title="Crime Head Trend by Month"
-        live={false}
-        note="Stacked monthly volume across the top crime heads."
-        expand={{
-          columns: ['Month', ...CRIME_HEADS_DEMO],
-          rows: monthlyTrend.map((p) => [p.monthLabel, ...CRIME_HEADS_DEMO.map((h) => p[h] as number)]),
-        }}
-      >
-        <ResponsiveContainer width="100%" height={240}>
-          <AreaChart data={monthlyTrend}>
-            <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
-            <XAxis dataKey="monthLabel" stroke="var(--muted)" fontSize={10} />
-            <YAxis stroke="var(--muted)" fontSize={10} />
-            <Tooltip contentStyle={{ background: 'var(--panel)', border: '1px solid var(--line)', fontSize: 11 }} />
-            {CRIME_HEADS_DEMO.map((head, i) => (
-              <Area
-                key={head}
-                type="monotone"
-                dataKey={head}
-                stackId="1"
-                stroke={`var(--cat-${(i % 5) + 1})`}
-                fill={`var(--cat-${(i % 5) + 1})`}
-                fillOpacity={0.65}
-              />
-            ))}
-          </AreaChart>
-        </ResponsiveContainer>
-      </InsightCard>
-
-      <InsightCard
-        title="Cohort Analysis — Case Closure Velocity"
-        live={false}
-        note="% of each monthly cohort chargesheeted within N months of registration."
-        expand={{ columns: ['Cohort', 'Lag', '% Chargesheeted'], rows: cohort.map((c) => [c.cohortLabel, c.lagLabel, `${Math.round(c.pct * 100)}%`]) }}
-      >
-        <HeatmapGrid rows={cohortRows} cols={cohortCols} cells={cohortCells} />
-      </InsightCard>
-
-      <InsightCard
-        title="District × Crime Head Hotspot Matrix"
-        live={false}
-        note="Case counts per district per crime head."
-        expand={{ columns: ['District', 'Crime Head', 'Count'], rows: matrix.map((m) => [m.districtName, m.crimeHead, m.count]) }}
-      >
-        <HeatmapGrid rows={matrixRows} cols={matrixCols} cells={matrixCells} />
-      </InsightCard>
-
-      <InsightCard
-        title="Incident Location Hotspots"
-        live={liveHotspots}
-        note={
-          liveHotspots
-            ? 'District-level DBSCAN clusters, bubble size = case count.'
-            : "Cluster hotspots aren't available for unit-scoped roles — showing representative data."
-        }
-      >
-        {liveHotspots ? (
-          hotspotsQuery.isLoading ? (
+    <>
+      <div className="insight-grid-2">
+        <InsightCard title="Crime Head Distribution" live>
+          {summaryQuery.isLoading ? (
             <p>Loading…</p>
-          ) : hotspotsQuery.isError ? (
-            <p role="alert">Couldn't load hotspot clusters.</p>
+          ) : summaryQuery.isError ? (
+            <p role="alert">Couldn't load crime head data.</p>
+          ) : (
+            <CategoryMixChart categoryMix={summaryQuery.data!.categoryMix} />
+          )}
+        </InsightCard>
+
+        <InsightCard
+          title="Crime Head Trend by Month"
+          live={false}
+          note="Stacked monthly volume across the top crime heads."
+          expand={{
+            columns: ['Month', ...CRIME_HEADS_DEMO],
+            rows: monthlyTrend.map((p) => [p.monthLabel, ...CRIME_HEADS_DEMO.map((h) => p[h] as number)]),
+          }}
+        >
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={monthlyTrend}>
+              <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
+              <XAxis dataKey="monthLabel" stroke="var(--muted)" fontSize={10} />
+              <YAxis stroke="var(--muted)" fontSize={10} />
+              <Tooltip contentStyle={{ background: 'var(--panel)', border: '1px solid var(--line)', fontSize: 11 }} />
+              {CRIME_HEADS_DEMO.map((head, i) => (
+                <Area
+                  key={head}
+                  type="monotone"
+                  dataKey={head}
+                  stackId="1"
+                  stroke={`var(--cat-${(i % 5) + 1})`}
+                  fill={`var(--cat-${(i % 5) + 1})`}
+                  fillOpacity={0.65}
+                />
+              ))}
+            </AreaChart>
+          </ResponsiveContainer>
+        </InsightCard>
+      </div>
+
+      <div className="insight-grid" style={{ marginTop: 16 }}>
+        <InsightCard
+          title="Cohort Analysis — Case Closure Velocity"
+          live={false}
+          note="% of each monthly cohort chargesheeted within N months of registration."
+          expand={{ columns: ['Cohort', 'Lag', '% Chargesheeted'], rows: cohort.map((c) => [c.cohortLabel, c.lagLabel, `${Math.round(c.pct * 100)}%`]) }}
+        >
+          <HeatmapGrid rows={cohortRows} cols={cohortCols} cells={cohortCells} />
+        </InsightCard>
+      </div>
+
+      <div className="insight-grid" style={{ marginTop: 16 }}>
+        <InsightCard
+          title="District × Crime Head Hotspot Matrix"
+          live={false}
+          note="Case counts per district per crime head, across all 30 Karnataka districts."
+          expand={{ columns: ['District', 'Crime Head', 'Count'], rows: matrix.map((m) => [m.districtName, m.crimeHead, m.count]) }}
+        >
+          <div className="filter-field" style={{ marginBottom: 10 }}>
+            <select aria-label="Filter by district" value={matrixDistrictFilter} onChange={(e) => setMatrixDistrictFilter(e.target.value)}>
+              <option value="">All districts</option>
+              {allDistrictNames.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </div>
+          <HeatmapGrid rows={matrixRows} cols={matrixCols} cells={matrixCells} />
+        </InsightCard>
+      </div>
+
+      <div className="insight-grid" style={{ marginTop: 16 }}>
+        <InsightCard
+          title="Incident Location Hotspots"
+          live={liveHotspots}
+          note={
+            liveHotspots
+              ? 'District-level DBSCAN clusters, bubble size = case count.'
+              : "Cluster hotspots aren't available for unit-scoped roles — showing representative data."
+          }
+        >
+          {liveHotspots ? (
+            hotspotsQuery.isLoading ? (
+              <p>Loading…</p>
+            ) : hotspotsQuery.isError ? (
+              <p role="alert">Couldn't load hotspot clusters.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={260}>
+                <ScatterChart margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
+                  <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
+                  <XAxis type="number" dataKey="centroidLon" name="Longitude" stroke="var(--muted)" fontSize={10} />
+                  <YAxis type="number" dataKey="centroidLat" name="Latitude" stroke="var(--muted)" fontSize={10} />
+                  <ZAxis type="number" dataKey="caseCount" range={[40, 300]} />
+                  <Tooltip cursor={{ stroke: 'var(--line)' }} />
+                  <Scatter data={hotspotsQuery.data ?? []} fill="var(--real)" fillOpacity={0.6} />
+                </ScatterChart>
+              </ResponsiveContainer>
+            )
           ) : (
             <ResponsiveContainer width="100%" height={260}>
               <ScatterChart margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
                 <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
-                <XAxis type="number" dataKey="centroidLon" name="Longitude" stroke="var(--muted)" fontSize={10} />
-                <YAxis type="number" dataKey="centroidLat" name="Latitude" stroke="var(--muted)" fontSize={10} />
-                <ZAxis type="number" dataKey="caseCount" range={[40, 300]} />
+                <XAxis type="number" dataKey="lon" name="Longitude" stroke="var(--muted)" fontSize={10} />
+                <YAxis type="number" dataKey="lat" name="Latitude" stroke="var(--muted)" fontSize={10} />
                 <Tooltip cursor={{ stroke: 'var(--line)' }} />
-                <Scatter data={hotspotsQuery.data ?? []} fill="var(--real)" fillOpacity={0.6} />
+                <Scatter data={demoHotspots} fill="var(--predicted)" fillOpacity={0.6} />
               </ScatterChart>
             </ResponsiveContainer>
-          )
-        ) : (
-          <ResponsiveContainer width="100%" height={260}>
-            <ScatterChart margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
-              <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
-              <XAxis type="number" dataKey="lon" name="Longitude" stroke="var(--muted)" fontSize={10} />
-              <YAxis type="number" dataKey="lat" name="Latitude" stroke="var(--muted)" fontSize={10} />
-              <Tooltip cursor={{ stroke: 'var(--line)' }} />
-              <Scatter data={demoHotspots} fill="var(--predicted)" fillOpacity={0.6} />
-            </ScatterChart>
-          </ResponsiveContainer>
-        )}
-      </InsightCard>
-    </div>
+          )}
+        </InsightCard>
+      </div>
+    </>
   );
 }
