@@ -65,20 +65,6 @@ export interface CaseFilters {
   q?: string;
 }
 
-// GET /api/cases/:caseId/explain -- not implemented by any real backend yet; see
-// docs/superpowers/specs/2026-07-18-case-explorer-extensions-design.md for the
-// contract a real Insight & Explanation Agent should fulfil. Mocked in
-// mockData.ts in the meantime, same convention as every other endpoint here.
-export interface CaseExplanationResponse {
-  claim: string;
-  confidence: number;
-  confidenceLabel: string;
-  method: string;
-  baseline: string;
-  generatedAt: string;
-  records: string[];
-}
-
 const CASE_STATUS_LABEL: Record<CaseStatus, string> = {
   registered: 'Registered',
   under_investigation: 'Under Investigation',
@@ -153,15 +139,3 @@ export function useCaseDetail(token: string | null, caseId: number | null) {
   });
 }
 
-export function getCaseExplanation(token: string | null, caseId: number): Promise<CaseExplanationResponse> {
-  return apiFetch<CaseExplanationResponse>(`/api/cases/${caseId}/explain`, {}, token);
-}
-
-export function useCaseExplanation(token: string | null, caseId: number | null, enabled: boolean) {
-  return useQuery({
-    queryKey: ['case-explanation', caseId],
-    queryFn: () => getCaseExplanation(token, caseId as number),
-    staleTime: 30_000,
-    enabled: token != null && caseId != null && enabled,
-  });
-}
