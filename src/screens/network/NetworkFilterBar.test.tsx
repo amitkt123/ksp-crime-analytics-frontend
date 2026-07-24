@@ -35,6 +35,7 @@ function renderBar(overrides: Partial<React.ComponentProps<typeof NetworkFilterB
     pathResult: undefined,
     isPathLoading: false,
     isPathError: false,
+    onReset: vi.fn(),
     ...overrides,
   };
   return { ...render(<NetworkFilterBar {...props} />), props };
@@ -109,5 +110,11 @@ describe('NetworkFilterBar', () => {
   it('shows a "no path found" message when both endpoints are chosen but no path exists', () => {
     renderBar({ pathFrom: 101, pathTo: 102, pathResult: null });
     expect(screen.getByText(/No path found/)).toBeInTheDocument();
+  });
+
+  it('calls onReset when the Reset filters button is clicked', async () => {
+    const { props } = renderBar();
+    await userEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
+    expect(props.onReset).toHaveBeenCalled();
   });
 });

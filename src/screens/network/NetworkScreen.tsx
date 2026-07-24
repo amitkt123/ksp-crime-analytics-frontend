@@ -191,6 +191,17 @@ export function NetworkScreen() {
     setPathEndpoints([]);
   }
 
+  function handleResetFilters() {
+    setFullDetail(false);
+    setShowCase(true);
+    setShowLocation(true);
+    setSearch('');
+    setDropdownPathFrom('');
+    setDropdownPathTo('');
+    setFocus({ mode: 'top-offenders' });
+    setPathEndpoints([]);
+  }
+
   const generatedAt = subgraphQuery.data?.generatedAt ?? new Date().toISOString();
   const supportingCaseLabels = nodes.filter((n) => n.type === 'CASE').slice(0, 3).map((n) => n.label);
 
@@ -253,6 +264,7 @@ export function NetworkScreen() {
           pathResult={pathQuery.data}
           isPathLoading={pathQuery.isLoading}
           isPathError={pathQuery.isError}
+          onReset={handleResetFilters}
         />
         <div className="network-canvas-area">
           <NetworkGraphCanvas
@@ -264,19 +276,21 @@ export function NetworkScreen() {
             onPersonClick={handlePersonClick}
             search={search}
           />
-          <PathFindingBar
-            pathMode={pathMode}
-            onToggle={togglePathMode}
-            pathEndpoints={pathEndpoints}
-            pathResult={pathQuery.data}
-            isPathLoading={pathQuery.isLoading}
-            isPathError={pathQuery.isError}
-          />
-          {focus.mode !== 'top-offenders' && (
-            <button className="reset-focus-btn" onClick={resetFocus}>
-              Top offenders
-            </button>
-          )}
+          <div className="network-top-left-controls">
+            <PathFindingBar
+              pathMode={pathMode}
+              onToggle={togglePathMode}
+              pathEndpoints={pathEndpoints}
+              pathResult={pathQuery.data}
+              isPathLoading={pathQuery.isLoading}
+              isPathError={pathQuery.isError}
+            />
+            {focus.mode !== 'top-offenders' && (
+              <button className="reset-focus-btn" onClick={resetFocus}>
+                Top offenders
+              </button>
+            )}
+          </div>
           <CommunityLegend communities={communities} onSelect={handleCommunitySelect} />
           <RepeatOffenderRail offenders={offenders} onSelect={handlePersonClick} />
         </div>

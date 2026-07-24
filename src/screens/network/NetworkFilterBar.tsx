@@ -25,6 +25,7 @@ interface NetworkFilterBarProps {
   pathResult: NetworkPathResponse | null | undefined;
   isPathLoading: boolean;
   isPathError: boolean;
+  onReset: () => void;
 }
 
 export function NetworkFilterBar({
@@ -47,6 +48,7 @@ export function NetworkFilterBar({
   pathResult,
   isPathLoading,
   isPathError,
+  onReset,
 }: NetworkFilterBarProps) {
   const hasBothEndpoints = pathFrom !== '' && pathTo !== '';
 
@@ -157,6 +159,10 @@ export function NetworkFilterBar({
           )}
         </div>
       )}
+
+      <button type="button" className="reset-filters-btn" onClick={onReset}>
+        Reset filters
+      </button>
     </div>
   );
 }

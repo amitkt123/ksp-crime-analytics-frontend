@@ -179,4 +179,27 @@ describe('NetworkScreen', () => {
     await waitFor(() => expect(networkApiModule.useNetworkPath).toHaveBeenLastCalledWith('jwt', 5001, 5002, 6));
     await waitFor(() => expect(networkApiModule.useSubgraph).toHaveBeenLastCalledWith('jwt', { focus: 'path', from: 5001, to: 5002, maxHops: 6 }));
   });
+
+  it('the "Reset filters" button clears full detail, search, and path selections back to defaults', async () => {
+    mockAuth();
+    mockNetworkQueries();
+
+    const { container } = render(<NetworkScreen />);
+    await screen.findByLabelText('Suresh Naik');
+
+    await userEvent.click(screen.getByLabelText(/Full detail/));
+    await userEvent.type(screen.getByLabelText('Search'), 'suresh');
+    await userEvent.selectOptions(screen.getByLabelText('Path from'), 'Suresh Naik');
+    await userEvent.selectOptions(screen.getByLabelText('Path to'), 'Vijay Kumar');
+    await waitFor(() => expect(networkApiModule.useSubgraph).toHaveBeenLastCalledWith('jwt', { focus: 'path', from: 5001, to: 5002, maxHops: 6 }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
+
+    expect(screen.getByLabelText(/Full detail/)).not.toBeChecked();
+    expect(screen.getByLabelText('Search')).toHaveValue('');
+    expect((screen.getByLabelText('Path from') as HTMLSelectElement).value).toBe('');
+    expect((screen.getByLabelText('Path to') as HTMLSelectElement).value).toBe('');
+    expect(container.querySelector('.graph-node-case')).not.toBeInTheDocument();
+    await waitFor(() => expect(networkApiModule.useSubgraph).toHaveBeenLastCalledWith('jwt', { focus: 'top-offenders', limit: 10 }));
+  });
 });
