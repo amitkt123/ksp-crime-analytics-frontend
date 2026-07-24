@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "generate:mock-data": "node scripts/generate-mock-dataset.mjs",
     "preview": "vite preview",
+    "start": "node server/index.js",
     "test": "vitest run",
     "test:e2e": "playwright test"
   },
