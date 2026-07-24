@@ -35,6 +35,7 @@ async function main() {
   const districtsWithCounts = scaleWeightsToTarget(DISTRICTS, TARGET_TOTAL_CASES);
 
   const allCases = [];
+  const unitIdToDistrictId = new Map();
   for (const district of districtsWithCounts) {
     const roster = stationsByDistrict[String(district.districtId)] ?? [];
     if (roster.length === 0) continue;
@@ -42,6 +43,7 @@ async function main() {
     const perStation = distributeDistrictCasesAcrossStations(district.caseCount, stationsWithCentroids, rng);
 
     for (const { station, caseCount } of perStation) {
+      unitIdToDistrictId.set(station.unitId, district.districtId);
       const stationCases = generateStationCases(station, district.districtName, caseCount, rng);
       await writeJson(`cases/station-${station.unitId}.json`, stationCases);
       allCases.push(...stationCases);
@@ -57,7 +59,7 @@ async function main() {
   await writeJson('aggregates/district-summaries.json', buildDistrictSummaries(districtsWithCounts));
   await writeJson('aggregates/district-correlation.json', buildDistrictCorrelation(districtsWithCounts));
   await writeJson('aggregates/time-of-day.json', { buckets: buildTimeOfDayBuckets(districtsWithCounts) });
-  await writeJson('aggregates/predictive-risk.json', buildPredictiveRisk(allCases, CRIME_SUB_HEADS, rng));
+  await writeJson('aggregates/predictive-risk.json', buildPredictiveRisk(allCases, CRIME_SUB_HEADS, rng, unitIdToDistrictId));
   await writeJson('aggregates/case-anomalies.json', buildCaseAnomalies(allCases, rng, 200));
 
   await writeJson('search-index.json', buildSearchIndex(allCases, tuples));

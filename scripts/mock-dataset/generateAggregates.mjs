@@ -71,7 +71,11 @@ export function buildTimeOfDayBuckets(districts) {
   });
 }
 
-export function buildPredictiveRisk(allCases, crimeSubHeads, rng) {
+// unitIdToDistrictId lets SociologicalScreen's riskByDistrict grouping (which keys
+// on forecast.districtId) actually split forecasts across districts instead of
+// collapsing every one into a single null bucket -- defaults to an empty map so
+// existing call sites without it still work, just with districtId left null.
+export function buildPredictiveRisk(allCases, crimeSubHeads, rng, unitIdToDistrictId = new Map()) {
   const byUnitAndCrime = new Map();
   allCases.forEach((c) => {
     const key = `${c.unitId}:${c.crimeSubHeadId}`;
@@ -88,7 +92,7 @@ export function buildPredictiveRisk(allCases, crimeSubHeads, rng) {
       return {
         unitId: e.unitId,
         unitName: e.unitName,
-        districtId: null,
+        districtId: unitIdToDistrictId.get(e.unitId) ?? null,
         crimeSubHeadId: e.crimeSubHeadId,
         crimeSubHeadName: subHeadNames.get(e.crimeSubHeadId) ?? 'Unknown',
         predictedCount: Number((backtestActualCount * (1 + rng() * 0.2)).toFixed(1)),
