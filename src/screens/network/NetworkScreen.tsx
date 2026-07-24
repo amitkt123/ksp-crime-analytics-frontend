@@ -16,6 +16,8 @@ import { NetworkGraphCanvas } from './NetworkGraphCanvas';
 import { PathFindingBar } from './PathFindingBar';
 import { CommunityLegend } from './CommunityLegend';
 import { RepeatOffenderRail } from './RepeatOffenderRail';
+import { NetworkFilterBar } from './NetworkFilterBar';
+import { collapseToPersonGraph, filterByNodeType } from './networkGraphTransforms';
 
 type NetworkFocus =
   | { mode: 'top-offenders' }
@@ -46,16 +48,55 @@ export function NetworkScreen() {
   const [pathEndpoints, setPathEndpoints] = useState<number[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<SelectedPerson | null>(null);
 
+  const [fullDetail, setFullDetail] = useState(false);
+  const [showCase, setShowCase] = useState(true);
+  const [showLocation, setShowLocation] = useState(true);
+  const [search, setSearch] = useState('');
+  const [dropdownPathFrom, setDropdownPathFrom] = useState<number | ''>('');
+  const [dropdownPathTo, setDropdownPathTo] = useState<number | ''>('');
+
   const subgraphQuery = useSubgraph(token, subgraphParamsForFocus(focus));
   const offendersQuery = useRepeatOffenders(token);
   const communitiesQuery = useCommunities(token);
   const pathQuery = useNetworkPath(token, pathEndpoints[0] ?? null, pathEndpoints[1] ?? null, 6);
+
+  const nodes = subgraphQuery.data?.nodes ?? [];
+  const edges = subgraphQuery.data?.edges ?? [];
+  const offenders = offendersQuery.data ?? [];
+  const communities = communitiesQuery.data ?? [];
 
   const communityByLabel = useMemo(() => {
     const map = new Map<string, number>();
     (communitiesQuery.data ?? []).forEach((c) => c.memberDisplayNames.forEach((name) => map.set(name, c.communityId)));
     return map;
   }, [communitiesQuery.data]);
+
+  const personOptions = useMemo(() => {
+    const byId = new Map<number, string>();
+    nodes.filter((n) => n.type === 'PERSON').forEach((n) => byId.set(personIdOfNode(n), n.label));
+    offenders.forEach((o) => byId.set(o.personId, o.displayName));
+    return Array.from(byId.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, offenders]);
+
+  const displayGraph = useMemo(() => {
+    if (fullDetail) return filterByNodeType(nodes, edges, { showCase, showLocation });
+    const collapsed = collapseToPersonGraph(nodes, edges);
+    return {
+      nodes: collapsed.nodes,
+      edges: collapsed.edges.map((e) => ({
+        id: e.id,
+        sourceId: e.sourceId,
+        targetId: e.targetId,
+        type: 'SHARES_MO_WITH' as const,
+        confidence: null,
+        weight: e.weight,
+      })),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, edges, fullDetail, showCase, showLocation]);
 
   const isLoading = subgraphQuery.isLoading || offendersQuery.isLoading || communitiesQuery.isLoading;
   const isError = subgraphQuery.isError || offendersQuery.isError || communitiesQuery.isError;
@@ -91,11 +132,6 @@ export function NetworkScreen() {
     );
   }
 
-  const nodes = subgraphQuery.data?.nodes ?? [];
-  const edges = subgraphQuery.data?.edges ?? [];
-  const offenders = offendersQuery.data ?? [];
-  const communities = communitiesQuery.data ?? [];
-
   function togglePathMode() {
     setPathMode((prev) => !prev);
     setPathEndpoints([]);
@@ -123,6 +159,30 @@ export function NetworkScreen() {
 
   function handleCommunitySelect(communityId: number) {
     setFocus({ mode: 'community', communityId });
+  }
+
+  function handleCommunityDropdownChange(value: number | 'all') {
+    if (value === 'all') {
+      setFocus({ mode: 'top-offenders' });
+    } else {
+      setFocus({ mode: 'community', communityId: value });
+    }
+  }
+
+  function handleDropdownPathFromChange(value: number | '') {
+    setDropdownPathFrom(value);
+    if (value !== '' && dropdownPathTo !== '') {
+      setPathEndpoints([value, dropdownPathTo]);
+      setFocus({ mode: 'path', from: value, to: dropdownPathTo });
+    }
+  }
+
+  function handleDropdownPathToChange(value: number | '') {
+    setDropdownPathTo(value);
+    if (dropdownPathFrom !== '' && value !== '') {
+      setPathEndpoints([dropdownPathFrom, value]);
+      setFocus({ mode: 'path', from: dropdownPathFrom, to: value });
+    }
   }
 
   function resetFocus() {
@@ -167,33 +227,59 @@ export function NetworkScreen() {
     );
   }
 
+  const selectedCommunityId = focus.mode === 'community' ? focus.communityId : 'all';
+
   return (
     <>
       <Header title="Network / Link Analysis" />
       <main className="network-main">
-        <NetworkGraphCanvas
-          nodes={nodes}
-          edges={edges}
-          communityByLabel={communityByLabel}
-          pathEndpointIds={pathEndpoints.map(String)}
-          pathMemberIds={(pathQuery.data?.personIds ?? []).map(String)}
-          onPersonClick={handlePersonClick}
-        />
-        <PathFindingBar
-          pathMode={pathMode}
-          onToggle={togglePathMode}
-          pathEndpoints={pathEndpoints}
+        <NetworkFilterBar
+          fullDetail={fullDetail}
+          onToggleFullDetail={() => setFullDetail((v) => !v)}
+          showCase={showCase}
+          onToggleShowCase={() => setShowCase((v) => !v)}
+          showLocation={showLocation}
+          onToggleShowLocation={() => setShowLocation((v) => !v)}
+          search={search}
+          onSearchChange={setSearch}
+          communities={communities}
+          selectedCommunityId={selectedCommunityId}
+          onCommunityChange={handleCommunityDropdownChange}
+          personOptions={personOptions}
+          pathFrom={dropdownPathFrom}
+          pathTo={dropdownPathTo}
+          onPathFromChange={handleDropdownPathFromChange}
+          onPathToChange={handleDropdownPathToChange}
           pathResult={pathQuery.data}
           isPathLoading={pathQuery.isLoading}
           isPathError={pathQuery.isError}
         />
-        {focus.mode !== 'top-offenders' && (
-          <button className="reset-focus-btn" onClick={resetFocus}>
-            Top offenders
-          </button>
-        )}
-        <CommunityLegend communities={communities} onSelect={handleCommunitySelect} />
-        <RepeatOffenderRail offenders={offenders} onSelect={handlePersonClick} />
+        <div className="network-canvas-area">
+          <NetworkGraphCanvas
+            nodes={displayGraph.nodes}
+            edges={displayGraph.edges}
+            communityByLabel={communityByLabel}
+            pathEndpointIds={pathEndpoints.map(String)}
+            pathMemberIds={(pathQuery.data?.personIds ?? []).map(String)}
+            onPersonClick={handlePersonClick}
+            search={search}
+          />
+          <PathFindingBar
+            pathMode={pathMode}
+            onToggle={togglePathMode}
+            pathEndpoints={pathEndpoints}
+            pathResult={pathQuery.data}
+            isPathLoading={pathQuery.isLoading}
+            isPathError={pathQuery.isError}
+          />
+          {focus.mode !== 'top-offenders' && (
+            <button className="reset-focus-btn" onClick={resetFocus}>
+              Top offenders
+            </button>
+          )}
+          <CommunityLegend communities={communities} onSelect={handleCommunitySelect} />
+          <RepeatOffenderRail offenders={offenders} onSelect={handlePersonClick} />
+        </div>
       </main>
       <EvidencePanel data={evidenceData} onClose={() => setSelectedPerson(null)} />
     </>
