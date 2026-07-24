@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { GraphNodeResponse, GraphEdgeResponse } from '../../api/networkApi';
 import { personIdOfNode } from '../../api/networkApi';
 import { colorForCommunity } from './networkColors';
@@ -69,19 +69,29 @@ export function NetworkGraphCanvas({
     return { x: (clientX - (rect?.left ?? 0)) * scaleX, y: (clientY - (rect?.top ?? 0)) * scaleY };
   }
 
-  function handleWheel(e: React.WheelEvent<SVGSVGElement>) {
-    e.preventDefault();
-    const { x: vbX, y: vbY } = toViewboxPoint(e.clientX, e.clientY);
-    const factor = Math.exp(-e.deltaY * 0.0015);
-    setView((prev) => {
-      const nextK = Math.min(MAX_SCALE, Math.max(MIN_SCALE, prev.k * factor));
-      return {
-        k: nextK,
-        x: vbX - (vbX - prev.x) * (nextK / prev.k),
-        y: vbY - (vbY - prev.y) * (nextK / prev.k),
-      };
-    });
-  }
+  // Attached as a native, non-passive listener (rather than JSX onWheel,
+  // which React registers passively) so preventDefault actually stops the
+  // page/container from scrolling while the user zooms the graph.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    function handleWheel(e: WheelEvent) {
+      e.preventDefault();
+      const { x: vbX, y: vbY } = toViewboxPoint(e.clientX, e.clientY);
+      const factor = Math.exp(-e.deltaY * 0.0015);
+      setView((prev) => {
+        const nextK = Math.min(MAX_SCALE, Math.max(MIN_SCALE, prev.k * factor));
+        return {
+          k: nextK,
+          x: vbX - (vbX - prev.x) * (nextK / prev.k),
+          y: vbY - (vbY - prev.y) * (nextK / prev.k),
+        };
+      });
+    }
+    svg.addEventListener('wheel', handleWheel, { passive: false });
+    return () => svg.removeEventListener('wheel', handleWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleSvgPointerDown(e: React.PointerEvent<SVGSVGElement>) {
     if (e.target !== e.currentTarget) return;
@@ -128,7 +138,6 @@ export function NetworkGraphCanvas({
       viewBox={`0 0 ${VIEWBOX_W} ${VIEWBOX_H}`}
       role="img"
       aria-label="Case network graph"
-      onWheel={handleWheel}
       onPointerDown={handleSvgPointerDown}
       onPointerMove={handleSvgPointerMove}
       onPointerUp={handleSvgPointerUp}
