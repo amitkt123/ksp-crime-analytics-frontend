@@ -8,8 +8,6 @@ import {
   useCases,
   getCaseDetail,
   useCaseDetail,
-  getCaseExplanation,
-  useCaseExplanation,
   caseStatusLabel,
   caseStatusChipClass,
   gravityLabel,
@@ -17,7 +15,6 @@ import {
   partyRoleLabel,
   type CaseSummaryResponse,
   type CaseDetailResponse,
-  type CaseExplanationResponse,
 } from './caseApi';
 
 const sampleCases: CaseSummaryResponse[] = [
@@ -143,49 +140,5 @@ describe('partyRoleLabel', () => {
     expect(partyRoleLabel('complainant')).toBe('Complainant');
     expect(partyRoleLabel('victim')).toBe('Victim');
     expect(partyRoleLabel('accused')).toBe('Accused');
-  });
-});
-
-describe('getCaseExplanation', () => {
-  it('fetches /api/cases/{caseId}/explain with the auth token', async () => {
-    const apiFetchSpy = vi.spyOn(client, 'apiFetch').mockResolvedValue({} as CaseExplanationResponse);
-    await getCaseExplanation('test-token', 176000);
-    expect(apiFetchSpy).toHaveBeenCalledWith('/api/cases/176000/explain', {}, 'test-token');
-  });
-});
-
-describe('useCaseExplanation', () => {
-  it('returns the fetched explanation once loaded', async () => {
-    const explanation: CaseExplanationResponse = {
-      claim: 'x',
-      confidence: 0.7,
-      confidenceLabel: 'Pattern confidence',
-      method: 'x',
-      baseline: 'x',
-      generatedAt: '2026-05-29',
-      records: ['276/2026'],
-    };
-    vi.spyOn(client, 'apiFetch').mockResolvedValue(explanation);
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    function wrapper({ children }: { children: ReactNode }) {
-      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
-    }
-
-    const { result } = renderHook(() => useCaseExplanation('test-token', 176000, true), { wrapper });
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toEqual(explanation);
-  });
-
-  it('does not fetch when not enabled', () => {
-    const apiFetchSpy = vi.spyOn(client, 'apiFetch').mockResolvedValue({} as CaseExplanationResponse);
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    function wrapper({ children }: { children: ReactNode }) {
-      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
-    }
-
-    renderHook(() => useCaseExplanation('test-token', 176000, false), { wrapper });
-
-    expect(apiFetchSpy).not.toHaveBeenCalled();
   });
 });

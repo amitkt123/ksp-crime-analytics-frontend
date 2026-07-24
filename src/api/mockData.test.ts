@@ -1,28 +1,37 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { getMockResponse } from './mockData';
-import { STATIONS_BY_DISTRICT } from './generatedStationFixtures';
 
-describe('getMockResponse district summary', () => {
-  it('scales the state-wide kpi and category mix proportionally to the district case count', async () => {
-    const result = await getMockResponse('/api/geo/districts/5/summary', { method: 'GET' });
+function mockFetchJson(responsesByUrl: Record<string, unknown>) {
+  vi.spyOn(global, 'fetch').mockImplementation(((url: string) => {
+    if (!(url in responsesByUrl)) throw new Error(`unexpected fetch: ${url}`);
+    return Promise.resolve({ json: () => Promise.resolve(responsesByUrl[url]) } as Response);
+  }) as typeof fetch);
+}
 
-    expect(result).toEqual({
-      kpi: {
-        stateCaseCount: 1840,
-        stateCaseCountDeltaPct: 4.2,
-        resolvedPct: 61.3,
-        resolvedPctDeltaPts: 1.8,
-        topCrimeSubHead: 'Theft of Motor Vehicle',
-        topCrimeSubHeadCount: 165,
-      },
-      categoryMix: [
-        { crimeHeadId: 1, crimeGroupName: 'Crimes Against Body', count: 473 },
-        { crimeHeadId: 2, crimeGroupName: 'Crimes Against Property', count: 721 },
-        { crimeHeadId: 3, crimeGroupName: 'Crimes Against Women', count: 276 },
-        { crimeHeadId: 4, crimeGroupName: 'Economic Offences', count: 242 },
-        { crimeHeadId: 5, crimeGroupName: 'Cyber Crimes', count: 128 },
-      ],
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe('getMockResponse auth/me', () => {
+  it('returns the Investigator persona for demo.investigator login', async () => {
+    const result = await getMockResponse('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'demo.investigator', password: 'x' }),
     });
+    expect(result).toEqual({ token: 'mock-token-investigator', roles: ['INVESTIGATOR'] });
+  });
+
+  it('falls back to the SCRB Analyst persona for any other username', async () => {
+    const result = await getMockResponse('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'someone.else', password: 'x' }),
+    });
+    expect(result).toEqual({ token: 'mock-token', roles: ['SCRB_ANALYST'] });
+  });
+
+  it('returns the investigator profile for the investigator token', async () => {
+    const result = await getMockResponse('/api/me', { method: 'GET' }, 'mock-token-investigator');
+    expect(result).toMatchObject({ roles: ['INVESTIGATOR'], unitId: 176, unit: 'Whitefield PS' });
   });
 
   it('returns undefined for unrelated paths', async () => {
@@ -31,173 +40,52 @@ describe('getMockResponse district summary', () => {
   });
 });
 
-describe('getMockResponse district time-of-day', () => {
-  it('returns four buckets, each with a case count for every district', async () => {
-    const result = (await getMockResponse('/api/geo/districts/time-of-day', { method: 'GET' })) as {
-      buckets: Array<{ bucket: string; label: string; districtCaseCounts: Record<number, number> }>;
-    };
-
-    expect(result.buckets.map((b) => b.bucket)).toEqual(['night', 'morning', 'afternoon', 'evening']);
-    for (const bucket of result.buckets) {
-      expect(bucket.districtCaseCounts[5]).toBeGreaterThan(0);
-    }
-  });
-
-  it('gives each district a single peak bucket rather than an even split', async () => {
-    const result = (await getMockResponse('/api/geo/districts/time-of-day', { method: 'GET' })) as {
-      buckets: Array<{ bucket: string; districtCaseCounts: Record<number, number> }>;
-    };
-
-    const districtId = 5; // Bengaluru Urban, caseCount 1840
-    const counts = result.buckets.map((b) => b.districtCaseCounts[districtId]);
-    const max = Math.max(...counts);
-    const peakBuckets = counts.filter((c) => c === max);
-
-    expect(peakBuckets).toHaveLength(1);
-    expect(max).toBeGreaterThan(counts.reduce((a, b) => a + b, 0) / counts.length);
-  });
-
-  it('is deterministic across calls', async () => {
-    const first = await getMockResponse('/api/geo/districts/time-of-day', { method: 'GET' });
-    const second = await getMockResponse('/api/geo/districts/time-of-day', { method: 'GET' });
-    expect(first).toEqual(second);
-  });
-});
-
-describe('getMockResponse stations', () => {
-  it('returns one entry per real station in the district, ids/names matching the generated fixture', async () => {
-    const result = (await getMockResponse('/api/geo/districts/5/stations', { method: 'GET' })) as Array<{
-      unitId: number;
-      unitName: string;
-      caseCount: number;
-    }>;
-    const roster = STATIONS_BY_DISTRICT[5];
-
-    expect(result).toHaveLength(roster.length);
-    expect(result.map((s) => s.unitId)).toEqual(roster.map((s) => s.unitId));
-    expect(result.map((s) => s.unitName)).toEqual(roster.map((s) => s.unitName));
-    expect(result.every((s) => s.caseCount >= 1)).toBe(true);
-  });
-});
-
-describe('getMockResponse station boundaries', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('fetches the per-district station geojson fixture', async () => {
-    const fixture = { type: 'FeatureCollection', features: [] };
-    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({
-      json: () => Promise.resolve(fixture),
-    } as unknown as Response);
-
-    const result = await getMockResponse('/api/geo/districts/5/stations/boundaries', { method: 'GET' });
-
-    expect(fetchSpy).toHaveBeenCalledWith('/data/stations/5.geojson');
-    expect(result).toEqual(fixture);
-  });
-});
-
-describe('getMockResponse auth login personas', () => {
-  it('returns the Investigator role and a distinct token for the investigator demo persona', async () => {
-    const result = await getMockResponse('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ username: 'demo.investigator', password: 'x' }),
+describe('getMockResponse geo districts', () => {
+  beforeEach(() => {
+    mockFetchJson({
+      '/data/mock/aggregates/district-summaries.json': [
+        { districtId: 5, districtName: 'Bengaluru Urban', caseCount: 32000 },
+      ],
     });
-    expect(result).toEqual({ token: 'mock-token-investigator', roles: ['INVESTIGATOR'] });
   });
 
-  it('returns the Station Supervisor role and a distinct token for the supervisor demo persona', async () => {
-    const result = await getMockResponse('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ username: 'demo.supervisor', password: 'x' }),
-    });
-    expect(result).toEqual({ token: 'mock-token-supervisor', roles: ['STATION_SUPERVISOR'] });
-  });
-
-  it('falls back to the SCRB Analyst persona for any other username', async () => {
-    const result = await getMockResponse('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ username: 'demo.analyst', password: 'x' }),
-    });
-    expect(result).toEqual({ token: 'mock-token', roles: ['SCRB_ANALYST'] });
-  });
-});
-
-describe('getMockResponse /api/me by persona', () => {
-  it('returns the investigator profile with a real station unitId for the investigator token', async () => {
-    const result = await getMockResponse('/api/me', { method: 'GET' }, 'mock-token-investigator');
-    expect(result).toMatchObject({ roles: ['INVESTIGATOR'], unitId: 176, unit: 'Whitefield PS' });
-  });
-
-  it('returns the supervisor profile with a real station unitId for the supervisor token', async () => {
-    const result = await getMockResponse('/api/me', { method: 'GET' }, 'mock-token-supervisor');
-    expect(result).toMatchObject({ roles: ['STATION_SUPERVISOR'], unitId: 176, unit: 'Whitefield PS' });
-  });
-
-  it('returns the default SCRB Analyst profile with unitId null for the default token', async () => {
-    const result = await getMockResponse('/api/me', { method: 'GET' }, 'mock-token');
-    expect(result).toMatchObject({ roles: ['SCRB_ANALYST'], unitId: null });
+  it('returns the generated district summaries', async () => {
+    const result = await getMockResponse('/api/geo/districts', { method: 'GET' });
+    expect(result).toEqual([{ districtId: 5, districtName: 'Bengaluru Urban', caseCount: 32000 }]);
   });
 });
 
 describe('getMockResponse cases list', () => {
-  it('returns a deterministic, station-scoped case list for a given unitId', async () => {
-    const first = await getMockResponse('/api/cases?unitId=176', { method: 'GET' });
-    const second = await getMockResponse('/api/cases?unitId=176', { method: 'GET' });
-    expect(first).toEqual(second);
-    expect(first).toHaveLength(40);
+  const sampleStationCases = [
+    {
+      caseId: 17_600_000, caseNumber: '100/2026', unitId: 176, unitName: 'Whitefield PS',
+      crimeSubHeadId: 103, crimeSubHeadName: 'Chain Snatching', status: 'registered', firDate: '2026-05-01',
+      crimeNumber: 'FIR-2026-KA-176000', station: 'Whitefield PS', district: 'Bengaluru Urban', gravity: 'serious',
+      location: { lat: 12.9, lng: 77.7 }, narrative: 'x',
+      parties: [{ role: 'victim', name: { masked: 'R***** K****', real: 'Ramesh Kumar' }, phone: { masked: 'xx', real: '9800000000' }, address: { masked: 'x', real: 'x, Karnataka' } }],
+      timeline: [{ status: 'registered', timestamp: '2026-05-01', note: 'FIR registered.' }],
+    },
+  ];
+
+  beforeEach(() => {
+    mockFetchJson({ '/data/mock/cases/station-176.json': sampleStationCases });
   });
 
-  it('computes the expected fields for the first generated case at Whitefield PS', async () => {
-    const result = (await getMockResponse('/api/cases?unitId=176', { method: 'GET' })) as Array<{
-      caseId: number;
-      caseNumber: string;
-      unitName: string;
-      crimeSubHeadName: string;
-      status: string;
-      firDate: string;
-      crimeNumber: string;
-      station: string;
-      district: string;
-      gravity: string;
-      location: { lat: number; lng: number };
-    }>;
-    expect(result[0]).toMatchObject({
-      caseId: 176000,
-      caseNumber: '276/2026',
-      unitName: 'Whitefield PS',
-      crimeSubHeadName: 'Chain Snatching',
-      status: 'registered',
-      firDate: '2026-05-26',
-      crimeNumber: 'FIR-2026-KA-17600',
-      station: 'Whitefield PS',
-    });
-    expect(typeof result[0].district).toBe('string');
-    expect(['heinous', 'serious', 'minor']).toContain(result[0].gravity);
-    expect(result[0].location).toEqual({ lat: expect.any(Number), lng: expect.any(Number) });
-  });
-
-  it('gives every case a real district name derived from its station', async () => {
-    const result = (await getMockResponse('/api/cases?unitId=176', { method: 'GET' })) as Array<{
-      district: string;
-    }>;
-    expect(result.every((c) => typeof c.district === 'string' && c.district.length > 0)).toBe(true);
+  it('returns the station\'s cases with detail fields stripped down to the summary shape', async () => {
+    const result = (await getMockResponse('/api/cases?unitId=176', { method: 'GET' })) as Array<{ caseId: number; narrative?: string }>;
+    expect(result).toHaveLength(1);
+    expect(result[0].caseId).toBe(17_600_000);
+    expect(result[0].narrative).toBeUndefined();
   });
 
   it('filters by status', async () => {
-    const result = (await getMockResponse('/api/cases?unitId=176&status=closed', {
-      method: 'GET',
-    })) as Array<{ status: string }>;
-    expect(result.length).toBeGreaterThan(0);
-    expect(result.every((c) => c.status === 'closed')).toBe(true);
+    const result = (await getMockResponse('/api/cases?unitId=176&status=closed', { method: 'GET' })) as unknown[];
+    expect(result).toHaveLength(0);
   });
 
-  it('filters by free-text search over the case number', async () => {
-    const result = (await getMockResponse('/api/cases?unitId=176&q=276%2F2026', {
-      method: 'GET',
-    })) as Array<{ caseNumber: string }>;
-    expect(result).toEqual([expect.objectContaining({ caseNumber: '276/2026' })]);
+  it('filters by free-text search matching a party real name', async () => {
+    const result = (await getMockResponse('/api/cases?unitId=176&q=ramesh', { method: 'GET' })) as Array<{ caseId: number }>;
+    expect(result.map((c) => c.caseId)).toEqual([17_600_000]);
   });
 
   it('returns an empty array for a unitId with no known station', async () => {
@@ -207,260 +95,53 @@ describe('getMockResponse cases list', () => {
 });
 
 describe('getMockResponse case detail', () => {
-  it('returns full detail for a generated caseId, including narrative, parties, and a single-entry timeline for a registered case', async () => {
-    const result = (await getMockResponse('/api/cases/176000', { method: 'GET' })) as {
-      caseNumber: string;
-      narrative: string;
-      parties: Array<{ role: string }>;
-      timeline: Array<{ status: string; timestamp: string; note: string }>;
-    };
-    expect(result.caseNumber).toBe('276/2026');
-    expect(result.narrative.length).toBeGreaterThan(0);
-    // index 0 (176000 % 3 === 0) also gets a complainant distinct from the victim.
-    expect(result.parties.map((p) => p.role)).toEqual(['complainant', 'victim', 'accused']);
-    expect(result.timeline).toEqual([{ status: 'registered', timestamp: '2026-05-26', note: 'FIR registered.' }]);
+  // Uses a different unitId (177) from the "cases list" describe block above --
+  // mockData.ts's loadJson caches responses per-URL for the lifetime of the module,
+  // so reusing station-176.json here would silently return that block's cached
+  // fixture instead of this block's own.
+  const sampleStationCases = [
+    { caseId: 17_700_000, caseNumber: '100/2026', unitId: 177, unitName: 'Test PS 177', crimeSubHeadId: 103, crimeSubHeadName: 'Chain Snatching', status: 'registered', firDate: '2026-05-01', narrative: 'Full narrative', parties: [], timeline: [{ status: 'registered', timestamp: '2026-05-01', note: 'FIR registered.' }] },
+  ];
+
+  beforeEach(() => {
+    mockFetchJson({ '/data/mock/cases/station-177.json': sampleStationCases });
   });
 
-  it('masks PII in party fields while preserving the real value', async () => {
-    const result = (await getMockResponse('/api/cases/176000', { method: 'GET' })) as {
-      parties: Array<{ role: string; name: { masked: string; real: string } }>;
-    };
-    const victim = result.parties.find((p) => p.role === 'victim')!;
-    expect(victim.name.real).toBe('Ramesh Kumar');
-    expect(victim.name.masked).toBe('R***** K****');
-  });
-
-  it('builds a three-entry timeline for a closed case', async () => {
-    // index 2 at unitId 176 has status 'closed' (see Task 2's status rotation)
-    const result = (await getMockResponse('/api/cases/176002', { method: 'GET' })) as {
-      timeline: Array<{ status: string }>;
-    };
-    expect(result.timeline.map((t) => t.status)).toEqual(['registered', 'under_investigation', 'closed']);
+  it('returns the full detail including narrative for a known caseId', async () => {
+    const result = await getMockResponse('/api/cases/17700000', { method: 'GET' });
+    expect(result).toMatchObject({ caseNumber: '100/2026', narrative: 'Full narrative' });
   });
 
   it('returns undefined for an unknown caseId', async () => {
-    const result = await getMockResponse('/api/cases/999999000', { method: 'GET' });
-    expect(result).toBeUndefined();
-  });
-
-  it('omits arrests and chargesheet for a registered case', async () => {
-    const result = (await getMockResponse('/api/cases/176000', { method: 'GET' })) as {
-      arrests?: unknown[];
-      chargesheet?: unknown;
-    };
-    expect(result.arrests).toBeUndefined();
-    expect(result.chargesheet).toBeUndefined();
-  });
-
-  it('includes arrests and a chargesheet for a closed case', async () => {
-    const result = (await getMockResponse('/api/cases/176002', { method: 'GET' })) as {
-      arrests?: Array<{ arrestDate: string; custodyStatus: string }>;
-      chargesheet?: { filedDate: string; sectionsApplied: string; court: string };
-    };
-    expect(result.arrests).toHaveLength(1);
-    expect(result.chargesheet).toBeDefined();
-  });
-});
-
-describe('getMockResponse case explain', () => {
-  it('returns a deterministic explanation grounded in the case and its related records', async () => {
-    const first = await getMockResponse('/api/cases/176000/explain', { method: 'GET' });
-    const second = await getMockResponse('/api/cases/176000/explain', { method: 'GET' });
-    expect(first).toEqual(second);
-  });
-
-  it('cites the case number and a confidence between 0 and 1', async () => {
-    const result = (await getMockResponse('/api/cases/176000/explain', { method: 'GET' })) as {
-      claim: string;
-      confidence: number;
-      records: string[];
-    };
-    expect(result.claim).toContain('276/2026');
-    expect(result.confidence).toBeGreaterThan(0);
-    expect(result.confidence).toBeLessThanOrEqual(1);
-    expect(result.records.length).toBeGreaterThan(0);
-  });
-
-  it('returns undefined for an unknown caseId', async () => {
-    const result = await getMockResponse('/api/cases/999999000/explain', { method: 'GET' });
+    const result = await getMockResponse('/api/cases/17700999', { method: 'GET' });
     expect(result).toBeUndefined();
   });
 });
 
-describe('getMockResponse cases list free-text search over party names', () => {
-  it('matches a case by a party real name even though the case number does not match', async () => {
-    // index 0 at unitId 176 has victim 'Ramesh Kumar' (see the VICTIM_NAMES pool below)
-    const result = (await getMockResponse('/api/cases?unitId=176&q=ramesh', {
-      method: 'GET',
-    })) as Array<{ caseId: number }>;
-    expect(result.map((c) => c.caseId)).toContain(176000);
-  });
-
-  it('excludes cases whose case number and party names both fail to match', async () => {
-    const result = await getMockResponse('/api/cases?unitId=176&q=nonexistent-name', { method: 'GET' });
-    expect(result).toEqual([]);
-  });
-});
-
-describe('getMockResponse — /api/network/subgraph', () => {
-  it('top-offenders focus returns PERSON, CASE, and LOCATION nodes with ACCUSED_IN/OCCURRED_AT edges', async () => {
-    const response = (await getMockResponse('/api/network/subgraph?focus=top-offenders&limit=5', {})) as {
-      nodes: Array<{ id: string; type: string; label: string; confidence: number | null }>;
-      edges: Array<{ sourceId: string; targetId: string; type: string; confidence: number | null }>;
-      generatedAt: string;
-    };
-    expect(response.nodes.some((n) => n.type === 'PERSON')).toBe(true);
-    expect(response.nodes.some((n) => n.type === 'CASE')).toBe(true);
-    expect(response.nodes.some((n) => n.type === 'LOCATION')).toBe(true);
-    expect(response.edges.some((e) => e.type === 'ACCUSED_IN')).toBe(true);
-    expect(response.edges.some((e) => e.type === 'OCCURRED_AT')).toBe(true);
-    expect(response.generatedAt).toBeTruthy();
-  });
-
-  it('never exceeds 75 nodes and never has a dangling edge', async () => {
-    const response = (await getMockResponse('/api/network/subgraph?focus=top-offenders&limit=50', {})) as {
-      nodes: Array<{ id: string }>;
-      edges: Array<{ sourceId: string; targetId: string }>;
-    };
-    expect(response.nodes.length).toBeLessThanOrEqual(75);
-    const ids = new Set(response.nodes.map((n) => n.id));
-    response.edges.forEach((e) => {
-      expect(ids.has(e.sourceId)).toBe(true);
-      expect(ids.has(e.targetId)).toBe(true);
+describe('getMockResponse network search', () => {
+  beforeEach(() => {
+    mockFetchJson({
+      '/data/mock/search-index.json': [
+        { id: 'case-1', type: 'CASE', label: '100/2026' },
+        { id: '500001', type: 'PERSON', label: 'Suresh Naik' },
+      ],
     });
   });
 
-  it('is deterministic -- the same params return identical output across calls', async () => {
-    const a = await getMockResponse('/api/network/subgraph?focus=top-offenders&limit=5', {});
-    const b = await getMockResponse('/api/network/subgraph?focus=top-offenders&limit=5', {});
-    expect(a).toEqual(b);
+  it('matches entries by case-insensitive label substring', async () => {
+    const result = (await getMockResponse('/api/network/search?q=suresh&limit=10', {})) as Array<{ id: string; type: string }>;
+    expect(result).toEqual([expect.objectContaining({ id: '500001', type: 'PERSON' })]);
   });
 
-  it('community focus returns only PERSON nodes, never CASE or LOCATION', async () => {
-    const communities = (await getMockResponse('/api/network/communities?minSize=1', {})) as Array<{ communityId: number }>;
-    expect(communities.length).toBeGreaterThan(0);
-    const response = (await getMockResponse(`/api/network/subgraph?focus=community&communityId=${communities[0].communityId}`, {})) as {
-      nodes: Array<{ type: string }>;
-    };
-    expect(response.nodes.length).toBeGreaterThan(0);
-    response.nodes.forEach((n) => expect(n.type).toBe('PERSON'));
-  });
-
-  it('person focus centers the ego-network on the requested personId', async () => {
-    const offenders = (await getMockResponse('/api/network/repeat-offenders?minCases=1&limit=5', {})) as Array<{ personId: number }>;
-    expect(offenders.length).toBeGreaterThan(0);
-    const response = (await getMockResponse(`/api/network/subgraph?focus=person&personId=${offenders[0].personId}&hops=2`, {})) as {
-      nodes: Array<{ id: string }>;
-    };
-    expect(response.nodes.some((n) => n.id === String(offenders[0].personId))).toBe(true);
-  });
-
-  it('path focus with from === to returns just that one person, no query needed', async () => {
-    const offenders = (await getMockResponse('/api/network/repeat-offenders?minCases=1&limit=5', {})) as Array<{ personId: number }>;
-    const response = await getMockResponse(
-      `/api/network/path?from=${offenders[0].personId}&to=${offenders[0].personId}&maxHops=6`,
-      {},
-    );
-    expect((response as { hopCount: number }).hopCount).toBe(0);
-  });
-
-  it('path focus returns the path persons plus the justifying case and location', async () => {
-    const offenders = (await getMockResponse('/api/network/repeat-offenders?minCases=1&limit=8', {})) as Array<{ personId: number }>;
-    expect(offenders.length).toBeGreaterThanOrEqual(2);
-    const [from, to] = offenders.map((o) => o.personId);
-
-    const response = (await getMockResponse(`/api/network/subgraph?focus=path&from=${from}&to=${to}&maxHops=6`, {})) as {
-      nodes: Array<{ type: string }>;
-    };
-    expect(response.nodes.some((n) => n.type === 'PERSON')).toBe(true);
-    expect(response.nodes.some((n) => n.type === 'CASE')).toBe(true);
-  });
-});
-
-describe('getMockResponse — /api/network/repeat-offenders', () => {
-  it('ranks offenders descending by caseCount and respects limit', async () => {
-    const response = (await getMockResponse('/api/network/repeat-offenders?minCases=1&limit=3', {})) as Array<{ caseCount: number }>;
-    expect(response.length).toBeLessThanOrEqual(3);
-    for (let i = 1; i < response.length; i++) {
-      expect(response[i - 1].caseCount).toBeGreaterThanOrEqual(response[i].caseCount);
-    }
-  });
-});
-
-describe('getMockResponse — /api/network/communities', () => {
-  it('groups persons into communities of at least minSize', async () => {
-    const response = (await getMockResponse('/api/network/communities?minSize=1', {})) as Array<{ size: number }>;
-    expect(response.length).toBeGreaterThan(0);
-    response.forEach((c) => expect(c.size).toBeGreaterThanOrEqual(1));
-  });
-});
-
-describe('getMockResponse — /api/network/path', () => {
-  it('finds a path between two persons who share a case', async () => {
-    const offenders = (await getMockResponse('/api/network/repeat-offenders?minCases=1&limit=8', {})) as Array<{ personId: number }>;
-    expect(offenders.length).toBeGreaterThanOrEqual(2);
-    const [from, to] = offenders.map((o) => o.personId);
-
-    const response = await getMockResponse(`/api/network/path?from=${from}&to=${to}&maxHops=6`, {});
-    expect(response).not.toBeNull();
-    expect((response as { hopCount: number }).hopCount).toBeGreaterThanOrEqual(0);
-  });
-
-  it('returns null for an unknown personId', async () => {
-    const response = await getMockResponse('/api/network/path?from=999999&to=999998&maxHops=6', {});
-    expect(response).toBeNull();
-  });
-});
-
-describe('getMockResponse station incidents', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  const panamburGeometry = {
-    type: 'Polygon',
-    coordinates: [[[74.80, 12.94], [74.84, 12.94], [74.84, 12.98], [74.80, 12.98], [74.80, 12.94]]],
-  };
-  const panamburFixture = {
-    type: 'FeatureCollection',
-    features: [{ type: 'Feature', properties: { unitId: 355, unitName: 'Panambur PS' }, geometry: panamburGeometry }],
-  };
-
-  it('returns one point per mock case, clustered around the station boundary centroid', async () => {
-    vi.spyOn(global, 'fetch').mockResolvedValue({
-      json: () => Promise.resolve(panamburFixture),
-    } as unknown as Response);
-
-    const result = (await getMockResponse('/api/geo/stations/355/incidents', { method: 'GET' })) as Array<{
-      caseMasterId: number;
-      crimeNo: string;
-      latitude: number;
-      longitude: number;
-    }>;
-
-    expect(result).toHaveLength(40); // CASES_PER_STATION
-    const centerLng = 74.82;
-    const centerLat = 12.96;
-    for (const point of result) {
-      expect(Math.abs(point.longitude - centerLng)).toBeLessThan(0.02);
-      expect(Math.abs(point.latitude - centerLat)).toBeLessThan(0.02);
-      expect(typeof point.caseMasterId).toBe('number');
-      expect(typeof point.crimeNo).toBe('string');
-    }
-  });
-
-  it('is deterministic across calls', async () => {
-    vi.spyOn(global, 'fetch').mockResolvedValue({
-      json: () => Promise.resolve(panamburFixture),
-    } as unknown as Response);
-
-    const first = await getMockResponse('/api/geo/stations/355/incidents', { method: 'GET' });
-    const second = await getMockResponse('/api/geo/stations/355/incidents', { method: 'GET' });
-    expect(first).toEqual(second);
-  });
-
-  it('returns an empty array for a unitId not present in any district roster', async () => {
-    const result = await getMockResponse('/api/geo/stations/999999/incidents', { method: 'GET' });
+  it('returns an empty array for a query shorter than 2 characters', async () => {
+    const result = await getMockResponse('/api/network/search?q=s&limit=10', {});
     expect(result).toEqual([]);
+  });
+});
+
+describe('getMockResponse network path', () => {
+  it('returns null (path-finding over the generated graph is out of scope for this pivot)', async () => {
+    const result = await getMockResponse('/api/network/path?from=1&to=2&maxHops=6', {});
+    expect(result).toBeNull();
   });
 });
