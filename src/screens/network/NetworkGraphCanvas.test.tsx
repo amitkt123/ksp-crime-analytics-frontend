@@ -136,6 +136,26 @@ describe('NetworkGraphCanvas', () => {
     expect(zoomLayer).toHaveAttribute('transform', 'translate(40,20) scale(1)');
   });
 
+  it('scales a person-to-person edge stroke width with its weight (decluttered/collapsed view)', () => {
+    const personNodes: GraphNodeResponse[] = [
+      { id: '1', type: 'PERSON', label: 'A', confidence: null },
+      { id: '2', type: 'PERSON', label: 'B', confidence: null },
+    ];
+    const weightedEdges = [{ id: 'w-1|2', sourceId: '1', targetId: '2', type: 'SHARES_MO_WITH' as const, confidence: null, weight: 4 }];
+    const { container } = render(
+      <NetworkGraphCanvas
+        nodes={personNodes}
+        edges={weightedEdges}
+        communityByLabel={new Map()}
+        pathEndpointIds={[]}
+        pathMemberIds={[]}
+        onPersonClick={vi.fn()}
+      />,
+    );
+    const line = container.querySelector('.graph-edge')!;
+    expect(line).toHaveStyle({ strokeWidth: '4.6' });
+  });
+
   it('drags a node to a new position without moving other nodes', () => {
     render(
       <NetworkGraphCanvas

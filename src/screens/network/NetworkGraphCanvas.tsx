@@ -5,9 +5,11 @@ import { colorForCommunity } from './networkColors';
 import { computeForceLayout } from './networkLayout';
 import { matchesSearch } from './networkGraphTransforms';
 
+type CanvasEdge = GraphEdgeResponse & { weight?: number };
+
 interface NetworkGraphCanvasProps {
   nodes: GraphNodeResponse[];
-  edges: GraphEdgeResponse[];
+  edges: CanvasEdge[];
   communityByLabel: Map<string, number>;
   pathEndpointIds: string[];
   pathMemberIds: string[];
@@ -137,6 +139,7 @@ export function NetworkGraphCanvas({
           const a = positionFor(edge.sourceId);
           const b = positionFor(edge.targetId);
           if (!a || !b) return null;
+          const strokeWidth = edge.weight != null ? Math.min(5, 1 + edge.weight * 0.9) : undefined;
           return (
             <line
               key={edge.id}
@@ -145,6 +148,7 @@ export function NetworkGraphCanvas({
               y1={a.y}
               x2={b.x}
               y2={b.y}
+              style={strokeWidth != null ? { strokeWidth } : undefined}
             />
           );
         })}
