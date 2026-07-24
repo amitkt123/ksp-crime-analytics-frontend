@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { JudicialUnitsTab } from './JudicialUnitsTab';
 
 describe('JudicialUnitsTab', () => {
@@ -20,5 +21,20 @@ describe('JudicialUnitsTab', () => {
     render(<JudicialUnitsTab />);
     expect(screen.getAllByText('Whitefield PS').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Bengaluru Urban').length).toBeGreaterThan(0);
+  });
+
+  it('filters the treemap and its breakdown table to a single district, and Reset restores all districts', async () => {
+    render(<JudicialUnitsTab />);
+    const card = screen.getByText('District → Unit Case Load').closest('.insight-card') as HTMLElement;
+
+    await userEvent.selectOptions(within(card).getByLabelText('Filter by district'), 'Mysuru');
+
+    expect(within(card).queryByText('Whitefield PS')).not.toBeInTheDocument();
+    expect(within(card).getAllByText(/Mysuru/).length).toBeGreaterThan(0);
+
+    await userEvent.click(within(card).getByRole('button', { name: 'Reset' }));
+
+    expect(within(card).getAllByText('Whitefield PS').length).toBeGreaterThan(0);
+    expect((within(card).getByLabelText('Filter by district') as HTMLSelectElement).value).toBe('');
   });
 });

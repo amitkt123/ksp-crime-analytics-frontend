@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import {
   getCourtPendingDemo,
   getFinalReportOutcomeDemo,
@@ -16,6 +17,15 @@ export function JudicialUnitsTab() {
   const unitCaseLoad = getDistrictUnitCaseLoadDemo();
   const rankDistribution = getRankDistributionDemo();
   const unitPerformance = getUnitPerformanceDemo();
+
+  const [treemapDistrictFilter, setTreemapDistrictFilter] = useState('');
+  const districtOptions = useMemo(
+    () => [...new Set(unitCaseLoad.map((r) => r.districtName))].sort((a, b) => a.localeCompare(b)),
+    [unitCaseLoad],
+  );
+  const filteredUnitCaseLoad = treemapDistrictFilter
+    ? unitCaseLoad.filter((r) => r.districtName === treemapDistrictFilter)
+    : unitCaseLoad;
 
   return (
     <>
@@ -36,7 +46,22 @@ export function JudicialUnitsTab() {
 
       <div className="insight-grid" style={{ marginTop: 16 }}>
         <InsightCard title="District → Unit Case Load" live={false} note="Area = FIRs registered per unit, across all 30 Karnataka districts.">
-          <CaseLoadTreemap data={unitCaseLoad} height={520} />
+          <div className="filter-field" style={{ marginBottom: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
+            <select
+              aria-label="Filter by district"
+              value={treemapDistrictFilter}
+              onChange={(e) => setTreemapDistrictFilter(e.target.value)}
+            >
+              <option value="">All districts</option>
+              {districtOptions.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+            <button type="button" className="reset-filters-btn" onClick={() => setTreemapDistrictFilter('')}>
+              Reset
+            </button>
+          </div>
+          <CaseLoadTreemap data={filteredUnitCaseLoad} height={520} />
           {/* Recharts' Treemap only renders cell labels above a pixel-size threshold, so the
               breakdown is repeated here as plain text -- reliable regardless of rendered cell size. */}
           <div className="case-table-wrap">
@@ -49,7 +74,7 @@ export function JudicialUnitsTab() {
                 </tr>
               </thead>
               <tbody>
-                {unitCaseLoad.map((row) => (
+                {filteredUnitCaseLoad.map((row) => (
                   <tr key={row.districtName + row.unitName}>
                     <td>{row.districtName}</td>
                     <td>{row.unitName}</td>

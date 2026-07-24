@@ -13,9 +13,15 @@ interface CaseLoadTreemapProps {
   height?: number;
 }
 
+interface UnitNode {
+  name: string;
+  value: number;
+  layoutValue: number;
+}
+
 interface DistrictNode {
   name: string;
-  children: Array<{ name: string; value: number }>;
+  children: UnitNode[];
 }
 
 const DISTRICT_COLORS = [
@@ -24,8 +30,14 @@ const DISTRICT_COLORS = [
 ];
 
 const HEADER_HEIGHT = 22;
+// Purely a layout floor so a zero-total district still gets a visible sliver
+// instead of a zero-area (invisible) box -- the header/table always show the
+// real total, never this nominal weight.
+const NOMINAL_EMPTY_DISTRICT_UNIT_WEIGHT = 8;
 
 export function CaseLoadTreemap({ data, width = 1080, height = 520 }: CaseLoadTreemapProps) {
+  const districtTotal = (d: DistrictNode) => d.children.reduce((sum, c) => sum + c.value, 0);
+
   const districts: DistrictNode[] = useMemo(() => {
     const byDistrict = new Map<string, Array<{ name: string; value: number }>>();
     data.forEach((row) => {
@@ -33,15 +45,25 @@ export function CaseLoadTreemap({ data, width = 1080, height = 520 }: CaseLoadTr
       list.push({ name: row.unitName, value: row.caseCount });
       byDistrict.set(row.districtName, list);
     });
-    return [...byDistrict.entries()].map(([name, children]) => ({ name, children }));
+    const nodes: DistrictNode[] = [...byDistrict.entries()].map(([name, children]) => {
+      const total = children.reduce((sum, c) => sum + c.value, 0);
+      const withLayout = children.map((c) => ({ ...c, layoutValue: total > 0 ? c.value : NOMINAL_EMPTY_DISTRICT_UNIT_WEIGHT }));
+      return { name, children: withLayout };
+    });
+    const byName = (a: DistrictNode, b: DistrictNode) => a.name.localeCompare(b.name);
+    const withData = nodes.filter((d) => districtTotal(d) > 0).sort(byName);
+    const withoutData = nodes.filter((d) => districtTotal(d) === 0).sort(byName);
+    return [...withData, ...withoutData];
   }, [data]);
-
-  const districtTotal = (d: DistrictNode) => d.children.reduce((sum, c) => sum + c.value, 0);
 
   const root = useMemo(() => {
     const h = hierarchy<{ name: string; children?: DistrictNode[] }>({ name: 'root', children: districts } as never)
-      .sum((d) => (d as unknown as { value?: number }).value ?? 0);
-    return treemap<{ name: string }>().tile(treemapBinary).size([width, height]).paddingTop(HEADER_HEIGHT).paddingInner(2)(h as never);
+      .sum((d) => (d as unknown as { layoutValue?: number }).layoutValue ?? 0);
+    return treemap<{ name: string }>()
+      .tile(treemapBinary)
+      .size([width, height])
+      .paddingTop((node) => (node.depth === 0 ? 0 : HEADER_HEIGHT))
+      .paddingInner(2)(h as never);
   }, [districts, width, height]);
 
   const districtLayoutNodes = (root.children ?? []) as unknown as Array<{
@@ -54,25 +76,26 @@ export function CaseLoadTreemap({ data, width = 1080, height = 520 }: CaseLoadTr
     <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} role="img" aria-label="Case load by district and unit">
       {districtLayoutNodes.map((district, i) => {
         const color = DISTRICT_COLORS[i % DISTRICT_COLORS.length];
+        const total = districtTotal(district.data);
         return (
           <g key={district.data.name}>
             <rect
               className="treemap-district-header"
               x={district.x0}
-              y={district.y0 - HEADER_HEIGHT}
+              y={district.y0}
               width={district.x1 - district.x0}
               height={HEADER_HEIGHT}
               fill={color}
             />
             <text
               x={district.x0 + 6}
-              y={district.y0 - HEADER_HEIGHT / 2}
+              y={district.y0 + HEADER_HEIGHT / 2}
               dy="0.35em"
               fontSize={11}
               fontWeight={700}
               fill="#ffffff"
             >
-              {district.data.name} ({districtTotal(district.data).toLocaleString()})
+              {district.data.name} ({total > 0 ? total.toLocaleString() : 'No data'})
             </text>
             {(district.children ?? []).map((unit) => {
               const w = unit.x1 - unit.x0;
