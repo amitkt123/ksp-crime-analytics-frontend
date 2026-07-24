@@ -37,8 +37,14 @@ interface LayoutNode {
 
 const PERSON_TO_PERSON_EDGE_TYPES = new Set(['CO_ACCUSED_WITH', 'SHARES_MO_WITH']);
 
-export function computeForceLayout(nodes: GraphNodeResponse[], edges: GraphEdgeResponse[]): Map<string, { x: number; y: number }> {
+export function computeForceLayout(
+  nodes: GraphNodeResponse[],
+  edges: GraphEdgeResponse[],
+  previousPositions?: Map<string, { x: number; y: number }>,
+): Map<string, { x: number; y: number }> {
   const layoutNodes: LayoutNode[] = nodes.map((n) => {
+    const prev = previousPositions?.get(n.id);
+    if (prev) return { id: n.id, x: prev.x, y: prev.y, vx: 0, vy: 0, fx: 0, fy: 0 };
     const rand = seededRandom(hashId(n.id));
     return { id: n.id, x: rand() * 600 + 40, y: rand() * 380 + 40, vx: 0, vy: 0, fx: 0, fy: 0 };
   });
