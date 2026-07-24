@@ -765,10 +765,18 @@ function sharesMoWithEdges(personIds: number[], tuples: NetworkCaseTuple[]) {
     bySubHead.set(t.crimeSubHeadId, set);
   });
   const edges: MockGraphEdge[] = [];
+  // A person's tuples can carry different crimeSubHeadId values across
+  // different cases (accusedId cycles independently of a case's own
+  // crimeSubHeadId), so the same pair can turn up in more than one bySubHead
+  // group -- dedupe by unordered pair so we never emit the same edge id twice.
+  const seenPairs = new Set<string>();
   bySubHead.forEach((members) => {
     const list = Array.from(members);
     for (let i = 0; i < list.length; i++) {
       for (let j = i + 1; j < list.length; j++) {
+        const pairKey = [list[i], list[j]].sort((a, b) => a - b).join('-');
+        if (seenPairs.has(pairKey)) continue;
+        seenPairs.add(pairKey);
         edges.push({
           id: `smw-${list[i]}-${list[j]}`,
           sourceId: String(list[i]),

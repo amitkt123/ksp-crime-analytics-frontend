@@ -336,6 +336,14 @@ describe('getMockResponse — /api/network/subgraph', () => {
     expect(a).toEqual(b);
   });
 
+  it('never has duplicate edge ids, even when two accused share more than one crime sub-head', async () => {
+    const response = (await getMockResponse('/api/network/subgraph?focus=top-offenders&limit=50', {})) as {
+      edges: Array<{ id: string }>;
+    };
+    const ids = response.edges.map((e) => e.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
   it('community focus returns only PERSON nodes, never CASE or LOCATION', async () => {
     const communities = (await getMockResponse('/api/network/communities?minSize=1', {})) as Array<{ communityId: number }>;
     expect(communities.length).toBeGreaterThan(0);
