@@ -854,10 +854,20 @@ function buildSubgraph(focus: string, limit: number, personId: number | undefine
     const nodes: MockGraphNode[] = [];
     const edges: MockGraphEdge[] = [];
     const seenNodeIds = new Set<string>();
+    const seenEdgeIds = new Set<string>();
     function addNode(node: MockGraphNode) {
       if (seenNodeIds.has(node.id)) return;
       seenNodeIds.add(node.id);
       nodes.push(node);
+    }
+    // Consecutive hops can fall back to the same justifyingCase (e.g. two
+    // endpoints with no case of their own in common each fall back to their
+    // own single case, which can coincide), which would otherwise emit the
+    // same p-/occ- edge id twice.
+    function addEdge(edge: MockGraphEdge) {
+      if (seenEdgeIds.has(edge.id)) return;
+      seenEdgeIds.add(edge.id);
+      edges.push(edge);
     }
     path.forEach((personId2) => {
       const name = personDisplayName(personId2, tuples)!;
@@ -878,7 +888,7 @@ function buildSubgraph(focus: string, limit: number, personId: number | undefine
       addNode({ id: `case-${justifyingCase.caseId}`, type: 'CASE', label: justifyingCase.caseNumber, confidence: null });
       addNode({ id: `location-${justifyingCase.unitId}`, type: 'LOCATION', label: justifyingCase.unitName, confidence: null });
       if (justifyingCase.accusedId === a || justifyingCase.victimId === a) {
-        edges.push({
+        addEdge({
           id: `p-${a}-${justifyingCase.caseId}`,
           sourceId: String(a),
           targetId: `case-${justifyingCase.caseId}`,
@@ -887,7 +897,7 @@ function buildSubgraph(focus: string, limit: number, personId: number | undefine
         });
       }
       if (justifyingCase.accusedId === b || justifyingCase.victimId === b) {
-        edges.push({
+        addEdge({
           id: `p-${b}-${justifyingCase.caseId}`,
           sourceId: String(b),
           targetId: `case-${justifyingCase.caseId}`,
@@ -895,9 +905,9 @@ function buildSubgraph(focus: string, limit: number, personId: number | undefine
           confidence: null,
         });
       }
-      edges.push({ id: `occ-${justifyingCase.caseId}`, sourceId: `case-${justifyingCase.caseId}`, targetId: `location-${justifyingCase.unitId}`, type: 'OCCURRED_AT', confidence: null });
+      addEdge({ id: `occ-${justifyingCase.caseId}`, sourceId: `case-${justifyingCase.caseId}`, targetId: `location-${justifyingCase.unitId}`, type: 'OCCURRED_AT', confidence: null });
     }
-    edges.push(...sharesMoWithEdges(path, tuples));
+    sharesMoWithEdges(path, tuples).forEach(addEdge);
     return capSubgraph(nodes, edges);
   }
 
