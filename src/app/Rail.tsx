@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { path: '/case-explorer', label: 'Case Explorer' },
   { path: '/network', label: 'Network / Link Analysis' },
   { path: '/sociological', label: 'Sociological & Predictive' },
+  { path: '/chat', label: 'Chat' },
   { path: '/admin', label: 'Admin / Audit' },
 ];
 
