@@ -46,6 +46,14 @@ describe('subgraphQueryString', () => {
     const query = subgraphQueryString({ focus: 'path', from: 1, to: 2, maxHops: 6 });
     expect(query).toBe('focus=path&from=1&to=2&maxHops=6');
   });
+
+  it('includes caseId for the case focus', () => {
+    expect(subgraphQueryString({ focus: 'case', caseId: 9001 })).toBe('focus=case&caseId=9001');
+  });
+
+  it('includes locationId for the location focus', () => {
+    expect(subgraphQueryString({ focus: 'location', locationId: 7001 })).toBe('focus=location&locationId=7001');
+  });
 });
 
 describe('getSubgraph', () => {
