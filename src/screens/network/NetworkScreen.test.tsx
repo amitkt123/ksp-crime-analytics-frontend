@@ -12,15 +12,8 @@ function mockSuccess<T>(data: T) {
 }
 
 const subgraph: networkApiModule.SubgraphResponse = {
-  nodes: [
-    { id: '5001', type: 'PERSON', label: 'Suresh Naik', confidence: 0.83 },
-    { id: '5002', type: 'PERSON', label: 'Vijay Kumar', confidence: 0.73 },
-    { id: 'case-1', type: 'CASE', label: '276/2026', confidence: null },
-  ],
-  edges: [
-    { id: 'e1', sourceId: '5001', targetId: 'case-1', type: 'ACCUSED_IN', confidence: null },
-    { id: 'e2', sourceId: '5002', targetId: 'case-1', type: 'VICTIM_IN', confidence: null },
-  ],
+  nodes: [{ id: '5001', type: 'PERSON', label: 'Suresh Naik', confidence: 0.83 }],
+  edges: [],
   generatedAt: '2026-07-19T06:00:00Z',
 };
 
@@ -98,7 +91,7 @@ describe('NetworkScreen', () => {
     mockNetworkQueries();
 
     render(<NetworkScreen />);
-    await userEvent.click(await screen.findByText('Suresh Naik', { selector: '.offender-name' }));
+    await userEvent.click(await screen.findByText('Suresh Naik'));
 
     expect(await screen.findByRole('dialog', { name: 'Evidence panel' })).toBeInTheDocument();
     await waitFor(() => expect(networkApiModule.useSubgraph).toHaveBeenLastCalledWith('jwt', { focus: 'person', personId: 5001, hops: 2 }));
@@ -109,14 +102,23 @@ describe('NetworkScreen', () => {
     mockNetworkQueries();
 
     render(<NetworkScreen />);
-    await userEvent.click(await screen.findByText('Community 2 · 1', { selector: '.legend-row-button' }));
+    await userEvent.click(await screen.findByText('Community 2 · 1'));
 
     await waitFor(() => expect(networkApiModule.useSubgraph).toHaveBeenLastCalledWith('jwt', { focus: 'community', communityId: 2 }));
   });
 
   it('toggling path mode and clicking two people queries useNetworkPath with both ids and switches focus to path', async () => {
     mockAuth();
-    mockNetworkQueries();
+    mockNetworkQueries({
+      subgraph: mockSuccess({
+        nodes: [
+          ...subgraph.nodes,
+          { id: '5002', type: 'PERSON', label: 'Vijay Kumar', confidence: 0.73 },
+        ],
+        edges: [],
+        generatedAt: '2026-07-19T06:00:00Z',
+      }),
+    });
 
     render(<NetworkScreen />);
     await userEvent.click(screen.getByRole('button', { name: 'Toggle path-finding mode' }));
@@ -125,81 +127,5 @@ describe('NetworkScreen', () => {
 
     await waitFor(() => expect(networkApiModule.useNetworkPath).toHaveBeenLastCalledWith('jwt', 5001, 5002, 6));
     await waitFor(() => expect(networkApiModule.useSubgraph).toHaveBeenLastCalledWith('jwt', { focus: 'path', from: 5001, to: 5002, maxHops: 6 }));
-  });
-
-  it('defaults to the decluttered person-only view, hiding case/location nodes until Full detail is switched on', async () => {
-    mockAuth();
-    mockNetworkQueries();
-
-    const { container } = render(<NetworkScreen />);
-    await screen.findByLabelText('Suresh Naik');
-
-    expect(container.querySelector('.graph-node-case')).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByLabelText(/Full detail/));
-
-    expect(container.querySelector('.graph-node-case')).toBeInTheDocument();
-  });
-
-  it('dims non-matching person nodes when a search term is typed', async () => {
-    mockAuth();
-    mockNetworkQueries();
-
-    render(<NetworkScreen />);
-    await screen.findByLabelText('Suresh Naik');
-
-    await userEvent.type(screen.getByLabelText('Search'), 'suresh');
-
-    expect(screen.getByLabelText('Suresh Naik')).toHaveStyle({ opacity: 1 });
-    expect(screen.getByLabelText('Vijay Kumar')).toHaveStyle({ opacity: 0.2 });
-  });
-
-  it('selecting a community in the filter bar switches focus to that community, same as the legend', async () => {
-    mockAuth();
-    mockNetworkQueries();
-
-    render(<NetworkScreen />);
-    await screen.findByLabelText('Suresh Naik');
-
-    await userEvent.selectOptions(screen.getByLabelText('Community'), 'Community 2 · 1');
-
-    await waitFor(() => expect(networkApiModule.useSubgraph).toHaveBeenLastCalledWith('jwt', { focus: 'community', communityId: 2 }));
-  });
-
-  it('picking Path from and Path to in the filter bar queries useNetworkPath, same as the click-based flow', async () => {
-    mockAuth();
-    mockNetworkQueries();
-
-    render(<NetworkScreen />);
-    await screen.findByLabelText('Suresh Naik');
-
-    await userEvent.selectOptions(screen.getByLabelText('Path from'), 'Suresh Naik');
-    await userEvent.selectOptions(screen.getByLabelText('Path to'), 'Vijay Kumar');
-
-    await waitFor(() => expect(networkApiModule.useNetworkPath).toHaveBeenLastCalledWith('jwt', 5001, 5002, 6));
-    await waitFor(() => expect(networkApiModule.useSubgraph).toHaveBeenLastCalledWith('jwt', { focus: 'path', from: 5001, to: 5002, maxHops: 6 }));
-  });
-
-  it('the "Reset filters" button clears full detail, search, and path selections back to defaults', async () => {
-    mockAuth();
-    mockNetworkQueries();
-
-    const { container } = render(<NetworkScreen />);
-    await screen.findByLabelText('Suresh Naik');
-
-    await userEvent.click(screen.getByLabelText(/Full detail/));
-    await userEvent.type(screen.getByLabelText('Search'), 'suresh');
-    await userEvent.selectOptions(screen.getByLabelText('Path from'), 'Suresh Naik');
-    await userEvent.selectOptions(screen.getByLabelText('Path to'), 'Vijay Kumar');
-    await waitFor(() => expect(networkApiModule.useSubgraph).toHaveBeenLastCalledWith('jwt', { focus: 'path', from: 5001, to: 5002, maxHops: 6 }));
-
-    await userEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
-
-    expect(screen.getByLabelText(/Full detail/)).not.toBeChecked();
-    expect(screen.getByLabelText('Search')).toHaveValue('');
-    expect((screen.getByLabelText('Path from') as HTMLSelectElement).value).toBe('');
-    expect((screen.getByLabelText('Path to') as HTMLSelectElement).value).toBe('');
-    expect(container.querySelector('.graph-node-case')).not.toBeInTheDocument();
-    await waitFor(() => expect(networkApiModule.useSubgraph).toHaveBeenLastCalledWith('jwt', { focus: 'top-offenders', limit: 10 }));
   });
 });

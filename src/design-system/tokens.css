@@ -1,15 +1,15 @@
 :root {
-  --canvas: #eef1f6; --panel: #FFFFFF; --panel-raised: #FBFCFE; --line: #e3e8ef;
-  --text: #1c2b3a; --muted: #647184; --muted-2: #8493B0;
-  --real: #123a63; --real-fill: rgba(18,58,99,0.12);
-  --predicted: #d4a017; --predicted-fill: rgba(212,160,23,0.14);
-  --alert: #c0392b; --alert-fill: rgba(192,57,43,0.10);
-  --pii: #d4a017; --pii-fill: rgba(212,160,23,0.12);
+  --canvas: #F7F9FC; --panel: #FFFFFF; --panel-raised: #FBFCFE; --line: #D8DEEA;
+  --text: #14213A; --muted: #5B6B8C; --muted-2: #8493B0;
+  --real: #2a78d6; --real-fill: rgba(42,120,214,0.12);
+  --predicted: #7C4DCC; --predicted-fill: rgba(124,77,204,0.12);
+  --alert: #D6323B; --alert-fill: rgba(214,50,59,0.10);
+  --pii: #B9770E; --pii-fill: rgba(185,119,14,0.12);
   --shadow: 0 1px 2px rgba(20,33,58,0.04), 0 8px 24px -12px rgba(20,33,58,0.18);
   --focus: #1D4ED8;
-  --cat-1: #123a63; --cat-2: #d4a017; --cat-3: #c0392b; --cat-4: #1e8a5f; --cat-5: #6c5ce7;
-  --status-good-ink: #1e8a5f; --status-good-fill: rgba(30,138,95,0.12);
-  --status-warning: #e67e22; --status-warning-ink: #9a5313; --status-warning-fill: rgba(230,126,34,0.16);
+  --cat-1: #008300; --cat-2: #e87ba4; --cat-3: #eda100; --cat-4: #1baf7a; --cat-5: #eb6834;
+  --status-good-ink: #0ca30c; --status-good-fill: rgba(12,163,12,0.12);
+  --status-warning: #eda100; --status-warning-ink: #9a6b00; --status-warning-fill: rgba(237,161,0,0.16);
   color-scheme: light;
 }
 :root[data-theme="dark"] {

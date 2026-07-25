@@ -44,18 +44,4 @@ describe('Header', () => {
 
     expect(screen.getByText('SCRB_ANALYST')).toBeInTheDocument();
   });
-
-  it('renders a 6-tile KPI strip', () => {
-    mockAuth();
-    vi.spyOn(meApiModule, 'useMe').mockReturnValue({ data: undefined, isSuccess: false } as unknown as ReturnType<typeof meApiModule.useMe>);
-
-    render(<Header title="Overview" />);
-
-    expect(screen.getByText('Total FIRs (24 mo)')).toBeInTheDocument();
-    expect(screen.getByText('Heinous Offences')).toBeInTheDocument();
-    expect(screen.getByText('Chargesheet Rate')).toBeInTheDocument();
-    expect(screen.getByText('Avg. Days to Chargesheet')).toBeInTheDocument();
-    expect(screen.getByText('Pending Investigation')).toBeInTheDocument();
-    expect(screen.getByText('Accused Arrested')).toBeInTheDocument();
-  });
 });

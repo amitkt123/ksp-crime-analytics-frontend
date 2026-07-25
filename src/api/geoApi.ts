@@ -146,34 +146,3 @@ export function useStationIncidents(token: string | null, unitId: number | null)
     enabled: token != null && unitId != null,
   });
 }
-
-export interface HotspotClusterResponse {
-  id: number;
-  crimeSubHeadId: number;
-  timeBucket: string;
-  caseCount: number;
-  centroidLat: number;
-  centroidLon: number;
-  districtId: number;
-}
-
-// GET /api/geo/hotspots -- precomputed PostGIS ST_ClusterDBSCAN clusters, district-granularity.
-// Denies UNIT/OWN_OR_UNIT scope server-side (GeoAnalyticsQueryService.hotspots()), so callers
-// must gate this behind insightsApi.ts's canShowLiveHotspots(roles) before enabling the hook --
-// this file has no role awareness of its own, same as every other function here.
-export function getHotspots(token: string | null, enabled: boolean, crimeSubHeadId?: number): Promise<HotspotClusterResponse[]> {
-  if (!enabled) return Promise.resolve([]);
-  const query = new URLSearchParams();
-  if (crimeSubHeadId != null) query.set('crimeSubHeadId', String(crimeSubHeadId));
-  const suffix = query.toString() ? `?${query.toString()}` : '';
-  return apiFetch<HotspotClusterResponse[]>(`/api/geo/hotspots${suffix}`, {}, token);
-}
-
-export function useHotspots(token: string | null, enabled: boolean, crimeSubHeadId?: number) {
-  return useQuery({
-    queryKey: ['geo-hotspots', crimeSubHeadId],
-    queryFn: () => getHotspots(token, enabled, crimeSubHeadId),
-    staleTime: 5 * 60_000,
-    enabled: token != null && enabled,
-  });
-}

@@ -6,7 +6,6 @@ import { STATIONS_BY_DISTRICT } from './generatedStationFixtures';
 import { featureCentroid } from '../screens/command-center/geoBounds';
 import { STATION_CENTROIDS } from './generatedStationCentroids';
 import { CRIME_TYPE_OPTIONS } from '../constants/crimeTypes';
-import { formatCrimeNo, CASE_CATEGORY_CODES } from '../utils/crimeNumber';
 import type {
   DistrictCorrelationResponse,
   PredictiveRiskForecastResponse,
@@ -334,7 +333,6 @@ function mockLocation(unitId: number, index: number): { lat: number; lng: number
 // rotates through crime type and status so a station's list isn't visually uniform.
 function mockCaseSummaries(unitId: number, unitName: string) {
   const district = findDistrictName(unitId);
-  const districtId = findStationDistrictId(unitId) ?? 0;
   return Array.from({ length: CASES_PER_STATION }, (_, index) => {
     const crimeType = CASE_CRIME_TYPES[(unitId + index) % CASE_CRIME_TYPES.length];
     const status = CASE_STATUSES[index % CASE_STATUSES.length];
@@ -349,7 +347,7 @@ function mockCaseSummaries(unitId: number, unitName: string) {
       crimeSubHeadName: crimeType.crimeSubHeadName,
       status,
       firDate: offsetDate('2026-06-01', -dayOffset),
-      crimeNumber: formatCrimeNo(CASE_CATEGORY_CODES.FIR, districtId, unitId, 2026, index + 1),
+      crimeNumber: `FIR-2026-KA-${String(unitId).padStart(3, '0')}${String(index).padStart(2, '0')}`,
       station: unitName,
       district,
       gravity,
@@ -765,18 +763,10 @@ function sharesMoWithEdges(personIds: number[], tuples: NetworkCaseTuple[]) {
     bySubHead.set(t.crimeSubHeadId, set);
   });
   const edges: MockGraphEdge[] = [];
-  // A person's tuples can carry different crimeSubHeadId values across
-  // different cases (accusedId cycles independently of a case's own
-  // crimeSubHeadId), so the same pair can turn up in more than one bySubHead
-  // group -- dedupe by unordered pair so we never emit the same edge id twice.
-  const seenPairs = new Set<string>();
   bySubHead.forEach((members) => {
     const list = Array.from(members);
     for (let i = 0; i < list.length; i++) {
       for (let j = i + 1; j < list.length; j++) {
-        const pairKey = [list[i], list[j]].sort((a, b) => a - b).join('-');
-        if (seenPairs.has(pairKey)) continue;
-        seenPairs.add(pairKey);
         edges.push({
           id: `smw-${list[i]}-${list[j]}`,
           sourceId: String(list[i]),
@@ -854,20 +844,10 @@ function buildSubgraph(focus: string, limit: number, personId: number | undefine
     const nodes: MockGraphNode[] = [];
     const edges: MockGraphEdge[] = [];
     const seenNodeIds = new Set<string>();
-    const seenEdgeIds = new Set<string>();
     function addNode(node: MockGraphNode) {
       if (seenNodeIds.has(node.id)) return;
       seenNodeIds.add(node.id);
       nodes.push(node);
-    }
-    // Consecutive hops can fall back to the same justifyingCase (e.g. two
-    // endpoints with no case of their own in common each fall back to their
-    // own single case, which can coincide), which would otherwise emit the
-    // same p-/occ- edge id twice.
-    function addEdge(edge: MockGraphEdge) {
-      if (seenEdgeIds.has(edge.id)) return;
-      seenEdgeIds.add(edge.id);
-      edges.push(edge);
     }
     path.forEach((personId2) => {
       const name = personDisplayName(personId2, tuples)!;
@@ -888,7 +868,7 @@ function buildSubgraph(focus: string, limit: number, personId: number | undefine
       addNode({ id: `case-${justifyingCase.caseId}`, type: 'CASE', label: justifyingCase.caseNumber, confidence: null });
       addNode({ id: `location-${justifyingCase.unitId}`, type: 'LOCATION', label: justifyingCase.unitName, confidence: null });
       if (justifyingCase.accusedId === a || justifyingCase.victimId === a) {
-        addEdge({
+        edges.push({
           id: `p-${a}-${justifyingCase.caseId}`,
           sourceId: String(a),
           targetId: `case-${justifyingCase.caseId}`,
@@ -897,7 +877,7 @@ function buildSubgraph(focus: string, limit: number, personId: number | undefine
         });
       }
       if (justifyingCase.accusedId === b || justifyingCase.victimId === b) {
-        addEdge({
+        edges.push({
           id: `p-${b}-${justifyingCase.caseId}`,
           sourceId: String(b),
           targetId: `case-${justifyingCase.caseId}`,
@@ -905,9 +885,9 @@ function buildSubgraph(focus: string, limit: number, personId: number | undefine
           confidence: null,
         });
       }
-      addEdge({ id: `occ-${justifyingCase.caseId}`, sourceId: `case-${justifyingCase.caseId}`, targetId: `location-${justifyingCase.unitId}`, type: 'OCCURRED_AT', confidence: null });
+      edges.push({ id: `occ-${justifyingCase.caseId}`, sourceId: `case-${justifyingCase.caseId}`, targetId: `location-${justifyingCase.unitId}`, type: 'OCCURRED_AT', confidence: null });
     }
-    sharesMoWithEdges(path, tuples).forEach(addEdge);
+    edges.push(...sharesMoWithEdges(path, tuples));
     return capSubgraph(nodes, edges);
   }
 

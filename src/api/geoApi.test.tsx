@@ -16,13 +16,10 @@ import {
   useDistrictTimeOfDay,
   getStationIncidents,
   useStationIncidents,
-  getHotspots,
-  useHotspots,
   type DistrictSummaryResponse,
   type DistrictDetailResponse,
   type DistrictTimeOfDayResponse,
   type StationIncidentPointResponse,
-  type HotspotClusterResponse,
 } from './geoApi';
 
 const sampleDistricts: DistrictSummaryResponse[] = [
@@ -199,46 +196,5 @@ describe('useStationIncidents', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(samplePoints);
-  });
-});
-
-const sampleHotspots: HotspotClusterResponse[] = [
-  { id: 1, crimeSubHeadId: 12, timeBucket: 'evening', caseCount: 14, centroidLat: 12.97, centroidLon: 77.59, districtId: 5 },
-];
-
-describe('getHotspots', () => {
-  it('fetches /api/geo/hotspots with no query string when crimeSubHeadId is omitted', async () => {
-    const apiFetchSpy = vi.spyOn(client, 'apiFetch').mockResolvedValue(sampleHotspots);
-    const result = await getHotspots('test-token', true);
-    expect(apiFetchSpy).toHaveBeenCalledWith('/api/geo/hotspots', {}, 'test-token');
-    expect(result).toEqual(sampleHotspots);
-  });
-
-  it('appends crimeSubHeadId when provided', async () => {
-    const apiFetchSpy = vi.spyOn(client, 'apiFetch').mockResolvedValue(sampleHotspots);
-    await getHotspots('test-token', true, 12);
-    expect(apiFetchSpy).toHaveBeenCalledWith('/api/geo/hotspots?crimeSubHeadId=12', {}, 'test-token');
-  });
-
-  it('returns an empty array without calling apiFetch when disabled', async () => {
-    const apiFetchSpy = vi.spyOn(client, 'apiFetch').mockClear();
-    const result = await getHotspots('test-token', false);
-    expect(apiFetchSpy).not.toHaveBeenCalled();
-    expect(result).toEqual([]);
-  });
-});
-
-describe('useHotspots', () => {
-  it('returns the fetched hotspot clusters once loaded', async () => {
-    vi.spyOn(client, 'apiFetch').mockResolvedValue(sampleHotspots);
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    function wrapper({ children }: { children: ReactNode }) {
-      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
-    }
-
-    const { result } = renderHook(() => useHotspots('test-token', true), { wrapper });
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toEqual(sampleHotspots);
   });
 });

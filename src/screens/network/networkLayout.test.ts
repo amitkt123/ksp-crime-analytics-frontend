@@ -39,12 +39,4 @@ describe('computeForceLayout', () => {
     const edgesWithDangling: GraphEdgeResponse[] = [...edges, { id: 'e3', sourceId: '1', targetId: 'ghost', type: 'ACCUSED_IN', confidence: null }];
     expect(() => computeForceLayout(nodes, edgesWithDangling)).not.toThrow();
   });
-
-  it('seeds a node from previousPositions instead of a fresh random position when provided', () => {
-    const singleNode: GraphNodeResponse[] = [{ id: '1', type: 'PERSON', label: 'Solo', confidence: null }];
-    const previous = new Map([['1', { x: 123, y: 77 }]]);
-    const positions = computeForceLayout(singleNode, [], previous);
-    // No other nodes to repel it and no edges to pull it -- it should stay put.
-    expect(positions.get('1')).toEqual({ x: 123, y: 77 });
-  });
 });

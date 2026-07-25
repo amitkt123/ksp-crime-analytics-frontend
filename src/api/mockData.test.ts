@@ -170,7 +170,7 @@ describe('getMockResponse cases list', () => {
       crimeSubHeadName: 'Chain Snatching',
       status: 'registered',
       firDate: '2026-05-26',
-      crimeNumber: '100050176202600001',
+      crimeNumber: 'FIR-2026-KA-17600',
       station: 'Whitefield PS',
     });
     expect(typeof result[0].district).toBe('string');
@@ -336,14 +336,6 @@ describe('getMockResponse — /api/network/subgraph', () => {
     expect(a).toEqual(b);
   });
 
-  it('never has duplicate edge ids, even when two accused share more than one crime sub-head', async () => {
-    const response = (await getMockResponse('/api/network/subgraph?focus=top-offenders&limit=50', {})) as {
-      edges: Array<{ id: string }>;
-    };
-    const ids = response.edges.map((e) => e.id);
-    expect(new Set(ids).size).toBe(ids.length);
-  });
-
   it('community focus returns only PERSON nodes, never CASE or LOCATION', async () => {
     const communities = (await getMockResponse('/api/network/communities?minSize=1', {})) as Array<{ communityId: number }>;
     expect(communities.length).toBeGreaterThan(0);
@@ -382,32 +374,6 @@ describe('getMockResponse — /api/network/subgraph', () => {
     };
     expect(response.nodes.some((n) => n.type === 'PERSON')).toBe(true);
     expect(response.nodes.some((n) => n.type === 'CASE')).toBe(true);
-  });
-
-  it('never has duplicate edge ids on a path response, even across multiple hops', async () => {
-    // Mirrors the app's own "Path from"/"Path to" roster: every PERSON node in
-    // the default subgraph (accused AND victims) plus the repeat-offenders
-    // list -- a victim-only endpoint is what actually forces a multi-hop path
-    // with a reused justifying case, which a pure-offenders roster never hit.
-    const subgraph = (await getMockResponse('/api/network/subgraph?focus=top-offenders&limit=10', {})) as {
-      nodes: Array<{ id: string; type: string }>;
-    };
-    const offenders = (await getMockResponse('/api/network/repeat-offenders?minCases=1&limit=15', {})) as Array<{ personId: number }>;
-    const personIds = Array.from(
-      new Set([...subgraph.nodes.filter((n) => n.type === 'PERSON').map((n) => Number(n.id)), ...offenders.map((o) => o.personId)]),
-    );
-    expect(personIds.length).toBeGreaterThanOrEqual(2);
-
-    for (let i = 0; i < personIds.length; i++) {
-      for (let j = i + 1; j < personIds.length; j++) {
-        const response = (await getMockResponse(
-          `/api/network/subgraph?focus=path&from=${personIds[i]}&to=${personIds[j]}&maxHops=6`,
-          {},
-        )) as { edges: Array<{ id: string }> };
-        const ids = response.edges.map((e) => e.id);
-        expect(new Set(ids).size).toBe(ids.length);
-      }
-    }
   });
 });
 

@@ -57,37 +57,4 @@ describe('App', () => {
       expect(screen.getByRole('heading', { level: 1, name: 'Sociological & Predictive' })).toBeInTheDocument(),
     );
   });
-
-  it('an INVESTIGATOR hitting /insights is redirected to /overview (no role restriction on this route)', async () => {
-    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
-      token: 'jwt', roles: ['INVESTIGATOR'], username: 'demo.investigator', login: vi.fn(), logout: vi.fn(),
-    });
-    window.history.pushState({}, '', '/insights');
-
-    render(<App />);
-
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument());
-  });
-
-  it('a POLICYMAKER hitting /insights is also redirected to /overview', async () => {
-    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
-      token: 'jwt', roles: ['POLICYMAKER'], username: 'demo.policymaker', login: vi.fn(), logout: vi.fn(),
-    });
-    window.history.pushState({}, '', '/insights');
-
-    render(<App />);
-
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument());
-  });
-
-  it('an unauthenticated user hitting /insights is redirected to login', () => {
-    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
-      token: null, roles: [], username: null, login: vi.fn(), logout: vi.fn(),
-    });
-    window.history.pushState({}, '', '/insights');
-
-    render(<App />);
-
-    expect(screen.getByRole('heading', { name: /crime analytics/i })).toBeInTheDocument();
-  });
 });
