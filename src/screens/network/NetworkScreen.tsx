@@ -16,12 +16,16 @@ import { NetworkGraphCanvas } from './NetworkGraphCanvas';
 import { PathFindingBar } from './PathFindingBar';
 import { CommunityLegend } from './CommunityLegend';
 import { RepeatOffenderRail } from './RepeatOffenderRail';
+import { CaseDetailPanel } from './CaseDetailPanel';
+import { LocationDetailPanel } from './LocationDetailPanel';
 
 type NetworkFocus =
   | { mode: 'top-offenders' }
   | { mode: 'person'; personId: number }
   | { mode: 'community'; communityId: number }
-  | { mode: 'path'; from: number; to: number };
+  | { mode: 'path'; from: number; to: number }
+  | { mode: 'case'; caseId: number }
+  | { mode: 'location'; locationId: number };
 
 function subgraphParamsForFocus(focus: NetworkFocus): SubgraphParams {
   switch (focus.mode) {
@@ -33,10 +37,18 @@ function subgraphParamsForFocus(focus: NetworkFocus): SubgraphParams {
       return { focus: 'community', communityId: focus.communityId };
     case 'path':
       return { focus: 'path', from: focus.from, to: focus.to, maxHops: 6 };
+    case 'case':
+      return { focus: 'case', caseId: focus.caseId };
+    case 'location':
+      return { focus: 'location', locationId: focus.locationId };
   }
 }
 
-type SelectedPerson = { source: 'offender'; data: RepeatOffenderResponse } | { source: 'node'; data: GraphNodeResponse };
+type SelectedNode =
+  | { source: 'offender'; data: RepeatOffenderResponse }
+  | { source: 'person'; data: GraphNodeResponse }
+  | { source: 'case'; data: GraphNodeResponse }
+  | { source: 'location'; data: GraphNodeResponse };
 
 export function NetworkScreen() {
   const { token } = useAuth();
@@ -44,7 +56,7 @@ export function NetworkScreen() {
   const [focus, setFocus] = useState<NetworkFocus>({ mode: 'top-offenders' });
   const [pathMode, setPathMode] = useState(false);
   const [pathEndpoints, setPathEndpoints] = useState<number[]>([]);
-  const [selectedPerson, setSelectedPerson] = useState<SelectedPerson | null>(null);
+  const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(null);
 
   const subgraphQuery = useSubgraph(token, subgraphParamsForFocus(focus));
   const offendersQuery = useRepeatOffenders(token);
@@ -113,12 +125,28 @@ export function NetworkScreen() {
     }
     const offender = offenders.find((o) => o.personId === personId);
     if (offender) {
-      setSelectedPerson({ source: 'offender', data: offender });
+      setSelectedNode({ source: 'offender', data: offender });
     } else {
       const node = nodes.find((n) => n.type === 'PERSON' && personIdOfNode(n) === personId);
-      if (node) setSelectedPerson({ source: 'node', data: node });
+      if (node) setSelectedNode({ source: 'person', data: node });
     }
     setFocus({ mode: 'person', personId });
+  }
+
+  function handleNodeClick(node: GraphNodeResponse) {
+    if (pathMode) {
+      if (node.type === 'PERSON') handlePersonClick(personIdOfNode(node));
+      return;
+    }
+    if (node.type === 'PERSON') {
+      handlePersonClick(personIdOfNode(node));
+      return;
+    }
+    if (node.type === 'CASE') {
+      setSelectedNode({ source: 'case', data: node });
+      return;
+    }
+    setSelectedNode({ source: 'location', data: node });
   }
 
   function handleCommunitySelect(communityId: number) {
@@ -134,27 +162,28 @@ export function NetworkScreen() {
   const generatedAt = subgraphQuery.data?.generatedAt ?? new Date().toISOString();
   const supportingCaseLabels = nodes.filter((n) => n.type === 'CASE').slice(0, 3).map((n) => n.label);
 
-  const evidenceData: EvidenceData | null = selectedPerson && (
-    selectedPerson.source === 'offender'
+  const evidenceData: EvidenceData | null =
+    selectedNode && selectedNode.source === 'offender'
       ? {
-          claim: `${selectedPerson.data.displayName} is linked to ${selectedPerson.data.caseCount} case(s), gravity-weighted score ${selectedPerson.data.gravityWeight}.`,
-          confidence: selectedPerson.data.confidenceScore,
+          claim: `${selectedNode.data.displayName} is linked to ${selectedNode.data.caseCount} case(s), gravity-weighted score ${selectedNode.data.gravityWeight}.`,
+          confidence: selectedNode.data.confidenceScore,
           confidenceLabel: 'Identity-resolution confidence',
           method: 'graph-service repeat-offender ranking',
           baseline: 'Statewide',
           generatedAt,
           records: supportingCaseLabels,
         }
-      : {
-          claim: `${selectedPerson.data.label} appears in the current network view.`,
-          confidence: selectedPerson.data.confidence ?? 0,
-          confidenceLabel: 'Identity-resolution confidence',
-          method: 'graph-service subgraph query',
-          baseline: 'Statewide',
-          generatedAt,
-          records: supportingCaseLabels,
-        }
-  );
+      : selectedNode && selectedNode.source === 'person'
+        ? {
+            claim: `${selectedNode.data.label} appears in the current network view.`,
+            confidence: selectedNode.data.confidence ?? 0,
+            confidenceLabel: 'Identity-resolution confidence',
+            method: 'graph-service subgraph query',
+            baseline: 'Statewide',
+            generatedAt,
+            records: supportingCaseLabels,
+          }
+        : null;
 
   if (nodes.length === 0) {
     return (
@@ -177,7 +206,7 @@ export function NetworkScreen() {
           communityByLabel={communityByLabel}
           pathEndpointIds={pathEndpoints.map(String)}
           pathMemberIds={(pathQuery.data?.personIds ?? []).map(String)}
-          onPersonClick={handlePersonClick}
+          onNodeClick={handleNodeClick}
         />
         <PathFindingBar
           pathMode={pathMode}
@@ -195,7 +224,19 @@ export function NetworkScreen() {
         <CommunityLegend communities={communities} onSelect={handleCommunitySelect} />
         <RepeatOffenderRail offenders={offenders} onSelect={handlePersonClick} />
       </main>
-      <EvidencePanel data={evidenceData} onClose={() => setSelectedPerson(null)} />
+      <EvidencePanel data={evidenceData} onClose={() => setSelectedNode(null)} />
+      <CaseDetailPanel
+        node={selectedNode?.source === 'case' ? selectedNode.data : null}
+        onClose={() => setSelectedNode(null)}
+        onFocus={(caseId) => setFocus({ mode: 'case', caseId })}
+      />
+      <LocationDetailPanel
+        node={selectedNode?.source === 'location' ? selectedNode.data : null}
+        nodes={nodes}
+        edges={edges}
+        onClose={() => setSelectedNode(null)}
+        onFocus={(locationId) => setFocus({ mode: 'location', locationId })}
+      />
     </>
   );
 }

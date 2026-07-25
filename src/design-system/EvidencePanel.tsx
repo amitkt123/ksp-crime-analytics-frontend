@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { SidePanelChrome } from './SidePanelChrome';
 
 export interface EvidenceData {
   claim: string;
@@ -17,33 +17,15 @@ interface EvidencePanelProps {
 }
 
 export function EvidencePanel({ data, onClose, variant = 'drawer' }: EvidencePanelProps) {
-  useEffect(() => {
-    if (!data) return;
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose();
-    }
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [data, onClose]);
-
-  if (!data) return null;
-
   return (
-    <>
-      <div className="scrim open" onClick={onClose} />
-      <aside
-        className={`evidence open${variant === 'modal' ? ' modal' : ''}`}
-        role="dialog"
-        aria-label="Evidence panel"
-        aria-modal="true"
-      >
-        <div className="evidence-head">
-          <h3>Evidence</h3>
-          <button className="evidence-close" aria-label="Close evidence panel" onClick={onClose}>
-            ×
-          </button>
-        </div>
-        <div className="evidence-body">
+    <SidePanelChrome
+      open={data != null}
+      onClose={onClose}
+      title="Evidence panel"
+      className={variant === 'modal' ? 'modal' : undefined}
+    >
+      {data && (
+        <>
           <p className="evidence-claim">{data.claim}</p>
           <div className="confidence-row">
             <svg className="confidence-ring" width="56" height="56" viewBox="0 0 56 56" aria-hidden="true">
@@ -77,8 +59,8 @@ export function EvidencePanel({ data, onClose, variant = 'drawer' }: EvidencePan
               ))}
             </div>
           </section>
-        </div>
-      </aside>
-    </>
+        </>
+      )}
+    </SidePanelChrome>
   );
 }

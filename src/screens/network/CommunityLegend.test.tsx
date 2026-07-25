@@ -33,4 +33,15 @@ describe('CommunityLegend', () => {
     render(<CommunityLegend communities={[]} onSelect={vi.fn()} />);
     expect(screen.queryByText(/Community/)).not.toBeInTheDocument();
   });
+
+  it('renders a legend row for every relationship type', () => {
+    render(<CommunityLegend communities={communities} onSelect={vi.fn()} />);
+
+    expect(screen.getByText('Accused in')).toBeInTheDocument();
+    expect(screen.getByText('Arrested by')).toBeInTheDocument();
+    expect(screen.getByText('Co-accused with')).toBeInTheDocument();
+    expect(screen.getByText('Occurred at')).toBeInTheDocument();
+    expect(screen.getByText('Shares MO with')).toBeInTheDocument();
+    expect(screen.getByText('Victim in')).toBeInTheDocument();
+  });
 });

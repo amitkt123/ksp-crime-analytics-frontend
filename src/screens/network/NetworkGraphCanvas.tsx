@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { GraphNodeResponse, GraphEdgeResponse } from '../../api/networkApi';
-import { personIdOfNode } from '../../api/networkApi';
 import { colorForCommunity } from './networkColors';
+import { edgeStyleFor } from './networkEdgeStyles';
 import { computeForceLayout } from './networkLayout';
 
 interface NetworkGraphCanvasProps {
@@ -10,12 +10,10 @@ interface NetworkGraphCanvasProps {
   communityByLabel: Map<string, number>;
   pathEndpointIds: string[];
   pathMemberIds: string[];
-  onPersonClick: (personId: number) => void;
+  onNodeClick: (node: GraphNodeResponse) => void;
 }
 
-const PERSON_TO_PERSON_EDGE_TYPES = new Set(['CO_ACCUSED_WITH', 'SHARES_MO_WITH']);
-
-export function NetworkGraphCanvas({ nodes, edges, communityByLabel, pathEndpointIds, pathMemberIds, onPersonClick }: NetworkGraphCanvasProps) {
+export function NetworkGraphCanvas({ nodes, edges, communityByLabel, pathEndpointIds, pathMemberIds, onNodeClick }: NetworkGraphCanvasProps) {
   const positions = useMemo(() => computeForceLayout(nodes, edges), [nodes, edges]);
 
   return (
@@ -24,15 +22,23 @@ export function NetworkGraphCanvas({ nodes, edges, communityByLabel, pathEndpoin
         const a = positions.get(edge.sourceId);
         const b = positions.get(edge.targetId);
         if (!a || !b) return null;
+        const style = edgeStyleFor(edge.type);
+        const tooltipParts = [style.label];
+        if (edge.confidence != null) tooltipParts.push(`${Math.round(edge.confidence * 100)}%`);
+        if (edge.sharedCaseLabel) tooltipParts.push(edge.sharedCaseLabel);
         return (
           <line
             key={edge.id}
-            className={`graph-edge${PERSON_TO_PERSON_EDGE_TYPES.has(edge.type) ? ' mo-shared' : ''}`}
+            className="graph-edge"
             x1={a.x}
             y1={a.y}
             x2={b.x}
             y2={b.y}
-          />
+            stroke={style.color}
+            strokeDasharray={style.dash}
+          >
+            <title>{tooltipParts.join(' · ')}</title>
+          </line>
         );
       })}
       {nodes.map((node) => {
@@ -57,10 +63,10 @@ export function NetworkGraphCanvas({ nodes, edges, communityByLabel, pathEndpoin
                 tabIndex={0}
                 role="button"
                 aria-label={node.label}
-                onClick={() => onPersonClick(personIdOfNode(node))}
+                onClick={() => onNodeClick(node)}
               />
               <text className="node-label" x={pos.x} y={pos.y - 13} textAnchor="middle">
-                {node.label.split(' ')[0]}
+                {node.label}
               </text>
             </g>
           );
@@ -68,24 +74,40 @@ export function NetworkGraphCanvas({ nodes, edges, communityByLabel, pathEndpoin
 
         if (node.type === 'CASE') {
           return (
-            <rect
-              key={node.id}
-              className="graph-node graph-node-case"
-              x={pos.x - 5}
-              y={pos.y - 5}
-              width={10}
-              height={10}
-              transform={`rotate(45 ${pos.x} ${pos.y})`}
-            />
+            <g key={node.id}>
+              <rect
+                className="graph-node graph-node-case"
+                x={pos.x - 5}
+                y={pos.y - 5}
+                width={10}
+                height={10}
+                transform={`rotate(45 ${pos.x} ${pos.y})`}
+                tabIndex={0}
+                role="button"
+                aria-label={node.label}
+                onClick={() => onNodeClick(node)}
+              />
+              <text className="node-label" x={pos.x} y={pos.y - 13} textAnchor="middle">
+                {node.label}
+              </text>
+            </g>
           );
         }
 
         return (
-          <polygon
-            key={node.id}
-            className="graph-node graph-node-location"
-            points={`${pos.x},${pos.y - 8} ${pos.x + 8},${pos.y + 5.6} ${pos.x - 8},${pos.y + 5.6}`}
-          />
+          <g key={node.id}>
+            <polygon
+              className="graph-node graph-node-location"
+              points={`${pos.x},${pos.y - 8} ${pos.x + 8},${pos.y + 5.6} ${pos.x - 8},${pos.y + 5.6}`}
+              tabIndex={0}
+              role="button"
+              aria-label={node.label}
+              onClick={() => onNodeClick(node)}
+            />
+            <text className="node-label" x={pos.x} y={pos.y - 13} textAnchor="middle">
+              {node.label}
+            </text>
+          </g>
         );
       })}
     </svg>

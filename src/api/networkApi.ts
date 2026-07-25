@@ -3,13 +3,21 @@ import { apiFetch, ApiError } from './client';
 
 export type GraphNodeType = 'PERSON' | 'CASE' | 'LOCATION';
 export type GraphEdgeType = 'ACCUSED_IN' | 'VICTIM_IN' | 'ARRESTED_BY' | 'OCCURRED_AT' | 'CO_ACCUSED_WITH' | 'SHARES_MO_WITH';
-export type SubgraphFocus = 'top-offenders' | 'person' | 'community' | 'path';
+export type SubgraphFocus = 'top-offenders' | 'person' | 'community' | 'path' | 'case' | 'location';
 
 export interface GraphNodeResponse {
   id: string;
   type: GraphNodeType;
   label: string;
   confidence: number | null;
+  crimeNo: string | null;
+  caseNo: string | null;
+  crimeRegisteredDate: string | null;
+  gravityWeight: number | null;
+  moKeywordTags: string[] | null;
+  locationKey: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface GraphEdgeResponse {
@@ -18,6 +26,7 @@ export interface GraphEdgeResponse {
   targetId: string;
   type: GraphEdgeType;
   confidence: number | null;
+  sharedCaseLabel: string | null;
 }
 
 export interface SubgraphResponse {
@@ -35,6 +44,8 @@ export interface SubgraphParams {
   from?: number;
   to?: number;
   maxHops?: number;
+  caseId?: number;
+  locationId?: number;
 }
 
 export interface RepeatOffenderResponse {
@@ -66,6 +77,17 @@ export function personIdOfNode(node: Pick<GraphNodeResponse, 'id'>): number {
   return Number(node.id);
 }
 
+// A CASE/LOCATION subgraph node's id is the string form of the same Neo4j
+// internal id that caseId/locationId carry as numbers in SubgraphParams --
+// mirrors personIdOfNode's exact contract for the other two node types.
+export function caseIdOfNode(node: Pick<GraphNodeResponse, 'id'>): number {
+  return Number(node.id);
+}
+
+export function locationIdOfNode(node: Pick<GraphNodeResponse, 'id'>): number {
+  return Number(node.id);
+}
+
 export function subgraphQueryString(params: SubgraphParams): string {
   const query = new URLSearchParams({ focus: params.focus });
   if (params.limit != null) query.set('limit', String(params.limit));
@@ -75,6 +97,8 @@ export function subgraphQueryString(params: SubgraphParams): string {
   if (params.from != null) query.set('from', String(params.from));
   if (params.to != null) query.set('to', String(params.to));
   if (params.maxHops != null) query.set('maxHops', String(params.maxHops));
+  if (params.caseId != null) query.set('caseId', String(params.caseId));
+  if (params.locationId != null) query.set('locationId', String(params.locationId));
   return query.toString();
 }
 
@@ -141,5 +165,27 @@ export function useNetworkPath(token: string | null, from: number | null, to: nu
     queryFn: () => getNetworkPath(token, from as number, to as number, maxHops),
     staleTime: 5 * 60_000,
     enabled: token != null && from != null && to != null,
+  });
+}
+
+export interface NetworkSearchParams {
+  q: string;
+  limit?: number;
+}
+
+export function getNetworkSearch(token: string | null, params: NetworkSearchParams): Promise<GraphNodeResponse[]> {
+  const query = new URLSearchParams({ q: params.q });
+  if (params.limit != null) query.set('limit', String(params.limit));
+  return apiFetch<GraphNodeResponse[]>(`/api/network/search?${query.toString()}`, {}, token);
+}
+
+const SEARCH_MIN_QUERY_LENGTH = 2;
+
+export function useNetworkSearch(token: string | null, q: string, limit = 10) {
+  return useQuery({
+    queryKey: ['network-search', q, limit],
+    queryFn: () => getNetworkSearch(token, { q, limit }),
+    staleTime: 60_000,
+    enabled: token != null && q.length >= SEARCH_MIN_QUERY_LENGTH,
   });
 }

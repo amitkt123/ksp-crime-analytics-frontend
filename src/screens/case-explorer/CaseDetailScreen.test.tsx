@@ -6,6 +6,7 @@ import type { UseQueryResult } from '@tanstack/react-query';
 import * as AuthContextModule from '../../auth/AuthContext';
 import * as meApiModule from '../../api/meApi';
 import * as caseApiModule from '../../api/caseApi';
+import * as agentApiModule from '../../api/agentApi';
 import { CaseDetailScreen } from './CaseDetailScreen';
 
 function mockSuccess<T>(data: T) {
@@ -49,14 +50,16 @@ const detail: caseApiModule.CaseDetailResponse = {
   chargesheet: { filedDate: '2026-06-13', sectionsApplied: '379, 411 IPC', court: 'JMFC Court, Bengaluru Urban' },
 };
 
-const explanation: caseApiModule.CaseExplanationResponse = {
-  claim: 'Chain Snatching case 276/2026 at Whitefield PS shares its crime sub-head with 2 other cases.',
-  confidence: 0.7,
-  confidenceLabel: 'Pattern confidence',
-  method: 'Insight & Explanation Agent · case similarity within unit',
-  baseline: 'Same crime sub-head, same station, most recent 6 cases',
-  generatedAt: '2026-05-29',
-  records: ['277/2026'],
+const explanation: agentApiModule.ExplainResponse = {
+  narrative: 'Chain Snatching case 276/2026 at Whitefield PS shares its crime sub-head with 2 other cases.',
+  evidence: {
+    claim: 'Chain Snatching case 276/2026 at Whitefield PS shares its crime sub-head with 2 other cases.',
+    supportingRecordIds: ['277/2026'],
+    queryOrMethod: 'Insight & Explanation Agent · case similarity within unit',
+    confidence: 0.7,
+    generatedAt: '2026-05-29',
+    modelVersion: 'v1',
+  },
 };
 
 function mockAuth() {
@@ -86,8 +89,8 @@ describe('CaseDetailScreen', () => {
   it('renders facts, crime number, gravity, grouped parties, and the timeline once the case loads', () => {
     mockAuth();
     vi.spyOn(caseApiModule, 'useCaseDetail').mockReturnValue(mockSuccess(detail));
-    vi.spyOn(caseApiModule, 'useCaseExplanation').mockReturnValue(
-      mockSuccess(undefined as unknown as caseApiModule.CaseExplanationResponse),
+    vi.spyOn(agentApiModule, 'useExplainCase').mockReturnValue(
+      mockSuccess(undefined as unknown as agentApiModule.ExplainResponse),
     );
 
     renderScreen();
@@ -108,8 +111,8 @@ describe('CaseDetailScreen', () => {
   it('reveals the real value when a PII field is toggled', async () => {
     mockAuth();
     vi.spyOn(caseApiModule, 'useCaseDetail').mockReturnValue(mockSuccess(detail));
-    vi.spyOn(caseApiModule, 'useCaseExplanation').mockReturnValue(
-      mockSuccess(undefined as unknown as caseApiModule.CaseExplanationResponse),
+    vi.spyOn(agentApiModule, 'useExplainCase').mockReturnValue(
+      mockSuccess(undefined as unknown as agentApiModule.ExplainResponse),
     );
 
     renderScreen();
@@ -121,8 +124,8 @@ describe('CaseDetailScreen', () => {
   it('renders arrests and chargesheet sections when present', () => {
     mockAuth();
     vi.spyOn(caseApiModule, 'useCaseDetail').mockReturnValue(mockSuccess(detail));
-    vi.spyOn(caseApiModule, 'useCaseExplanation').mockReturnValue(
-      mockSuccess(undefined as unknown as caseApiModule.CaseExplanationResponse),
+    vi.spyOn(agentApiModule, 'useExplainCase').mockReturnValue(
+      mockSuccess(undefined as unknown as agentApiModule.ExplainResponse),
     );
 
     renderScreen();
@@ -137,8 +140,8 @@ describe('CaseDetailScreen', () => {
     vi.spyOn(caseApiModule, 'useCaseDetail').mockReturnValue(
       mockSuccess({ ...detail, arrests: undefined, chargesheet: undefined }),
     );
-    vi.spyOn(caseApiModule, 'useCaseExplanation').mockReturnValue(
-      mockSuccess(undefined as unknown as caseApiModule.CaseExplanationResponse),
+    vi.spyOn(agentApiModule, 'useExplainCase').mockReturnValue(
+      mockSuccess(undefined as unknown as agentApiModule.ExplainResponse),
     );
 
     renderScreen();
@@ -150,7 +153,7 @@ describe('CaseDetailScreen', () => {
   it('opens the evidence panel with the case explanation when "Explain this case" is clicked', async () => {
     mockAuth();
     vi.spyOn(caseApiModule, 'useCaseDetail').mockReturnValue(mockSuccess(detail));
-    vi.spyOn(caseApiModule, 'useCaseExplanation').mockReturnValue(mockSuccess(explanation));
+    vi.spyOn(agentApiModule, 'useExplainCase').mockReturnValue(mockSuccess(explanation));
 
     renderScreen();
     expect(screen.queryByRole('dialog', { name: 'Evidence panel' })).not.toBeInTheDocument();
@@ -158,7 +161,7 @@ describe('CaseDetailScreen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Explain this case' }));
 
     expect(screen.getByRole('dialog', { name: 'Evidence panel' })).toBeInTheDocument();
-    expect(screen.getByText(explanation.claim)).toBeInTheDocument();
+    expect(screen.getByText(explanation.narrative)).toBeInTheDocument();
   });
 
   it('shows an alert and retry button when the query fails', () => {
@@ -170,8 +173,8 @@ describe('CaseDetailScreen', () => {
       isSuccess: false,
       refetch: vi.fn(),
     } as unknown as UseQueryResult<caseApiModule.CaseDetailResponse, Error>);
-    vi.spyOn(caseApiModule, 'useCaseExplanation').mockReturnValue(
-      mockSuccess(undefined as unknown as caseApiModule.CaseExplanationResponse),
+    vi.spyOn(agentApiModule, 'useExplainCase').mockReturnValue(
+      mockSuccess(undefined as unknown as agentApiModule.ExplainResponse),
     );
 
     renderScreen();
@@ -187,8 +190,8 @@ describe('CaseDetailScreen', () => {
         Error
       >,
     );
-    vi.spyOn(caseApiModule, 'useCaseExplanation').mockReturnValue(
-      mockSuccess(undefined as unknown as caseApiModule.CaseExplanationResponse),
+    vi.spyOn(agentApiModule, 'useExplainCase').mockReturnValue(
+      mockSuccess(undefined as unknown as agentApiModule.ExplainResponse),
     );
 
     renderScreen();

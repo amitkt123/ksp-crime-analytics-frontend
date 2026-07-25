@@ -11,9 +11,9 @@ import {
   gravityLabel,
   partyRoleLabel,
   useCaseDetail,
-  useCaseExplanation,
   type CasePartyRole,
 } from '../../api/caseApi';
+import { useExplainCase } from '../../api/agentApi';
 import { CaseTimeline } from './CaseTimeline';
 
 const PARTY_ROLE_ORDER: CasePartyRole[] = ['complainant', 'victim', 'accused'];
@@ -24,7 +24,7 @@ export function CaseDetailScreen() {
   const numericCaseId = caseId ? Number(caseId) : null;
   const caseDetailQuery = useCaseDetail(token, numericCaseId);
   const [explainOpen, setExplainOpen] = useState(false);
-  const explanationQuery = useCaseExplanation(token, numericCaseId, explainOpen);
+  const explanationQuery = useExplainCase(caseDetailQuery.data, explainOpen);
 
   if (caseDetailQuery.isLoading) {
     return (
@@ -62,7 +62,17 @@ export function CaseDetailScreen() {
     );
   }
 
-  const evidenceData: EvidenceData | null = explainOpen && explanationQuery.data ? explanationQuery.data : null;
+  const evidenceData: EvidenceData | null = explainOpen && explanationQuery.data
+    ? {
+        claim: explanationQuery.data.narrative,
+        confidence: explanationQuery.data.evidence.confidence,
+        confidenceLabel: 'Explanation confidence',
+        method: explanationQuery.data.evidence.queryOrMethod,
+        baseline: `Model ${explanationQuery.data.evidence.modelVersion}`,
+        generatedAt: explanationQuery.data.evidence.generatedAt,
+        records: explanationQuery.data.evidence.supportingRecordIds,
+      }
+    : null;
 
   return (
     <>
