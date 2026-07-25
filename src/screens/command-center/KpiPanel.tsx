@@ -11,26 +11,19 @@ interface KpiPanelProps {
 
 export function KpiPanel({ kpi, scopeLabel = 'State case count', onSelectMetric }: KpiPanelProps) {
   return (
-    <section className="kpi-grid">
+    <section className="grid grid-cols-2 gap-3">
       <Tile metric="case-count" onSelectMetric={onSelectMetric}>
-        <span className="eyebrow">{scopeLabel}</span>
-        <div className="figure mono">{kpi.stateCaseCount.toLocaleString()}</div>
+        <span className="text-xs font-semibold tracking-wider text-muted uppercase">{scopeLabel}</span>
+        <div className="mono mt-1.5 text-2xl font-bold text-ink">{kpi.stateCaseCount.toLocaleString()}</div>
         <Delta value={kpi.stateCaseCountDeltaPct} suffix="% vs. prior 30 days" />
       </Tile>
       <Tile metric="resolved-pct" onSelectMetric={onSelectMetric}>
-        <span className="eyebrow">Cases resolved</span>
-        <div className="figure mono">
+        <span className="text-xs font-semibold tracking-wider text-muted uppercase">Cases resolved</span>
+        <div className="mono mt-1.5 text-2xl font-bold text-ink">
           {kpi.resolvedPct.toFixed(1)}
-          <small>%</small>
+          <small className="text-xs font-medium text-muted">%</small>
         </div>
         <Delta value={kpi.resolvedPctDeltaPts} suffix=" pt vs. prior 30 days" />
-      </Tile>
-      <Tile metric="top-crime-subhead" wide onSelectMetric={onSelectMetric}>
-        <div>
-          <span className="eyebrow">Top crime sub-head</span>
-          <div className="figure" style={{ fontSize: 15 }}>{kpi.topCrimeSubHead}</div>
-        </div>
-        <div className="figure mono" style={{ fontSize: 18 }}>{kpi.topCrimeSubHeadCount.toLocaleString()}</div>
       </Tile>
     </section>
   );
@@ -38,21 +31,23 @@ export function KpiPanel({ kpi, scopeLabel = 'State case count', onSelectMetric 
 
 function Tile({
   metric,
-  wide,
   onSelectMetric,
   children,
 }: {
   metric: CommandCenterMetricKey;
-  wide?: boolean;
   onSelectMetric?: (metric: CommandCenterMetricKey) => void;
   children: ReactNode;
 }) {
-  const className = `kpi-tile${wide ? ' wide' : ''}`;
+  const className = 'rounded-xl border border-border bg-surface p-3.5';
   if (!onSelectMetric) {
     return <div className={className}>{children}</div>;
   }
   return (
-    <button type="button" className={`${className} kpi-tile-btn`} onClick={() => onSelectMetric(metric)}>
+    <button
+      type="button"
+      className={`${className} w-full cursor-pointer text-left transition-all hover:border-accent hover:shadow-md`}
+      onClick={() => onSelectMetric(metric)}
+    >
       {children}
     </button>
   );
@@ -61,8 +56,9 @@ function Tile({
 function Delta({ value, suffix }: { value: number; suffix: string }) {
   const direction = value >= 0 ? 'up' : 'down';
   return (
-    <div className={`foot ${direction}`}>
-      {direction === 'up' ? '▲' : '▼'} {Math.abs(value).toFixed(1)}{suffix}
+    <div className={`mt-1.5 text-[11px] font-medium ${direction === 'up' ? 'text-danger' : 'text-accent'}`}>
+      {direction === 'up' ? '▲' : '▼'} {Math.abs(value).toFixed(1)}
+      {suffix}
     </div>
   );
 }

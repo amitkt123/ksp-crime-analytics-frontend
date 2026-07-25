@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import { Info } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { Header } from '../../app/Header';
-import { useCommandCenterSummary } from '../../api/commandCenterApi';
+import { useCommandCenterSummary, type KpiResponse } from '../../api/commandCenterApi';
 import { useCases } from '../../api/caseApi';
 import {
   useDistrictSummaries,
@@ -17,6 +18,8 @@ import { useEmergingAlerts } from '../../api/alertsApi';
 import { DistrictMap } from './DistrictMap';
 import { StationDrilldownList } from './StationDrilldownList';
 import { KpiPanel, type CommandCenterMetricKey } from './KpiPanel';
+import { MetricCardRow } from './MetricCardRow';
+import { MetricDetailModal } from './MetricDetailModal';
 import { SparklineStrip } from './SparklineStrip';
 import { CategoryMixChart } from './CategoryMixChart';
 import { AlertFeed } from './AlertFeed';
@@ -26,7 +29,6 @@ import { CasePreviewPanel } from './CasePreviewPanel';
 
 export function CommandCenterScreen() {
   const { token, roles } = useAuth();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const isPolicymaker = roles.includes('POLICYMAKER');
   const selectedDistrictId = searchParams.get('district') ? Number(searchParams.get('district')) : null;
@@ -35,6 +37,7 @@ export function CommandCenterScreen() {
   const stationDrilldownId = isPolicymaker ? null : selectedStationId;
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDaySelection>('all');
   const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<CommandCenterMetricKey | null>(null);
 
   const summaryQuery = useCommandCenterSummary(token);
   const districtSummariesQuery = useDistrictSummaries(token);
@@ -47,7 +50,7 @@ export function CommandCenterScreen() {
   const stationCasesQuery = useCases(token, stationDrilldownId, {});
 
   function selectMetric(metric: CommandCenterMetricKey) {
-    navigate(`/command-center/metric/${metric}`);
+    setSelectedMetric(metric);
   }
   // Spatiotemporal hotspot layering is a progressive enhancement on top of the
   // district drill-down -- it deliberately isn't part of isLoading/isError below,
@@ -99,11 +102,12 @@ export function CommandCenterScreen() {
     return (
       <>
         <Header title="Command Center" />
-        <main className="main">
-          <div className="kpi-grid">
-            <div className="kpi-tile" />
-            <div className="kpi-tile" />
-            <div className="kpi-tile wide" />
+        <main className="main-single cc-mockup-type overflow-y-auto bg-canvas p-4 sm:p-6 lg:p-8">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="h-28 animate-pulse rounded-xl border border-border bg-surface" />
+            <div className="h-28 animate-pulse rounded-xl border border-border bg-surface" />
+            <div className="h-28 animate-pulse rounded-xl border border-border bg-surface" />
+            <div className="h-28 animate-pulse rounded-xl border border-border bg-surface" />
           </div>
         </main>
       </>
@@ -114,7 +118,7 @@ export function CommandCenterScreen() {
     return (
       <>
         <Header title="Command Center" />
-        <main className="main">
+        <main className="main-single cc-mockup-type overflow-y-auto bg-canvas p-4 sm:p-6 lg:p-8">
           <p role="alert">Couldn't load Command Center data — check your connection and try again.</p>
           <button
             onClick={() => {
@@ -160,106 +164,133 @@ export function CommandCenterScreen() {
           ))}
         </select>
       </Header>
-      <main className="main">
-        <section className="pane map-pane" aria-label="Karnataka hotspot map">
-          <div className="pane-head">
-            <div>
-              <h2>Karnataka — case density {activeBucket ? `· ${activeBucket.label}` : 'by district'}</h2>
+      <main className="main-single cc-mockup-type overflow-y-auto bg-canvas p-4 sm:p-6 lg:p-8">
+        <MetricCardRow
+          kpi={summary.kpi}
+          arrestsWeekly={summary.arrestsWeekly}
+          stateCaseVolumeWeekly={summary.stateCaseVolumeWeekly}
+          onSelectMetric={selectMetric}
+        />
+
+        <section className="mt-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+          <div className="flex flex-col gap-3.5 lg:col-span-2" aria-label="Karnataka hotspot map">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-lg font-bold tracking-tight text-ink">
+                Karnataka — case density {activeBucket ? `· ${activeBucket.label}` : 'by district'}
+              </h2>
+              <TimeOfDaySelector buckets={timeOfDayBuckets} value={timeOfDay} onChange={setTimeOfDay} />
             </div>
-            <TimeOfDaySelector buckets={timeOfDayBuckets} value={timeOfDay} onChange={setTimeOfDay} />
+            <DistrictMap
+              boundaries={boundaries}
+              districtSummaries={districtSummaries}
+              selectedDistrictId={districtDrilldownId}
+              stationBoundaries={stationBoundariesQuery.data ?? null}
+              stationSummaries={stationSummariesQuery.data ?? []}
+              selectedStationId={stationDrilldownId}
+              stationIncidents={stationIncidentsQuery.data ?? []}
+              districtKpi={districtDetailQuery.data?.kpi ?? null}
+              alerts={alerts}
+              caseCountOverride={caseCountOverride}
+              onDistrictSelect={selectDistrict}
+              onBack={clearDistrict}
+              onStationSelect={selectStation}
+              onStationBack={clearStation}
+            />
+            <SparklineStrip crimesAgainstPropertyWeekly={summary.crimesAgainstPropertyWeekly} />
           </div>
-          <DistrictMap
-            boundaries={boundaries}
-            districtSummaries={districtSummaries}
-            selectedDistrictId={districtDrilldownId}
-            stationBoundaries={stationBoundariesQuery.data ?? null}
-            stationSummaries={stationSummariesQuery.data ?? []}
-            selectedStationId={stationDrilldownId}
-            stationIncidents={stationIncidentsQuery.data ?? []}
-            alerts={alerts}
-            caseCountOverride={caseCountOverride}
-            onDistrictSelect={selectDistrict}
-            onBack={clearDistrict}
-            onStationSelect={selectStation}
-            onStationBack={clearStation}
-          />
-          <SparklineStrip
-            stateCaseVolumeWeekly={summary.stateCaseVolumeWeekly}
-            crimesAgainstPropertyWeekly={summary.crimesAgainstPropertyWeekly}
-            arrestsWeekly={summary.arrestsWeekly}
-          />
-        </section>
-        <aside className="pane side-pane" aria-label="State KPIs and emerging alerts">
-          {selectedDistrictId && !isPolicymaker ? (
-            <>
-              {districtDetailQuery.isError ? (
-                <p role="alert">
-                  Couldn't load district details.{' '}
-                  <button onClick={() => districtDetailQuery.refetch()}>Retry</button>
-                </p>
-              ) : districtDetailQuery.data ? (
-                <>
-                  <KpiPanel kpi={districtDetailQuery.data.kpi} scopeLabel="District case count" onSelectMetric={selectMetric} />
-                  <section>
-                    <h3>
-                      Case category mix <span className="count">30-day window</span>
+
+          <aside className="flex flex-col gap-4 lg:col-span-1" aria-label="State KPIs and emerging alerts">
+            {selectedDistrictId && !isPolicymaker ? (
+              <>
+                {districtDetailQuery.isError ? (
+                  <p role="alert">
+                    Couldn't load district details.{' '}
+                    <button onClick={() => districtDetailQuery.refetch()}>Retry</button>
+                  </p>
+                ) : districtDetailQuery.data ? (
+                  <>
+                    <KpiPanel kpi={districtDetailQuery.data.kpi} scopeLabel="District case count" onSelectMetric={selectMetric} />
+                    <TopCrimeSubHeadCard kpi={districtDetailQuery.data.kpi} />
+                    <section className="flex flex-col gap-2.5">
+                      <h3 className="flex items-center justify-between text-[13px] font-bold text-ink">
+                        Case category mix <span className="count mono text-[11px] font-medium text-muted">30-day window</span>
+                      </h3>
+                      <CategoryMixChart categoryMix={districtDetailQuery.data.categoryMix} />
+                    </section>
+                  </>
+                ) : (
+                  <p>Loading district details…</p>
+                )}
+                {stationSummariesQuery.data ? (
+                  <StationDrilldownList
+                    districtName={selectedDistrictName}
+                    stations={stationSummariesQuery.data}
+                    selectedStationId={stationDrilldownId}
+                    onBack={clearDistrict}
+                    onStationSelect={selectStation}
+                  />
+                ) : (
+                  <p>Loading stations…</p>
+                )}
+                {stationDrilldownId != null && stationIncidentsQuery.isError && (
+                  <p role="alert">
+                    Couldn't load incident points.{' '}
+                    <button onClick={() => stationIncidentsQuery.refetch()}>Retry</button>
+                  </p>
+                )}
+                {stationDrilldownId != null && (
+                  <section className="flex flex-col gap-2.5">
+                    <h3 className="flex items-center justify-between text-[13px] font-bold text-ink">
+                      Station case list{' '}
+                      <span className="count mono text-[11px] font-medium text-muted">
+                        {stationCasesQuery.data?.length ?? 0} cases
+                      </span>
                     </h3>
-                    <CategoryMixChart categoryMix={districtDetailQuery.data.categoryMix} />
+                    {stationCasesQuery.isError ? (
+                      <p role="alert">
+                        Couldn't load cases for this station.{' '}
+                        <button onClick={() => stationCasesQuery.refetch()}>Retry</button>
+                      </p>
+                    ) : stationCasesQuery.data ? (
+                      <CaseList cases={stationCasesQuery.data} onSelectCase={setSelectedCaseId} />
+                    ) : (
+                      <p>Loading cases…</p>
+                    )}
                   </section>
-                </>
-              ) : (
-                <p>Loading district details…</p>
-              )}
-              {stationSummariesQuery.data ? (
-                <StationDrilldownList
-                  districtName={selectedDistrictName}
-                  stations={stationSummariesQuery.data}
-                  selectedStationId={stationDrilldownId}
-                  onBack={clearDistrict}
-                  onStationSelect={selectStation}
-                />
-              ) : (
-                <p>Loading stations…</p>
-              )}
-              {stationDrilldownId != null && stationIncidentsQuery.isError && (
-                <p role="alert">
-                  Couldn't load incident points.{' '}
-                  <button onClick={() => stationIncidentsQuery.refetch()}>Retry</button>
-                </p>
-              )}
-              {stationDrilldownId != null && (
-                <section>
-                  <h3>
-                    Station case list <span className="count">{stationCasesQuery.data?.length ?? 0} cases</span>
+                )}
+              </>
+            ) : (
+              <>
+                <TopCrimeSubHeadCard kpi={summary.kpi} />
+                <section className="flex flex-col gap-2.5">
+                  <h3 className="flex items-center justify-between text-[13px] font-bold text-ink">
+                    Case category mix <span className="count mono text-[11px] font-medium text-muted">30-day window</span>
                   </h3>
-                  {stationCasesQuery.isError ? (
-                    <p role="alert">
-                      Couldn't load cases for this station.{' '}
-                      <button onClick={() => stationCasesQuery.refetch()}>Retry</button>
-                    </p>
-                  ) : stationCasesQuery.data ? (
-                    <CaseList cases={stationCasesQuery.data} onSelectCase={setSelectedCaseId} />
-                  ) : (
-                    <p>Loading cases…</p>
-                  )}
+                  <CategoryMixChart categoryMix={summary.categoryMix} />
                 </section>
-              )}
-            </>
-          ) : (
-            <>
-              <KpiPanel kpi={summary.kpi} onSelectMetric={selectMetric} />
-              <section>
-                <h3>
-                  Case category mix <span className="count">30-day window</span>
-                </h3>
-                <CategoryMixChart categoryMix={summary.categoryMix} />
-              </section>
-            </>
-          )}
-          <AlertFeed alerts={alerts} />
-        </aside>
+              </>
+            )}
+            <AlertFeed alerts={alerts} />
+          </aside>
+        </section>
       </main>
       <CasePreviewPanel caseId={selectedCaseId} onClose={() => setSelectedCaseId(null)} />
+      <MetricDetailModal metricKey={selectedMetric} summary={summary} onClose={() => setSelectedMetric(null)} />
     </>
+  );
+}
+
+// Split out of KpiPanel's old wide tile into its own sidebar card (mockup's "TOP CRIME
+// SUB-HEAD" card) -- not interactive, matching the mockup, which has no click handler here.
+function TopCrimeSubHeadCard({ kpi }: { kpi: KpiResponse }) {
+  return (
+    <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-semibold tracking-wider text-muted uppercase">Top crime sub-head</span>
+        <Info className="h-4 w-4 text-muted" aria-hidden="true" />
+      </div>
+      <div className="mb-1 text-lg font-bold text-ink">{kpi.topCrimeSubHead}</div>
+      <div className="mono text-2xl font-extrabold tracking-tight text-ink">{kpi.topCrimeSubHeadCount.toLocaleString()}</div>
+    </div>
   );
 }

@@ -1,0 +1,24 @@
+/* Scoped Tailwind import for the Command Center / MetricDetail / CasePreviewPanel
+   screens only. Preflight is intentionally NOT imported -- see
+   docs/superpowers/specs/2026-07-25-command-center-mockup-restyle-design.md -- so the
+   rest of the app's plain-CSS design system is untouched. */
+@import "tailwindcss/theme.css";
+@import "tailwindcss/utilities.css";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --color-surface: var(--panel);
+  --color-canvas: var(--canvas);
+  --color-border: var(--line);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--real);
+  --color-danger: var(--alert);
+  --color-good: var(--status-good-ink);
+  --color-warn: var(--status-warning);
+}
+
+.cc-mockup-type {
+  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}

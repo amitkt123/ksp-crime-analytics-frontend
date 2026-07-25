@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route, useParams } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import type { UseQueryResult } from '@tanstack/react-query';
 import * as AuthContextModule from '../../auth/AuthContext';
 import * as commandCenterApiModule from '../../api/commandCenterApi';
@@ -74,17 +74,11 @@ function mockSuccess<T>(data: T) {
   >;
 }
 
-function MetricRouteProbe() {
-  const { metricKey } = useParams<{ metricKey: string }>();
-  return <p>Metric detail route: {metricKey}</p>;
-}
-
 function renderScreen() {
   return render(
     <MemoryRouter initialEntries={['/command-center']}>
       <Routes>
         <Route path="/command-center" element={<CommandCenterScreen />} />
-        <Route path="/command-center/metric/:metricKey" element={<MetricRouteProbe />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -383,7 +377,7 @@ describe('CommandCenterScreen', () => {
     expect(screen.getByText('Chain Snatching reported.')).toBeInTheDocument();
   });
 
-  it('navigates to the Metric Detail route when a KPI tile is clicked', async () => {
+  it('opens the metric detail modal when a KPI tile is clicked', async () => {
     vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
       token: 'jwt', roles: ['SCRB_ANALYST'], username: 'demo.analyst', login: vi.fn(), logout: vi.fn(),
     });
@@ -416,6 +410,7 @@ describe('CommandCenterScreen', () => {
 
     await userEvent.click(await screen.findByText('State case count'));
 
-    expect(await screen.findByText('Metric detail route: case-count')).toBeInTheDocument();
+    const dialog = await screen.findByRole('dialog', { name: 'State case count' });
+    expect(within(dialog).getByText('58,214')).toBeInTheDocument();
   });
 });

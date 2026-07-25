@@ -444,6 +444,61 @@ describe('DistrictMap', () => {
     expect(screen.getByText('120 cases')).toBeInTheDocument();
   });
 
+  it('shows a floating district details card with case count and resolved %, hidden when nothing is selected', () => {
+    const { rerender } = render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={null}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText('District details')).not.toBeInTheDocument();
+
+    rerender(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        districtKpi={{
+          stateCaseCount: 120, stateCaseCountDeltaPct: 0, resolvedPct: 55,
+          resolvedPctDeltaPts: 0, topCrimeSubHead: 'Chain Snatching', topCrimeSubHeadCount: 10,
+        }}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('District details')).toBeInTheDocument();
+    expect(screen.getByText('Total active cases')).toBeInTheDocument();
+    expect(screen.getByText('55.0%')).toBeInTheDocument();
+  });
+
+  it('calls onBack when the district details card is closed', async () => {
+    const onBack = vi.fn();
+    render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        onDistrictSelect={vi.fn()}
+        onBack={onBack}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Close district details' }));
+
+    expect(onBack).toHaveBeenCalled();
+  });
+
   it('calls onBack when the breadcrumb "State" link is clicked', async () => {
     const onBack = vi.fn();
     render(

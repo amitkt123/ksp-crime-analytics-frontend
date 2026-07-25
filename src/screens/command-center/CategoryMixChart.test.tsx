@@ -23,11 +23,11 @@ describe('CategoryMixChart', () => {
   it('never assigns the green slot (--cat-1) to Crimes Against Women', () => {
     render(<CategoryMixChart categoryMix={sampleMix} />);
 
-    const womenBar = screen
+    const womenLegendItem = screen
       .getAllByText('Crimes Against Women')
-      .map((el) => el.closest('.cat-bar-row'))
+      .map((el) => el.closest('.cat-legend-item'))
       .find((el): el is HTMLElement => el !== null)!;
-    const fill = womenBar.querySelector('.cat-bar-fill') as HTMLElement;
-    expect(fill.style.background).not.toBe('var(--cat-1)');
+    const swatch = womenLegendItem.querySelector('.cat-swatch') as HTMLElement;
+    expect(swatch.style.background).not.toBe('var(--cat-1)');
   });
 });

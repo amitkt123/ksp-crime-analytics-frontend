@@ -7,7 +7,6 @@ import { Rail } from './Rail';
 import { Header } from './Header';
 import { ScreenPlaceholder } from './ScreenPlaceholder';
 import { CommandCenterScreen } from '../screens/command-center/CommandCenterScreen';
-import { MetricDetailScreen } from '../screens/command-center/MetricDetailScreen';
 import { CaseExplorerScreen } from '../screens/case-explorer/CaseExplorerScreen';
 import { CaseDetailScreen } from '../screens/case-explorer/CaseDetailScreen';
 import { NetworkScreen } from '../screens/network/NetworkScreen';
@@ -42,14 +41,6 @@ function AuthenticatedShell() {
           element={
             <ProtectedRoute allowedRoles={['DISTRICT_SUPERVISOR', 'SCRB_ANALYST', 'POLICYMAKER']}>
               <CommandCenterScreen />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/command-center/metric/:metricKey"
-          element={
-            <ProtectedRoute allowedRoles={['DISTRICT_SUPERVISOR', 'SCRB_ANALYST', 'POLICYMAKER']}>
-              <MetricDetailScreen />
             </ProtectedRoute>
           }
         />

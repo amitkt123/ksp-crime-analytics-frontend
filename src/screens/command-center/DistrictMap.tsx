@@ -9,6 +9,7 @@ import type {
   StationIncidentPointResponse,
 } from '../../api/geoApi';
 import { alertSeverity, type AlertSeverity, type EmergingAlertResponse } from '../../api/alertsApi';
+import type { KpiResponse } from '../../api/commandCenterApi';
 import { geometryBounds, featureCollectionBounds, featureCentroid } from './geoBounds';
 
 interface DistrictMapProps {
@@ -19,6 +20,9 @@ interface DistrictMapProps {
   stationSummaries?: StationSummaryResponse[];
   selectedStationId?: number | null;
   stationIncidents?: StationIncidentPointResponse[];
+  // District-scoped KPIs for the floating "District details" card -- null while
+  // useDistrictDetail is still loading or nothing is selected.
+  districtKpi?: KpiResponse | null;
   onStationSelect: (unitId: number) => void;
   onStationBack: () => void;
   alerts?: EmergingAlertResponse[];
@@ -242,6 +246,7 @@ export function DistrictMap({
   stationSummaries = [],
   selectedStationId = null,
   stationIncidents = [],
+  districtKpi = null,
   alerts = [],
   caseCountOverride = null,
   onDistrictSelect,
@@ -505,8 +510,22 @@ export function DistrictMap({
   const selectedStation =
     selectedStationId != null ? stationSummaries.find((s) => s.unitId === selectedStationId) : undefined;
 
+  // Same min/max the choropleth's fill-color interpolation already uses (see
+  // applyDistrictCaseCounts above) -- the legend chip is a read-out of that scale,
+  // not a new data source.
+  const legendMaxCaseCount = Math.max(
+    1,
+    ...Array.from(districtCaseCountMap(districtSummaries, caseCountOverride).values()),
+  );
+
   return (
-    <div className="map-card">
+    // flex-none overrides components.css's .map-card { flex: 1 } (flex-basis: 0%),
+    // which would otherwise win over h-[480px] on the main axis; h-[480px] gives
+    // .map-canvas's height:100% a definite ancestor height to resolve against, which
+    // the old fixed 100vh two-pane grid provided for free but the new auto-height
+    // scrolling page (this component's flex/grid parent chain is no longer
+    // viewport-height-bound) does not, so map-card must now specify one directly.
+    <div className="map-card h-[480px] flex-none">
       <div
         ref={containerRef}
         className="map-canvas"
@@ -514,30 +533,76 @@ export function DistrictMap({
         aria-label="Map of Karnataka's districts shaded by case count"
       />
       {selectedDistrict && (
-        <div className="map-breadcrumb">
-          <div className="breadcrumb">
-            <button className="breadcrumb-back" onClick={onBack}>
+        <div className="map-breadcrumb rounded-lg border border-border bg-surface px-3 py-2 shadow-md">
+          <div className="breadcrumb flex items-center gap-1.5 text-xs text-muted">
+            <button type="button" className="breadcrumb-back cursor-pointer text-accent hover:underline" onClick={onBack}>
               State
             </button>
             <span className="sep">›</span>
             {selectedStation ? (
               <>
-                <button className="breadcrumb-back" onClick={onStationBack}>
+                <button
+                  type="button"
+                  className="breadcrumb-back cursor-pointer text-accent hover:underline"
+                  onClick={onStationBack}
+                >
                   {selectedDistrict.districtName}
                 </button>
                 <span className="sep">›</span>
-                <b>{selectedStation.unitName}</b>
-                <span className="map-breadcrumb-count">{stationIncidents.length.toLocaleString()} incidents</span>
+                <b className="font-semibold text-ink">{selectedStation.unitName}</b>
+                <span className="map-breadcrumb-count mono text-muted">
+                  {stationIncidents.length.toLocaleString()} incidents
+                </span>
               </>
             ) : (
               <>
-                <b>{selectedDistrict.districtName}</b>
-                <span className="map-breadcrumb-count">{selectedDistrict.caseCount.toLocaleString()} cases</span>
+                <b className="font-semibold text-ink">{selectedDistrict.districtName}</b>
+                <span className="map-breadcrumb-count mono text-muted">
+                  {selectedDistrict.caseCount.toLocaleString()} cases
+                </span>
               </>
             )}
           </div>
         </div>
       )}
+      {selectedDistrict && !selectedStation && (
+        <div className="absolute top-16 left-3 z-10 w-64 rounded-xl border border-border bg-surface p-4 shadow-md">
+          <div className="mb-2.5 flex items-center justify-between">
+            <h3 className="text-[13px] font-bold text-ink">District details</h3>
+            <button
+              type="button"
+              aria-label="Close district details"
+              onClick={onBack}
+              className="cursor-pointer text-muted hover:text-ink"
+            >
+              ×
+            </button>
+          </div>
+          <dl className="flex flex-col gap-2 text-sm">
+            <div className="flex items-center justify-between">
+              <dt className="text-muted">Total active cases</dt>
+              <dd className="mono font-semibold text-ink">{selectedDistrict.caseCount.toLocaleString()}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-muted">Cases resolved</dt>
+              <dd className="mono font-semibold text-ink">
+                {districtKpi ? `${districtKpi.resolvedPct.toFixed(1)}%` : '—'}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      )}
+      <div
+        className="absolute bottom-4 right-4 z-10 rounded-md border border-border bg-surface/90 p-2 shadow-sm backdrop-blur-xs"
+        title={`Shaded 0 – ${legendMaxCaseCount.toLocaleString()} cases`}
+      >
+        <div className="mb-1 h-2.5 w-36 rounded-full" style={{ background: 'linear-gradient(to right, #b7d3f6, #104281)' }} />
+        <div className="flex w-36 justify-between px-0.5 text-[11px] font-medium text-muted">
+          <span>Low</span>
+          <span>Medium</span>
+          <span>High</span>
+        </div>
+      </div>
     </div>
   );
 }

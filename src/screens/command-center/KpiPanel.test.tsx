@@ -14,15 +14,13 @@ const sampleKpi: KpiResponse = {
 };
 
 describe('KpiPanel', () => {
-  it('renders state case count, resolved %, and top crime sub-head with up-deltas', () => {
+  it('renders state case count and resolved % with up-deltas', () => {
     render(<KpiPanel kpi={sampleKpi} />);
 
     expect(screen.getByText('58,214')).toBeInTheDocument();
     expect(screen.getByText(/4\.2% vs\. prior 30 days/)).toBeInTheDocument();
     expect(screen.getByText('41.6')).toBeInTheDocument();
     expect(screen.getByText(/1\.1 pt vs\. prior 30 days/)).toBeInTheDocument();
-    expect(screen.getByText('Theft — motor vehicle')).toBeInTheDocument();
-    expect(screen.getByText('3,410')).toBeInTheDocument();
   });
 
   it('shows a down arrow when a delta is negative', () => {
@@ -59,8 +57,5 @@ describe('KpiPanel', () => {
 
     await userEvent.click(screen.getByText('Cases resolved').closest('button')!);
     expect(onSelectMetric).toHaveBeenCalledWith('resolved-pct');
-
-    await userEvent.click(screen.getByText('Top crime sub-head').closest('button')!);
-    expect(onSelectMetric).toHaveBeenCalledWith('top-crime-subhead');
   });
 });

@@ -43,6 +43,20 @@ its two closely related screens) so it visually matches the mockup as closely as
    (Tailwind's `font-sans`), diverging intentionally from the rest of the app's IBM Plex
    Sans/Space Grotesk branding elsewhere. Scoped to these screens only via a wrapping
    class — not a global font change.
+9. **Superseded 2026-07-25 (later same day):** after reviewing the restyled dashboard
+   against the mockup, the user asked for two further changes to match the mockup's
+   interaction model exactly:
+   - The top 4 metric cards open a **centered modal** (`MetricDetailModal`, reusing the
+     existing `.evidence.modal` chrome via `SidePanelChrome`) instead of navigating to a
+     full-page `/command-center/metric/:metricKey` route. `MetricDetailScreen.tsx` and its
+     route are removed; `MetricDetailModal.tsx` replaces it, driven by local state
+     (`selectedMetric`) in `CommandCenterScreen` instead of the router.
+   - Selecting a district now also shows a **floating "District details" card** positioned
+     over the map (`DistrictMap`'s new `districtKpi` prop), matching the mockup's
+     popup-over-map look. This is additive: the existing sidebar district-scoped KPI/
+     category-mix swap (decision below) is unchanged and still renders alongside it. The
+     mockup's "Officer Availability" and "Recent Activity" fields are dropped — no backing
+     API field exists for either (see Data section).
 
 ## Architecture
 
@@ -127,8 +141,8 @@ scrollable page, matching the mockup's stacked structure.
 
 Visual style matches the mockup's `MetricCard.tsx`: rounded card, uppercase eyebrow label,
 big number, trend arrow, inline SVG sparkline for the two trend-based cards. The first two
-stay clickable into `MetricDetailScreen` via the existing `onSelectMetric` callback,
-unchanged behavior.
+stay clickable via the existing `onSelectMetric` callback, which now opens
+`MetricDetailModal` (see decision 9 above) instead of navigating.
 
 ### Below — map (left) + sidebar (right)
 
@@ -152,13 +166,17 @@ unchanged behavior.
   addition beyond the mockup, to avoid deleting real functionality.
 - **Station drilldown list**: row/card visual treatment only; same data and behavior.
 - **District-scoped mode** (district clicked): sidebar swaps to district KPI + district
-  category mix exactly as today — unaffected by this restyle.
+  category mix exactly as today — unaffected by this restyle. A floating "District
+  details" card (see decision 9) additionally appears over the map itself, showing total
+  active cases and resolved % from the same `useDistrictDetail` data already fetched for
+  the sidebar.
 
-### MetricDetailScreen
+### MetricDetailModal
 
-Restyled to the mockup's `MetricDetailView` look: prominent back link/breadcrumb, large
-headline metric card, styled trend line chart (`caseVolume` vs `arrests`, existing data),
-restyled category-mix donut. No fabricated sub-metric cards (see Data section above).
+Restyled to the mockup's `MetricDetailView` look, presented as a centered modal (decision
+9) instead of a routed page: large headline metric card, styled trend line chart
+(`caseVolume` vs `arrests`, existing data), restyled category-mix donut. No fabricated
+sub-metric cards (see Data section above).
 
 ### CasePreviewPanel
 
@@ -200,8 +218,11 @@ Data section above).
 - `src/screens/command-center/AlertFeed.tsx` — restyle.
 - `src/screens/command-center/TimeOfDaySelector.tsx` — restyle.
 - `src/screens/command-center/StationDrilldownList.tsx` — restyle.
-- `src/screens/command-center/DistrictMap.tsx` — chrome/legend restyle only; MapLibre
-  logic unchanged.
-- `src/screens/command-center/MetricDetailScreen.tsx` — restyle.
+- `src/screens/command-center/DistrictMap.tsx` — chrome/legend restyle, plus the new
+  floating "District details" card (`districtKpi` prop, decision 9). MapLibre logic
+  unchanged.
+- `src/screens/command-center/MetricDetailScreen.tsx` (removed) / `MetricDetailModal.tsx`
+  (new) — restyled content ported into a modal (decision 9); `/command-center/metric/:metricKey`
+  route removed from `App.tsx`.
 - `src/screens/command-center/CasePreviewPanel.tsx` — restyle.
 - Corresponding `*.test.tsx` files — updated assertions where markup changes.

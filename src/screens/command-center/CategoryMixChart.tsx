@@ -1,3 +1,4 @@
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import type { CategorySliceResponse } from '../../api/commandCenterApi';
 
 // Fixed crime_head_id -> categorical palette slot (tokens.css's --cat-1..--cat-5), chosen so
@@ -17,33 +18,41 @@ interface CategoryMixChartProps {
 }
 
 export function CategoryMixChart({ categoryMix }: CategoryMixChartProps) {
-  const total = categoryMix.reduce((sum, slice) => sum + slice.count, 0);
   const sorted = [...categoryMix].sort((a, b) => b.count - a.count);
 
   return (
     <div>
-      <div className="cat-legend">
-        {sorted.map((slice) => (
-          <span key={slice.crimeHeadId} className="cat-legend-item">
-            <span className="cat-swatch" style={{ background: `var(--cat-${CRIME_HEAD_SLOT[slice.crimeHeadId] ?? 5})` }} />
-            {slice.crimeGroupName}
-          </span>
-        ))}
+      <div className="relative my-2 h-44 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={sorted} dataKey="count" nameKey="crimeGroupName" cx="50%" cy="50%" innerRadius={42} outerRadius={66} paddingAngle={3}>
+              {sorted.map((slice) => (
+                <Cell
+                  key={slice.crimeHeadId}
+                  fill={`var(--cat-${CRIME_HEAD_SLOT[slice.crimeHeadId] ?? 5})`}
+                  stroke="var(--panel)"
+                  strokeWidth={2}
+                />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(val) => [typeof val === 'number' ? val.toLocaleString() : String(val ?? ''), 'Cases']}
+              contentStyle={{ background: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 8, fontSize: 12 }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
       </div>
-      <div className="cat-bars">
+      <div className="cat-legend flex flex-col gap-1.5 border-t border-border pt-2 text-xs">
         {sorted.map((slice) => (
-          <div key={slice.crimeHeadId} className="cat-bar-row">
-            <span className="cat-bar-label">{slice.crimeGroupName}</span>
-            <div className="cat-bar-track">
-              <div
-                className="cat-bar-fill"
-                style={{
-                  width: `${total === 0 ? 0 : (slice.count / total) * 100}%`,
-                  background: `var(--cat-${CRIME_HEAD_SLOT[slice.crimeHeadId] ?? 5})`,
-                }}
+          <div key={slice.crimeHeadId} className="cat-legend-item flex items-center justify-between text-ink">
+            <span className="flex items-center gap-2">
+              <span
+                className="cat-swatch h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                style={{ background: `var(--cat-${CRIME_HEAD_SLOT[slice.crimeHeadId] ?? 5})` }}
               />
-            </div>
-            <span className="cat-bar-count mono">{slice.count.toLocaleString()}</span>
+              {slice.crimeGroupName}
+            </span>
+            <span className="mono font-semibold">{slice.count.toLocaleString()}</span>
           </div>
         ))}
       </div>
