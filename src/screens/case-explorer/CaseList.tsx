@@ -9,13 +9,21 @@ import {
 
 interface CaseListProps {
   cases: CaseSummaryResponse[];
+  // Overrides row/link navigation with a callback (e.g. a preview modal) for callers
+  // whose role can't reach /case-explorer/:caseId -- see CommandCenterScreen.
+  onSelectCase?: (caseId: number) => void;
 }
 
-export function CaseList({ cases }: CaseListProps) {
+export function CaseList({ cases, onSelectCase }: CaseListProps) {
   const navigate = useNavigate();
 
   if (cases.length === 0) {
     return <p>No cases match these filters.</p>;
+  }
+
+  function open(caseId: number) {
+    if (onSelectCase) onSelectCase(caseId);
+    else navigate(`/case-explorer/${caseId}`);
   }
 
   return (
@@ -38,16 +46,29 @@ export function CaseList({ cases }: CaseListProps) {
             <tr
               key={c.caseId}
               tabIndex={0}
-              onClick={() => navigate(`/case-explorer/${c.caseId}`)}
+              onClick={() => open(c.caseId)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') navigate(`/case-explorer/${c.caseId}`);
+                if (e.key === 'Enter') open(c.caseId);
               }}
             >
               <td className="mono crime-no">{c.crimeNumber ?? '—'}</td>
               <td className="mono">
-                <Link to={`/case-explorer/${c.caseId}`} onClick={(e) => e.stopPropagation()}>
-                  {c.caseNumber}
-                </Link>
+                {onSelectCase ? (
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectCase(c.caseId);
+                    }}
+                  >
+                    {c.caseNumber}
+                  </button>
+                ) : (
+                  <Link to={`/case-explorer/${c.caseId}`} onClick={(e) => e.stopPropagation()}>
+                    {c.caseNumber}
+                  </Link>
+                )}
               </td>
               <td className="mono">{c.firDate}</td>
               <td>{c.station ?? c.unitName}</td>

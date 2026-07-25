@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CartesianGrid, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from 'recharts';
+import { CartesianGrid, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from 'recharts';
 import { EvidencePanel, type EvidenceData } from '../../design-system/EvidencePanel';
 import { alertSeverity, type AlertSeverity } from '../../api/alertsApi';
 import type { CaseAnomalyResponse } from '../../api/sociologicalApi';
@@ -42,7 +42,7 @@ export function AnomalyList({ anomalies }: AnomalyListProps) {
           <p>No registration-delay anomalies for this crime type.</p>
         ) : (
           <>
-            <AnomalySeverityScatter anomalies={ranked} />
+            <AnomalySeverityBubbleChart anomalies={ranked} />
             <div className="alert-list">
               {ranked.map((anomaly) => {
                 const severity = alertSeverity(anomaly.zScore);
@@ -68,15 +68,21 @@ export function AnomalyList({ anomalies }: AnomalyListProps) {
   );
 }
 
-interface AnomalyScatterPoint {
+interface AnomalyBubblePoint {
   crimeNo: string;
   delayDays: number;
   zScore: number;
   severity: AlertSeverity;
+  bubbleSize: number;
 }
 
-function AnomalySeverityScatter({ anomalies }: { anomalies: CaseAnomalyResponse[] }) {
-  const bySeverity: Record<AlertSeverity, AnomalyScatterPoint[]> = { critical: [], high: [], moderate: [] };
+// Bubble radius is fixed per severity tier (not a continuous third data dimension --
+// there isn't one) so severity reads through both color and size, reinforcing the
+// same signal rather than encoding two different things.
+const SEVERITY_BUBBLE_SIZE: Record<AlertSeverity, number> = { critical: 3, high: 2, moderate: 1 };
+
+function AnomalySeverityBubbleChart({ anomalies }: { anomalies: CaseAnomalyResponse[] }) {
+  const bySeverity: Record<AlertSeverity, AnomalyBubblePoint[]> = { critical: [], high: [], moderate: [] };
   for (const anomaly of anomalies) {
     const severity = alertSeverity(anomaly.zScore);
     bySeverity[severity].push({
@@ -84,11 +90,12 @@ function AnomalySeverityScatter({ anomalies }: { anomalies: CaseAnomalyResponse[
       delayDays: anomaly.registrationDelayDays,
       zScore: anomaly.zScore,
       severity,
+      bubbleSize: SEVERITY_BUBBLE_SIZE[severity],
     });
   }
 
   return (
-    <div className="indicator-scatter anomaly-scatter">
+    <div className="indicator-panel-card anomaly-bubble">
       <div className="cat-legend">
         {SEVERITY_ORDER.map((severity) => (
           <span className="cat-legend-item" key={severity}>
@@ -97,16 +104,17 @@ function AnomalySeverityScatter({ anomalies }: { anomalies: CaseAnomalyResponse[
           </span>
         ))}
       </div>
-      <ResponsiveContainer width="100%" height={140}>
+      <ResponsiveContainer width="100%" height={150}>
         <ScatterChart margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
           <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
           <XAxis type="number" dataKey="delayDays" name="Registration delay (days)" stroke="var(--muted)" fontSize={10} tick={{ fontSize: 10 }} />
           <YAxis type="number" dataKey="zScore" name="Deviation (z-score)" stroke="var(--muted)" fontSize={10} tick={{ fontSize: 10 }} />
+          <ZAxis type="number" dataKey="bubbleSize" range={[90, 480]} />
           <Tooltip
             cursor={{ stroke: 'var(--line)' }}
             content={({ active, payload }) => {
               if (!active || !payload?.length) return null;
-              const point = payload[0].payload as AnomalyScatterPoint;
+              const point = payload[0].payload as AnomalyBubblePoint;
               return (
                 <div
                   style={{
@@ -122,7 +130,7 @@ function AnomalySeverityScatter({ anomalies }: { anomalies: CaseAnomalyResponse[
             }}
           />
           {SEVERITY_ORDER.map((severity) => (
-            <Scatter key={severity} data={bySeverity[severity]} fill={SEVERITY_COLOR[severity]} />
+            <Scatter key={severity} data={bySeverity[severity]} fill={SEVERITY_COLOR[severity]} fillOpacity={0.75} />
           ))}
         </ScatterChart>
       </ResponsiveContainer>

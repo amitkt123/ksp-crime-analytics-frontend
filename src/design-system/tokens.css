@@ -10,6 +10,12 @@
   --cat-1: #008300; --cat-2: #e87ba4; --cat-3: #eda100; --cat-4: #1baf7a; --cat-5: #eb6834;
   --status-good-ink: #0ca30c; --status-good-fill: rgba(12,163,12,0.12);
   --status-warning: #eda100; --status-warning-ink: #9a6b00; --status-warning-fill: rgba(237,161,0,0.16);
+  /* Fixed per-indicator identity colors for the sociological radar panels (never assigned
+     by sort rank). Validated with the dataviz palette checker: blue/orange/aqua pass the
+     strict all-pairs CVD check in both modes; violet is a documented 4th-slot compromise
+     (no 4-hue combo from this hue family clears all-pairs in dark) mitigated by each panel
+     always carrying its own text label. */
+  --indicator-1: #2a78d6; --indicator-2: #eb6834; --indicator-3: #1baf7a; --indicator-4: #4a3aa7;
   color-scheme: light;
 }
 :root[data-theme="dark"] {
@@ -23,6 +29,7 @@
   --cat-1: #008300; --cat-2: #d55181; --cat-3: #c98500; --cat-4: #199e70; --cat-5: #d95926;
   --status-good-ink: #3ddc3d; --status-good-fill: rgba(12,163,12,0.18);
   --status-warning: #eda100; --status-warning-ink: #ffcf6b; --status-warning-fill: rgba(237,161,0,0.2);
+  --indicator-1: #3987e5; --indicator-2: #d95926; --indicator-3: #199e70; --indicator-4: #9085e9;
   color-scheme: dark;
 }
 

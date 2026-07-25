@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { Header } from '../../app/Header';
 import { useCommandCenterSummary } from '../../api/commandCenterApi';
+import { useCases } from '../../api/caseApi';
 import {
   useDistrictSummaries,
   useDistrictBoundaries,
@@ -15,14 +16,17 @@ import {
 import { useEmergingAlerts } from '../../api/alertsApi';
 import { DistrictMap } from './DistrictMap';
 import { StationDrilldownList } from './StationDrilldownList';
-import { KpiPanel } from './KpiPanel';
+import { KpiPanel, type CommandCenterMetricKey } from './KpiPanel';
 import { SparklineStrip } from './SparklineStrip';
 import { CategoryMixChart } from './CategoryMixChart';
 import { AlertFeed } from './AlertFeed';
 import { TimeOfDaySelector, type TimeOfDaySelection } from './TimeOfDaySelector';
+import { CaseList } from '../case-explorer/CaseList';
+import { CasePreviewPanel } from './CasePreviewPanel';
 
 export function CommandCenterScreen() {
   const { token, roles } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const isPolicymaker = roles.includes('POLICYMAKER');
   const selectedDistrictId = searchParams.get('district') ? Number(searchParams.get('district')) : null;
@@ -30,6 +34,7 @@ export function CommandCenterScreen() {
   const selectedStationId = searchParams.get('station') ? Number(searchParams.get('station')) : null;
   const stationDrilldownId = isPolicymaker ? null : selectedStationId;
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDaySelection>('all');
+  const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null);
 
   const summaryQuery = useCommandCenterSummary(token);
   const districtSummariesQuery = useDistrictSummaries(token);
@@ -39,6 +44,11 @@ export function CommandCenterScreen() {
   const districtDetailQuery = useDistrictDetail(token, districtDrilldownId);
   const stationBoundariesQuery = useStationBoundaries(token, districtDrilldownId);
   const stationIncidentsQuery = useStationIncidents(token, stationDrilldownId);
+  const stationCasesQuery = useCases(token, stationDrilldownId, {});
+
+  function selectMetric(metric: CommandCenterMetricKey) {
+    navigate(`/command-center/metric/${metric}`);
+  }
   // Spatiotemporal hotspot layering is a progressive enhancement on top of the
   // district drill-down -- it deliberately isn't part of isLoading/isError below,
   // so a slow or failed time-of-day fetch never blocks the rest of the screen; the
@@ -189,7 +199,7 @@ export function CommandCenterScreen() {
                 </p>
               ) : districtDetailQuery.data ? (
                 <>
-                  <KpiPanel kpi={districtDetailQuery.data.kpi} scopeLabel="District case count" />
+                  <KpiPanel kpi={districtDetailQuery.data.kpi} scopeLabel="District case count" onSelectMetric={selectMetric} />
                   <section>
                     <h3>
                       Case category mix <span className="count">30-day window</span>
@@ -217,10 +227,27 @@ export function CommandCenterScreen() {
                   <button onClick={() => stationIncidentsQuery.refetch()}>Retry</button>
                 </p>
               )}
+              {stationDrilldownId != null && (
+                <section>
+                  <h3>
+                    Station case list <span className="count">{stationCasesQuery.data?.length ?? 0} cases</span>
+                  </h3>
+                  {stationCasesQuery.isError ? (
+                    <p role="alert">
+                      Couldn't load cases for this station.{' '}
+                      <button onClick={() => stationCasesQuery.refetch()}>Retry</button>
+                    </p>
+                  ) : stationCasesQuery.data ? (
+                    <CaseList cases={stationCasesQuery.data} onSelectCase={setSelectedCaseId} />
+                  ) : (
+                    <p>Loading cases…</p>
+                  )}
+                </section>
+              )}
             </>
           ) : (
             <>
-              <KpiPanel kpi={summary.kpi} />
+              <KpiPanel kpi={summary.kpi} onSelectMetric={selectMetric} />
               <section>
                 <h3>
                   Case category mix <span className="count">30-day window</span>
@@ -232,6 +259,7 @@ export function CommandCenterScreen() {
           <AlertFeed alerts={alerts} />
         </aside>
       </main>
+      <CasePreviewPanel caseId={selectedCaseId} onClose={() => setSelectedCaseId(null)} />
     </>
   );
 }

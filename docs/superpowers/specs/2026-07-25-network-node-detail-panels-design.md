@@ -1,4 +1,4 @@
-# Network graph: CASE/LOCATION node detail panels
+chang# Network graph: CASE/LOCATION node detail panels
 
 ## Problem
 

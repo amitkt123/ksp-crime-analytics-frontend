@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { CorrelationScatterChart } from './CorrelationScatterChart';
+import { CorrelationRadarPanels } from './CorrelationRadarPanels';
 import type { DistrictCorrelationResponse } from '../../api/sociologicalApi';
 
 // caseRatePer100k is 10/20/30/40 for these four districts (caseCount/population * 100000).
@@ -15,9 +15,9 @@ const districts: DistrictCorrelationResponse[] = [
   { districtId: 4, districtName: 'District D', caseCount: 400, population: 1_000_000, literacyRate: 80, unemploymentRate: 5, urbanizationRate: 20, perCapitaIncome: 150 },
 ];
 
-describe('CorrelationScatterChart', () => {
+describe('CorrelationRadarPanels', () => {
   it('renders all four socio-economic indicator panels', () => {
-    render(<CorrelationScatterChart districts={districts} />);
+    render(<CorrelationRadarPanels districts={districts} />);
 
     expect(screen.getByText('Literacy rate')).toBeInTheDocument();
     expect(screen.getByText('Unemployment rate')).toBeInTheDocument();
@@ -26,9 +26,9 @@ describe('CorrelationScatterChart', () => {
   });
 
   it('sorts panels by |r| descending and badges only the strongest driver', () => {
-    const { container } = render(<CorrelationScatterChart districts={districts} />);
+    const { container } = render(<CorrelationRadarPanels districts={districts} />);
 
-    const labels = Array.from(container.querySelectorAll('.indicator-scatter-label')).map((el) => el.textContent);
+    const labels = Array.from(container.querySelectorAll('.indicator-panel-label')).map((el) => el.textContent);
     expect(labels[0]).toBe('Literacy rate');
     expect(labels[labels.length - 1]).toBe('Unemployment rate');
 
@@ -37,20 +37,28 @@ describe('CorrelationScatterChart', () => {
   });
 
   it('shows "not enough data" for an indicator with zero variance across districts', () => {
-    render(<CorrelationScatterChart districts={districts} />);
+    render(<CorrelationRadarPanels districts={districts} />);
 
     expect(screen.getByText('Not enough data for a trend line.')).toBeInTheDocument();
   });
 
-  it('passes highlightedDistrictId through to every panel', () => {
-    render(<CorrelationScatterChart districts={districts} highlightedDistrictId={1} />);
+  it('shows a highlight badge naming the selected district on every panel', () => {
+    const { container } = render(<CorrelationRadarPanels districts={districts} highlightedDistrictId={1} />);
 
-    expect(screen.getAllByText('District A')).toHaveLength(4);
+    const badges = Array.from(container.querySelectorAll('.chip.highlighted'));
+    expect(badges).toHaveLength(4);
+    expect(badges.every((el) => el.textContent === 'District A')).toBe(true);
   });
 
-  it('shows no highlight badges when highlightedDistrictId is not provided', () => {
-    render(<CorrelationScatterChart districts={districts} />);
+  it('shows no highlight badge when highlightedDistrictId is not provided', () => {
+    const { container } = render(<CorrelationRadarPanels districts={districts} />);
 
-    expect(screen.queryByText('District A')).not.toBeInTheDocument();
+    expect(container.querySelectorAll('.chip.highlighted')).toHaveLength(0);
+  });
+
+  it('shows a fallback message when there are no districts', () => {
+    render(<CorrelationRadarPanels districts={[]} />);
+
+    expect(screen.getByText('No district data available.')).toBeInTheDocument();
   });
 });

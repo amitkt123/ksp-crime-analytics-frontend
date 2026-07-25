@@ -24,11 +24,11 @@ export function RiskForecastChart({ forecasts }: RiskForecastChartProps) {
       </h3>
       <div className="cat-legend">
         <span className="cat-legend-item">
-          <span className="cat-swatch" style={{ background: 'var(--predicted)' }} />
+          <span className="cat-swatch" style={{ background: 'var(--indicator-3)' }} />
           Predicted
         </span>
         <span className="cat-legend-item">
-          <span className="cat-swatch" style={{ background: 'var(--real)' }} />
+          <span className="cat-swatch" style={{ background: 'var(--indicator-4)' }} />
           Backtest actual
         </span>
       </div>
@@ -45,7 +45,7 @@ export function RiskForecastChart({ forecasts }: RiskForecastChartProps) {
                 <div className="cat-bar-track">
                   <div
                     className="cat-bar-fill"
-                    style={{ width: `${max === 0 ? 0 : (f.predictedCount / max) * 100}%`, background: 'var(--predicted)' }}
+                    style={{ width: `${max === 0 ? 0 : (f.predictedCount / max) * 100}%`, background: 'var(--indicator-3)' }}
                   />
                 </div>
                 <span className="cat-bar-count mono">{f.predictedCount.toFixed(1)}</span>
@@ -54,7 +54,7 @@ export function RiskForecastChart({ forecasts }: RiskForecastChartProps) {
                 <div className="cat-bar-track">
                   <div
                     className="cat-bar-fill"
-                    style={{ width: `${max === 0 ? 0 : (f.backtestActualCount / max) * 100}%`, background: 'var(--real)' }}
+                    style={{ width: `${max === 0 ? 0 : (f.backtestActualCount / max) * 100}%`, background: 'var(--indicator-4)' }}
                   />
                 </div>
                 <span className="cat-bar-count mono">{f.backtestActualCount.toFixed(1)}</span>

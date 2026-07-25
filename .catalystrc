@@ -1,0 +1,30 @@
+{
+  "defaults": {
+    "project": 1,
+    "env": 1
+  },
+  "actives": {
+    "project": 1,
+    "env": 1
+  },
+  "projects": [
+    {
+      "idx": 1,
+      "id": "43307000000022001",
+      "name": "KSP-CRIME-ANALYTICS-DASHBOARD",
+      "domain": {
+        "id": "50044291955",
+        "name": "ksp-crime-analytics-dashboard-60077651908.development"
+      },
+      "timezone": "Asia/Kolkata",
+      "env": [
+        {
+          "idx": 1,
+          "id": "60077651908",
+          "name": "Development",
+          "type": 3
+        }
+      ]
+    }
+  ]
+}

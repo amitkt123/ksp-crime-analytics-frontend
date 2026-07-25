@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { KpiPanel } from './KpiPanel';
 import type { KpiResponse } from '../../api/commandCenterApi';
 
@@ -41,5 +42,25 @@ describe('KpiPanel', () => {
 
     expect(screen.getByText('District case count')).toBeInTheDocument();
     expect(screen.queryByText('State case count')).not.toBeInTheDocument();
+  });
+
+  it('renders plain tiles (no buttons) when onSelectMetric is not provided', () => {
+    render(<KpiPanel kpi={sampleKpi} />);
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('calls onSelectMetric with the clicked tile\'s metric key', async () => {
+    const onSelectMetric = vi.fn();
+    render(<KpiPanel kpi={sampleKpi} onSelectMetric={onSelectMetric} />);
+
+    await userEvent.click(screen.getByText('State case count').closest('button')!);
+    expect(onSelectMetric).toHaveBeenCalledWith('case-count');
+
+    await userEvent.click(screen.getByText('Cases resolved').closest('button')!);
+    expect(onSelectMetric).toHaveBeenCalledWith('resolved-pct');
+
+    await userEvent.click(screen.getByText('Top crime sub-head').closest('button')!);
+    expect(onSelectMetric).toHaveBeenCalledWith('top-crime-subhead');
   });
 });

@@ -4,7 +4,7 @@ import { Header } from '../../app/Header';
 import { CRIME_TYPE_OPTIONS } from '../../constants/crimeTypes';
 import { useDistrictCorrelation, usePredictiveRisk, useCaseAnomalies } from '../../api/sociologicalApi';
 import { useDistrictBoundaries } from '../../api/geoApi';
-import { CorrelationScatterChart } from './CorrelationScatterChart';
+import { CorrelationRadarPanels } from './CorrelationRadarPanels';
 import { RiskForecastChart } from './RiskForecastChart';
 import { AnomalyList } from './AnomalyList';
 import { IndicatorChoroplethMap, type ChoroplethMode } from './IndicatorChoroplethMap';
@@ -108,7 +108,7 @@ export function SociologicalScreen() {
             selectedDistrictId={selectedDistrictId}
             onDistrictSelect={setSelectedDistrictId}
           />
-          <CorrelationScatterChart districts={correlationQuery.data!} highlightedDistrictId={selectedDistrictId} />
+          <CorrelationRadarPanels districts={correlationQuery.data!} highlightedDistrictId={selectedDistrictId} />
         </section>
         <aside className="pane side-pane" aria-label="Predictive risk and case anomalies">
           <RiskForecastChart forecasts={riskQuery.data!} />

@@ -8,7 +8,7 @@
 .rail-mark { width: 32px; height: 32px; display: grid; place-items: center; margin-bottom: 14px; color: var(--text); }
 .rail-mark svg { width: 20px; height: 20px; }
 .rail-item { position: relative; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 8px; color: var(--muted); background: transparent; border: none; cursor: pointer; transition: background 0.15s ease, color 0.15s ease; }
-.rail-item svg { width: 19px; height: 19px; }
+.rail-item svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .rail-item:hover { background: var(--panel-raised); color: var(--text); }
 .rail-item[aria-current="page"] { color: var(--real); background: var(--real-fill); }
 .rail-item[aria-current="page"]::before { content: ""; position: absolute; left: -14px; top: 8px; bottom: 8px; width: 3px; background: var(--real); border-radius: 0 3px 3px 0; }
@@ -112,29 +112,33 @@
 .cat-swatch { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
 .cat-bars { display: flex; flex-direction: column; gap: 8px; }
 .cat-bar-row { display: grid; grid-template-columns: 1fr 2fr auto; align-items: center; gap: 8px; font-size: 12px; }
-.cat-bar-track { height: 8px; border-radius: 4px; background: var(--canvas); overflow: hidden; }
-.cat-bar-fill { height: 100%; border-radius: 4px; }
+.cat-bar-track { height: 8px; border-radius: 999px; background: var(--canvas); overflow: hidden; }
+.cat-bar-fill { height: 100%; border-radius: 999px; }
 
 /* Sociological screen: two thin stacked bars (predicted / backtest-actual) per
    station row, sharing the .cat-bar-row grid so the label/error columns still align. */
-.risk-bar-row { align-items: start; padding: 2px 0; }
-.risk-bar-group { display: flex; flex-direction: column; gap: 4px; }
+.risk-bar-row { align-items: start; padding: 3px 0; }
+.risk-bar-group { display: flex; flex-direction: column; gap: 5px; }
 .risk-bar-line { display: flex; align-items: center; gap: 8px; }
-.risk-bar-line .cat-bar-track { height: 6px; flex: 1; }
+.risk-bar-line .cat-bar-track { height: 7px; flex: 1; }
+.risk-bar-line .cat-bar-count { font-size: 12px; font-weight: 600; color: var(--text); }
 
-/* Small-multiples correlation grid: 4 mini scatter plots, 2x2 on wide panes,
+/* Small-multiples correlation grid: 4 mini radar charts, 2x2 on wide panes,
    1-column when the pane narrows below room for two side by side. */
 .correlation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 720px) {
   .correlation-grid { grid-template-columns: 1fr; }
 }
-.indicator-scatter { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 4px; background: var(--panel); }
-.indicator-scatter-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
-.indicator-scatter-label { font-size: 12.5px; font-weight: 600; }
-.indicator-scatter-badges { display: flex; align-items: center; gap: 6px; }
-.indicator-scatter-empty { color: var(--muted); font-size: 12px; padding: 24px 0; text-align: center; }
+/* Shared card shell for the radar panels and the anomaly bubble chart. */
+.indicator-panel-card { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 4px; background: var(--panel); }
+.indicator-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.indicator-panel-label { font-size: 12.5px; font-weight: 600; }
+.indicator-panel-badges { display: flex; align-items: center; gap: 6px; }
+.indicator-panel-empty { color: var(--muted); font-size: 12px; padding: 24px 0; text-align: center; }
+.indicator-panel-empty-chip { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--muted); }
 .chip.strongest { background: var(--status-good-fill); color: var(--status-good-ink); }
 .chip.highlighted { background: var(--alert-fill); color: var(--alert); }
+.anomaly-bubble { padding-bottom: 10px; }
 
 /* Deliberately not .map-card/.map-canvas (DistrictMap.tsx's classes) -- those rely on
    the canvas absolutely filling its card via inset:0, which only works when the canvas
@@ -384,3 +388,25 @@ table.case-table a:hover { text-decoration: underline; }
 .timeline-chevron { margin-left: auto; color: var(--muted); }
 .timeline-step-body { padding: 8px 10px 2px 10px; font-size: 12.5px; color: var(--text); }
 .timeline-step-body p { margin: 0; }
+
+/* ---- Command Center: clickable KPI tiles + Metric Detail drill-down ---- */
+.kpi-tile-btn {
+  width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.kpi-tile-btn:hover, .kpi-tile-btn:focus-visible { border-color: var(--real); box-shadow: var(--shadow); }
+
+.metric-detail { margin: 16px 24px; display: flex; flex-direction: column; gap: 16px; max-width: 960px; }
+.metric-detail section { display: flex; flex-direction: column; gap: 10px; }
+.metric-detail h3 { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; margin: 0 0 8px; display: flex; align-items: center; justify-content: space-between; }
+.metric-detail h3 .count { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; color: var(--muted); }
+.metric-headline { max-width: 320px; }
+.metric-trend-card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow); padding: 18px 20px;
+}
+
+.link-button {
+  border: none; background: none; padding: 0; font: inherit; color: var(--real); cursor: pointer;
+}
+.link-button:hover { text-decoration: underline; }

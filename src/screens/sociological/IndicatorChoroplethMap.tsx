@@ -76,8 +76,8 @@ function fillColorExpression(scale: ChoroplethScale) {
 
 const DEFAULT_OUTLINE_COLOR = ['case', ['boolean', ['feature-state', 'hover'], false], '#2a78d6', '#D8DEEA'];
 // Matches --alert's literal light-theme hex -- same accent used for the
-// "highlighted district" marker on IndicatorScatterPlot, so the map outline and the
-// scatter highlight read as the same selection across the whole screen.
+// "highlighted district" marker on IndicatorRadarChart, so the map outline and the
+// radar highlight read as the same selection across the whole screen.
 const SELECTED_OUTLINE_COLOR = '#D6323B';
 
 function applySelectionOutline(map: InstanceType<typeof maplibregl.Map>, selectedDistrictId: number | null) {
