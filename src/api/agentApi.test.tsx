@@ -16,7 +16,7 @@ const sampleCase: CaseDetailResponse = {
 
 describe('explainCase', () => {
   it('POSTs to /api/explain with EXPLAIN_CASE and the case facts, mapped to agent-service field names', async () => {
-    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ narrative: 'n', evidence: { claim: 'c', supportingRecordIds: [], queryOrMethod: 'm', confidence: 1, generatedAt: 'now', modelVersion: 'v' } }),
     } as unknown as Response);
@@ -55,7 +55,7 @@ describe('explainCorrelation', () => {
       districtId: 5, districtName: 'Bengaluru Urban', caseCount: 32000, population: 12000000,
       literacyRate: 88.5, unemploymentRate: 4.1, urbanizationRate: 91.2, perCapitaIncome: 300000,
     };
-    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ narrative: 'n', evidence: { claim: 'c', supportingRecordIds: [], queryOrMethod: 'm', confidence: 0.7, generatedAt: 'now', modelVersion: 'v' } }),
     } as unknown as Response);

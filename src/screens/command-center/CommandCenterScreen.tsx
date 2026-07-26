@@ -200,7 +200,6 @@ export function CommandCenterScreen() {
               timeOfDayBuckets={timeOfDayBuckets}
               timeOfDay={timeOfDay}
               onTimeOfDayChange={setTimeOfDay}
-              activeBucketLabel={activeBucket ? activeBucket.label : null}
             />
           </div>
 

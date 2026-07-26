@@ -26,7 +26,7 @@ export interface DistrictBoundaryFeatureCollection {
   features: Array<{
     type: 'Feature';
     properties: { districtId: number; district: string };
-    geometry: Record<string, unknown>;
+    geometry: { type?: string; coordinates?: unknown };
   }>;
 }
 
@@ -35,7 +35,7 @@ export interface StationBoundaryFeatureCollection {
   features: Array<{
     type: 'Feature';
     properties: { unitId: number; unitName: string };
-    geometry: Record<string, unknown>;
+    geometry: { type?: string; coordinates?: unknown };
   }>;
 }
 

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { getMockResponse } from './mockData';
 
 function mockFetchJson(responsesByUrl: Record<string, unknown>) {
-  vi.spyOn(global, 'fetch').mockImplementation(((url: string) => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(((url: string) => {
     if (!(url in responsesByUrl)) throw new Error(`unexpected fetch: ${url}`);
     return Promise.resolve({ json: () => Promise.resolve(responsesByUrl[url]) } as Response);
   }) as typeof fetch);

@@ -36,6 +36,9 @@ describe('NetworkGraphCanvas', () => {
         pathEndpointIds={[]}
         pathMemberIds={[]}
         onNodeClick={vi.fn()}
+        selectedNodeId={null}
+        onCanvasClick={vi.fn()}
+        resetViewKey={0}
       />,
     );
     expect(container.querySelectorAll('.graph-node')).toHaveLength(4);
@@ -50,6 +53,9 @@ describe('NetworkGraphCanvas', () => {
         pathEndpointIds={[]}
         pathMemberIds={[]}
         onNodeClick={vi.fn()}
+        selectedNodeId={null}
+        onCanvasClick={vi.fn()}
+        resetViewKey={0}
       />,
     );
     expect(screen.getByText('Suresh Naik')).toBeInTheDocument();
@@ -68,6 +74,9 @@ describe('NetworkGraphCanvas', () => {
         pathEndpointIds={[]}
         pathMemberIds={[]}
         onNodeClick={onNodeClick}
+        selectedNodeId={null}
+        onCanvasClick={vi.fn()}
+        resetViewKey={0}
       />,
     );
 
@@ -86,6 +95,9 @@ describe('NetworkGraphCanvas', () => {
         pathEndpointIds={[]}
         pathMemberIds={[]}
         onNodeClick={onNodeClick}
+        selectedNodeId={null}
+        onCanvasClick={vi.fn()}
+        resetViewKey={0}
       />,
     );
 
@@ -104,6 +116,9 @@ describe('NetworkGraphCanvas', () => {
         pathEndpointIds={[]}
         pathMemberIds={[]}
         onNodeClick={onNodeClick}
+        selectedNodeId={null}
+        onCanvasClick={vi.fn()}
+        resetViewKey={0}
       />,
     );
 
@@ -121,6 +136,9 @@ describe('NetworkGraphCanvas', () => {
         pathEndpointIds={['5001']}
         pathMemberIds={[]}
         onNodeClick={vi.fn()}
+        selectedNodeId={null}
+        onCanvasClick={vi.fn()}
+        resetViewKey={0}
       />,
     );
     expect(screen.getByLabelText('Suresh Naik')).toHaveClass('path-endpoint');
@@ -135,6 +153,9 @@ describe('NetworkGraphCanvas', () => {
         pathEndpointIds={[]}
         pathMemberIds={['5002']}
         onNodeClick={vi.fn()}
+        selectedNodeId={null}
+        onCanvasClick={vi.fn()}
+        resetViewKey={0}
       />,
     );
     expect(screen.getByLabelText('Vijay Kumar')).toHaveClass('path-highlight');
@@ -150,6 +171,8 @@ describe('NetworkGraphCanvas', () => {
         pathMemberIds={[]}
         onNodeClick={vi.fn()}
         selectedNodeId={null}
+        onCanvasClick={vi.fn()}
+        resetViewKey={0}
       />,
     );
     const labels = Array.from(container.querySelectorAll('.edge-label')).map((el) => el.textContent);
@@ -168,6 +191,9 @@ describe('NetworkGraphCanvas', () => {
         pathContextIds={['case-176000']}
         pathEdgeIds={['e1', 'e2']}
         onNodeClick={vi.fn()}
+        selectedNodeId={null}
+        onCanvasClick={vi.fn()}
+        resetViewKey={0}
       />,
     );
     const pathEdges = container.querySelectorAll('.graph-edge.path-edge');
@@ -186,6 +212,9 @@ describe('NetworkGraphCanvas', () => {
         pathContextIds={['case-176000']}
         pathEdgeIds={['e1', 'e2']}
         onNodeClick={vi.fn()}
+        selectedNodeId={null}
+        onCanvasClick={vi.fn()}
+        resetViewKey={0}
       />,
     );
     expect(screen.getByLabelText('276/2026')).toHaveClass('path-highlight');
@@ -201,6 +230,9 @@ describe('NetworkGraphCanvas', () => {
         pathEndpointIds={['5001', '5002']}
         pathMemberIds={['5001', '5002']}
         onNodeClick={vi.fn()}
+        selectedNodeId={null}
+        onCanvasClick={vi.fn()}
+        resetViewKey={0}
       />,
     );
     expect(screen.getByLabelText('Whitefield PS')).toHaveClass('dimmed');
@@ -218,6 +250,9 @@ describe('NetworkGraphCanvas', () => {
         pathEndpointIds={['5001']}
         pathMemberIds={[]}
         onNodeClick={vi.fn()}
+        selectedNodeId={null}
+        onCanvasClick={vi.fn()}
+        resetViewKey={0}
       />,
     );
     expect(screen.getByLabelText('Vijay Kumar')).not.toHaveClass('dimmed');
@@ -232,6 +267,9 @@ describe('NetworkGraphCanvas', () => {
         pathEndpointIds={['5001', '5002']}
         pathMemberIds={['5001', '5002']}
         onNodeClick={vi.fn()}
+        selectedNodeId={null}
+        onCanvasClick={vi.fn()}
+        resetViewKey={0}
       />,
     );
     const first = container.querySelector('circle[aria-label="Suresh Naik"]')!;

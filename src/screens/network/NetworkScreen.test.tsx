@@ -168,7 +168,9 @@ describe('NetworkScreen', () => {
     // The background subgraph query must still be the original person focus
     // on the latest render -- it must never itself switch to focus: 'path',
     // or the rest of the network would disappear instead of just dimming.
-    const backgroundCalls = networkApiModule.useSubgraph.mock.calls.filter(([, params]) => (params as { focus?: string } | null)?.focus !== 'path');
+    const backgroundCalls = vi
+      .mocked(networkApiModule.useSubgraph)
+      .mock.calls.filter(([, params]) => (params as { focus?: string } | null)?.focus !== 'path');
     expect(backgroundCalls[backgroundCalls.length - 1]).toEqual(['jwt', { focus: 'person', personId: 5001, hops: 2 }]);
   });
 

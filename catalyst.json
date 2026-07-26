@@ -2,7 +2,7 @@
   "appsail": [
     {
       "source": ".",
-      "name": "app-frontend"
+      "name": "AppSail"
     }
   ]
 }

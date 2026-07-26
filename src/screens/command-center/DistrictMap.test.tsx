@@ -243,6 +243,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -269,6 +272,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -288,6 +294,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -315,6 +324,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -340,6 +352,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -362,6 +377,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -387,6 +405,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -399,6 +420,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -423,6 +447,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -437,6 +464,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -454,6 +484,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -472,6 +505,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -491,6 +527,9 @@ describe('DistrictMap', () => {
         onBack={onBack}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -510,6 +549,9 @@ describe('DistrictMap', () => {
         onBack={onBack}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -530,6 +572,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -555,13 +600,16 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
     const map = FakeMap.instances[0];
     const source = map.getSource('stations') as { data: StationBoundaryFeatureCollection };
     const unmatched = source.data.features.find((f) => f.properties.unitId === 302);
-    expect((unmatched?.properties as { caseCount: number | null }).caseCount).toBeNull();
+    expect((unmatched?.properties as unknown as { caseCount: number | null }).caseCount).toBeNull();
   });
 
   it('removes the stations layer and source when station boundaries are cleared', () => {
@@ -576,6 +624,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -590,6 +641,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -610,6 +664,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -638,6 +695,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -663,6 +723,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -689,6 +752,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -711,6 +777,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -730,6 +799,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -755,6 +827,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -771,6 +846,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -791,6 +869,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -813,6 +894,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -828,6 +912,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -864,6 +951,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -889,6 +979,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -905,6 +998,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -928,6 +1024,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={onStationSelect}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -951,6 +1050,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -974,6 +1076,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={onStationBack}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -992,6 +1097,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -1013,6 +1121,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 
@@ -1028,6 +1139,9 @@ describe('DistrictMap', () => {
         onBack={vi.fn()}
         onStationSelect={vi.fn()}
         onStationBack={vi.fn()}
+        timeOfDayBuckets={[]}
+        timeOfDay="all"
+        onTimeOfDayChange={vi.fn()}
       />,
     );
 

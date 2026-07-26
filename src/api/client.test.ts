@@ -9,7 +9,7 @@ afterEach(() => {
 describe('apiFetch', () => {
   it('always resolves through getMockResponse, with no network fetch involved', async () => {
     const mockSpy = vi.spyOn(mockData, 'getMockResponse').mockResolvedValue({ ok: true });
-    const fetchSpy = vi.spyOn(global, 'fetch');
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
 
     const result = await apiFetch('/api/me', {}, 'test-token');
 

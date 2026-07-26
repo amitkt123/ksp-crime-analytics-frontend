@@ -9,7 +9,7 @@ function forEachPosition(coordinates: unknown, visit: (pos: Position) => void): 
   for (const child of coordinates) forEachPosition(child, visit);
 }
 
-export function geometryBounds(geometry: { coordinates: unknown }): [[number, number], [number, number]] {
+export function geometryBounds(geometry: { coordinates?: unknown }): [[number, number], [number, number]] {
   let minLng = Infinity;
   let minLat = Infinity;
   let maxLng = -Infinity;
@@ -28,13 +28,13 @@ export function geometryBounds(geometry: { coordinates: unknown }): [[number, nu
 // Bounds-center approximation, not a true polygon centroid -- good enough for
 // placing a marker near the middle of a district/station shape without pulling in
 // a geometry library for what's a visual nicety (the red-zone pulse), not analysis.
-export function featureCentroid(geometry: { coordinates: unknown }): [number, number] {
+export function featureCentroid(geometry: { coordinates?: unknown }): [number, number] {
   const [[minLng, minLat], [maxLng, maxLat]] = geometryBounds(geometry);
   return [(minLng + maxLng) / 2, (minLat + maxLat) / 2];
 }
 
 export function featureCollectionBounds(featureCollection: {
-  features: Array<{ geometry: { coordinates: unknown } }>;
+  features: Array<{ geometry: { coordinates?: unknown } }>;
 }): [[number, number], [number, number]] {
   let minLng = Infinity;
   let minLat = Infinity;
