@@ -58,7 +58,7 @@ export function computeForceLayout(nodes: GraphNodeResponse[], edges: GraphEdgeR
         const dy = a.y - b.y;
         const d2 = dx * dx + dy * dy || 0.01;
         const d = Math.sqrt(d2);
-        const rep = 900 / d2;
+        const rep = 2200 / d2;
         const fx = (dx / d) * rep;
         const fy = (dy / d) * rep;
         a.fx += fx;
@@ -75,7 +75,7 @@ export function computeForceLayout(nodes: GraphNodeResponse[], edges: GraphEdgeR
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
-      const target = PERSON_TO_PERSON_EDGE_TYPES.has(e.type) ? 70 : 50;
+      const target = PERSON_TO_PERSON_EDGE_TYPES.has(e.type) ? 110 : 80;
       const f = (d - target) * 0.02;
       const fx = (dx / d) * f;
       const fy = (dy / d) * f;

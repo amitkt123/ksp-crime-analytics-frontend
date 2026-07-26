@@ -9,7 +9,7 @@ import path from 'node:path';
 import { mulberry32 } from './mock-dataset/prng.mjs';
 import { DISTRICTS, CRIME_SUB_HEADS, scaleWeightsToTarget } from './mock-dataset/seedData.mjs';
 import { readTsJsonConst, generateStationCases, distributeDistrictCasesAcrossStations, setCrimeSubHeads } from './mock-dataset/generateCases.mjs';
-import { buildOffenderPool, buildRepeatOffenders, buildCommunities } from './mock-dataset/generateNetwork.mjs';
+import { pickNetworkDemoCases, buildOffenderPool, buildRepeatOffenders, buildCommunities } from './mock-dataset/generateNetwork.mjs';
 import {
   buildCommandCenterSummary, buildDistrictSummaries, buildDistrictCorrelation,
   buildTimeOfDayBuckets, buildPredictiveRisk, buildCaseAnomalies, buildSearchIndex,
@@ -17,6 +17,9 @@ import {
 
 const TARGET_TOTAL_CASES = 200_000;
 const SEED = 20260724;
+// Its own seed/stream, decoupled from `rng` above, so tuning the network demo
+// sample never reshuffles the unrelated case/aggregate output.
+const NETWORK_SEED = 20260725;
 const OUT_DIR = 'public/data/mock';
 
 async function writeJson(relativePath, data) {
@@ -50,7 +53,8 @@ async function main() {
     }
   }
 
-  const { tuples } = buildOffenderPool(allCases, rng);
+  const networkRng = mulberry32(NETWORK_SEED);
+  const { tuples } = buildOffenderPool(pickNetworkDemoCases(allCases, networkRng), networkRng);
   await writeJson('network/repeat-offenders.json', buildRepeatOffenders(tuples, 2, 500));
   await writeJson('network/communities.json', buildCommunities(tuples, CRIME_SUB_HEADS, 3));
   await writeJson('network/tuples.json', tuples);

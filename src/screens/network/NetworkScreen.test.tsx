@@ -148,7 +148,7 @@ describe('NetworkScreen', () => {
     await waitFor(() => expect(networkApiModule.useSubgraph).toHaveBeenLastCalledWith('jwt', { focus: 'community', communityId: 2 }));
   });
 
-  it('toggling path mode and clicking two people queries useNetworkPath with both ids and switches focus to path', async () => {
+  it('toggling path mode and clicking two people fetches the path context without abandoning the current subgraph focus', async () => {
     mockAuth();
     mockNetworkQueries({
       subgraph: mockSuccess({ nodes: [personNode, secondPersonNode], edges: [], generatedAt: subgraph.generatedAt }),
@@ -161,7 +161,15 @@ describe('NetworkScreen', () => {
     await userEvent.click(screen.getByLabelText('Vijay Kumar'));
 
     await waitFor(() => expect(networkApiModule.useNetworkPath).toHaveBeenLastCalledWith('jwt', 5001, 5002, 6));
-    await waitFor(() => expect(networkApiModule.useSubgraph).toHaveBeenLastCalledWith('jwt', { focus: 'path', from: 5001, to: 5002, maxHops: 6 }));
+    // The path-focused subgraph (Case/Location nodes + edges that justify each
+    // hop) is fetched as an extra query so it can be layered on top of --
+    // rather than dims/highlights not deriving from -- the background graph.
+    await waitFor(() => expect(networkApiModule.useSubgraph).toHaveBeenCalledWith('jwt', { focus: 'path', from: 5001, to: 5002, maxHops: 6 }));
+    // The background subgraph query must still be the original person focus
+    // on the latest render -- it must never itself switch to focus: 'path',
+    // or the rest of the network would disappear instead of just dimming.
+    const backgroundCalls = networkApiModule.useSubgraph.mock.calls.filter(([, params]) => (params as { focus?: string } | null)?.focus !== 'path');
+    expect(backgroundCalls[backgroundCalls.length - 1]).toEqual(['jwt', { focus: 'person', personId: 5001, hops: 2 }]);
   });
 
   it('clicking a CASE node opens CaseDetailPanel instead of the person/offender flow', async () => {

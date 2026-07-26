@@ -4,7 +4,7 @@ export const ROLE_DEFAULT_ROUTE: Record<string, string> = {
   DISTRICT_SUPERVISOR: '/command-center',
   SCRB_ANALYST: '/command-center',
   POLICYMAKER: '/command-center',
-  ADMIN: '/admin',
+  ADMIN: '/command-center',
   SUPER_ADMIN: '/command-center',
 };
 

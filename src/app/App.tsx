@@ -4,14 +4,11 @@ import { AuthProvider } from '../auth/AuthContext';
 import { LoginScreen } from '../auth/LoginScreen';
 import { ProtectedRoute } from './ProtectedRoute';
 import { Rail } from './Rail';
-import { Header } from './Header';
-import { ScreenPlaceholder } from './ScreenPlaceholder';
 import { CommandCenterScreen } from '../screens/command-center/CommandCenterScreen';
 import { CaseExplorerScreen } from '../screens/case-explorer/CaseExplorerScreen';
 import { CaseDetailScreen } from '../screens/case-explorer/CaseDetailScreen';
 import { NetworkScreen } from '../screens/network/NetworkScreen';
 import { SociologicalScreen } from '../screens/sociological/SociologicalScreen';
-import { ChatScreen } from '../screens/chat/ChatScreen';
 
 const queryClient = new QueryClient();
 
@@ -39,7 +36,7 @@ function AuthenticatedShell() {
         <Route
           path="/command-center"
           element={
-            <ProtectedRoute allowedRoles={['DISTRICT_SUPERVISOR', 'SCRB_ANALYST', 'POLICYMAKER']}>
+            <ProtectedRoute allowedRoles={['DISTRICT_SUPERVISOR', 'SCRB_ANALYST', 'POLICYMAKER', 'ADMIN']}>
               <CommandCenterScreen />
             </ProtectedRoute>
           }
@@ -73,25 +70,6 @@ function AuthenticatedShell() {
           element={
             <ProtectedRoute allowedRoles={['DISTRICT_SUPERVISOR', 'SCRB_ANALYST', 'POLICYMAKER']}>
               <SociologicalScreen />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/chat"
-          element={
-            <ProtectedRoute allowedRoles={['DISTRICT_SUPERVISOR', 'SCRB_ANALYST', 'POLICYMAKER', 'INVESTIGATOR', 'STATION_SUPERVISOR']}>
-              <ChatScreen />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
-              <>
-                <Header title="Admin / Audit" />
-                <ScreenPlaceholder title="Admin / Audit" />
-              </>
             </ProtectedRoute>
           }
         />

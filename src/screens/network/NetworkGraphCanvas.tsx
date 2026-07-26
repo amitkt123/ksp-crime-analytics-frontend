@@ -10,10 +10,35 @@ interface NetworkGraphCanvasProps {
   communityByLabel: Map<string, number>;
   pathEndpointIds: string[];
   pathMemberIds: string[];
+  // Case/Location node ids that justify a path hop (from the focus=path
+  // subgraph) -- highlighted and exempted from dimming alongside
+  // pathMemberIds, but not repositioned by applyPathLayout's straight-line
+  // chain since they aren't part of the ordered Person-to-Person path.
+  pathContextIds?: string[];
+  // Real edge ids belonging to the path subgraph (direct hops plus the
+  // edges into each justifying Case/Location) -- which edge to highlight is
+  // read directly off the backend's answer instead of re-derived from
+  // consecutive pathMemberIds pairs, so it stays correct even when a hop is
+  // only connected via a shared case rather than a direct edge.
+  pathEdgeIds?: string[];
   onNodeClick: (node: GraphNodeResponse) => void;
   selectedNodeId: string | null;
+  rootNodeId?: string | null;
   onCanvasClick: () => void;
   resetViewKey: number;
+}
+
+// How far the pointer has to move (in screen px) before a pointerdown on a
+// node is treated as a drag instead of a click.
+const DRAG_THRESHOLD = 3;
+
+interface DragState {
+  nodeId: string;
+  startClientX: number;
+  startClientY: number;
+  startOffsetX: number;
+  startOffsetY: number;
+  moved: boolean;
 }
 
 export function NetworkGraphCanvas({
@@ -22,8 +47,11 @@ export function NetworkGraphCanvas({
   communityByLabel,
   pathEndpointIds,
   pathMemberIds,
+  pathContextIds = [],
+  pathEdgeIds = [],
   onNodeClick,
   selectedNodeId,
+  rootNodeId = null,
   onCanvasClick,
   resetViewKey,
 }: NetworkGraphCanvasProps) {
@@ -33,18 +61,24 @@ export function NetworkGraphCanvas({
     [basePositions, pathEndpointIds, pathMemberIds],
   );
 
-  // pathMemberIds comes from the path API already ordered from -> to, so
-  // consecutive pairs are exactly the hops of the shortest path -- used to
-  // pick out which rendered edges belong to that chain.
-  const pathEdgeKeys = useMemo(() => {
-    const keys = new Set<string>();
-    for (let i = 0; i < pathMemberIds.length - 1; i++) {
-      keys.add(`${pathMemberIds[i]}::${pathMemberIds[i + 1]}`);
-      keys.add(`${pathMemberIds[i + 1]}::${pathMemberIds[i]}`);
-    }
-    return keys;
-  }, [pathMemberIds]);
-  const dimNonPath = pathEndpointIds.length === 2 && pathMemberIds.length > 0;
+  // User-dragged offsets layered on top of the computed layout. Cleared
+  // whenever the underlying node/edge set changes (new focus/search) so a
+  // drag from a previous graph never leaks into the next one.
+  const [dragOffsets, setDragOffsets] = useState<Map<string, { x: number; y: number }>>(new Map());
+  const dragStateRef = useRef<DragState | null>(null);
+  useEffect(() => {
+    setDragOffsets(new Map());
+  }, [nodes, edges]);
+
+  function positionFor(id: string) {
+    const base = positions.get(id);
+    if (!base) return null;
+    const offset = dragOffsets.get(id);
+    return offset ? { x: base.x + offset.x, y: base.y + offset.y } : base;
+  }
+
+  const pathEdgeIdSet = useMemo(() => new Set(pathEdgeIds), [pathEdgeIds]);
+  const dimNonPath = pathEndpointIds.length === 2 && (pathMemberIds.length > 0 || pathContextIds.length > 0);
 
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 });
   const [isPanning, setIsPanning] = useState(false);
@@ -98,6 +132,54 @@ export function NetworkGraphCanvas({
     setIsPanning(false);
   }
 
+  function handleNodePointerDown(event: React.PointerEvent, node: GraphNodeResponse) {
+    event.stopPropagation();
+    const offset = dragOffsets.get(node.id) ?? { x: 0, y: 0 };
+    dragStateRef.current = {
+      nodeId: node.id,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startOffsetX: offset.x,
+      startOffsetY: offset.y,
+      moved: false,
+    };
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture isn't implemented in every test/browser environment;
+      // dragging still works as long as the pointer stays over the node.
+    }
+  }
+
+  function handleNodePointerMove(event: React.PointerEvent) {
+    const drag = dragStateRef.current;
+    if (!drag) return;
+    const dxClient = event.clientX - drag.startClientX;
+    const dyClient = event.clientY - drag.startClientY;
+    if (!drag.moved && Math.hypot(dxClient, dyClient) < DRAG_THRESHOLD) return;
+    drag.moved = true;
+    const dx = dxClient / transform.k;
+    const dy = dyClient / transform.k;
+    setDragOffsets((prev) => {
+      const next = new Map(prev);
+      next.set(drag.nodeId, { x: drag.startOffsetX + dx, y: drag.startOffsetY + dy });
+      return next;
+    });
+  }
+
+  function handleNodePointerUp(event: React.PointerEvent, node: GraphNodeResponse) {
+    const drag = dragStateRef.current;
+    dragStateRef.current = null;
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // See handleNodePointerDown.
+    }
+    if (!drag || !drag.moved) {
+      onNodeClick(node);
+    }
+  }
+
   return (
     <svg
       ref={svgRef}
@@ -112,8 +194,8 @@ export function NetworkGraphCanvas({
     >
       <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
         {edges.map((edge) => {
-          const a = positions.get(edge.sourceId);
-          const b = positions.get(edge.targetId);
+          const a = positionFor(edge.sourceId);
+          const b = positionFor(edge.targetId);
           if (!a || !b) return null;
           const style = edgeStyleFor(edge.type);
           const tooltipParts = [style.label];
@@ -121,7 +203,7 @@ export function NetworkGraphCanvas({
           if (edge.sharedCaseLabel) tooltipParts.push(edge.sharedCaseLabel);
           const midX = (a.x + b.x) / 2;
           const midY = (a.y + b.y) / 2;
-          const isPathEdge = pathEdgeKeys.has(`${edge.sourceId}::${edge.targetId}`);
+          const isPathEdge = pathEdgeIdSet.has(edge.id);
           const isDimmed = dimNonPath && !isPathEdge;
           const edgeClass = `graph-edge${isPathEdge ? ' path-edge' : ''}${isDimmed ? ' dimmed' : ''}`;
           return (
@@ -162,33 +244,39 @@ export function NetworkGraphCanvas({
           );
         })}
         {nodes.map((node) => {
-          const pos = positions.get(node.id);
+          const pos = positionFor(node.id);
           if (!pos) return null;
-          const onPath = pathEndpointIds.includes(node.id) || pathMemberIds.includes(node.id);
+          const isEndpoint = pathEndpointIds.includes(node.id);
+          const isPathMember = pathMemberIds.includes(node.id) || pathContextIds.includes(node.id);
+          const onPath = isEndpoint || isPathMember;
           const dimClass = dimNonPath && !onPath ? ' dimmed' : '';
+          const stateClass = isEndpoint ? ' path-endpoint' : isPathMember ? ' path-highlight' : '';
           const selectedClass = node.id === selectedNodeId ? ' selected' : '';
+          const isRoot = node.id === rootNodeId;
+          const rootClass = isRoot ? ' graph-node-root' : '';
+          const dragProps = {
+            onPointerDown: (event: React.PointerEvent) => handleNodePointerDown(event, node),
+            onPointerMove: handleNodePointerMove,
+            onPointerUp: (event: React.PointerEvent) => handleNodePointerUp(event, node),
+            onPointerCancel: (event: React.PointerEvent) => handleNodePointerUp(event, node),
+          };
 
           if (node.type === 'PERSON') {
             const communityId = communityByLabel.get(node.label);
-            const stateClass = pathEndpointIds.includes(node.id)
-              ? ' path-endpoint'
-              : pathMemberIds.includes(node.id)
-                ? ' path-highlight'
-                : '';
             return (
               <g key={node.id}>
                 <circle
-                  className={`graph-node${stateClass}${dimClass}${selectedClass}`}
+                  className={`graph-node${stateClass}${dimClass}${selectedClass}${rootClass}`}
                   cx={pos.x}
                   cy={pos.y}
-                  r={9}
+                  r={isRoot ? 13 : 9}
                   fill={communityId != null ? colorForCommunity(communityId) : 'var(--muted-2)'}
                   tabIndex={0}
                   role="button"
                   aria-label={node.label}
-                  onClick={() => onNodeClick(node)}
+                  {...dragProps}
                 />
-                <text className={`node-label${dimClass}`} x={pos.x} y={pos.y - 13} textAnchor="middle" fontSize={12 / transform.k}>
+                <text className={`node-label${dimClass}`} x={pos.x} y={pos.y - (isRoot ? 17 : 13)} textAnchor="middle" fontSize={12 / transform.k} fontWeight={isRoot ? 700 : 400}>
                   {node.label}
                 </text>
               </g>
@@ -196,38 +284,41 @@ export function NetworkGraphCanvas({
           }
 
           if (node.type === 'CASE') {
+            const size = isRoot ? 7 : 5;
             return (
               <g key={node.id}>
                 <rect
-                  className={`graph-node graph-node-case${dimClass}${selectedClass}`}
-                  x={pos.x - 5}
-                  y={pos.y - 5}
-                  width={10}
-                  height={10}
+                  className={`graph-node graph-node-case${stateClass}${dimClass}${selectedClass}${rootClass}`}
+                  x={pos.x - size}
+                  y={pos.y - size}
+                  width={size * 2}
+                  height={size * 2}
                   transform={`rotate(45 ${pos.x} ${pos.y})`}
                   tabIndex={0}
                   role="button"
                   aria-label={node.label}
-                  onClick={() => onNodeClick(node)}
+                  {...dragProps}
                 />
-                <text className={`node-label${dimClass}`} x={pos.x} y={pos.y - 13} textAnchor="middle" fontSize={12 / transform.k}>
+                <text className={`node-label${dimClass}`} x={pos.x} y={pos.y - (isRoot ? 17 : 13)} textAnchor="middle" fontSize={12 / transform.k} fontWeight={isRoot ? 700 : 400}>
                   {node.label}
                 </text>
               </g>
             );
           }
 
+          const halfWidth = isRoot ? 11 : 8;
+          const halfHeight = halfWidth * 0.7;
           return (
             <g key={node.id}>
               <polygon
-                className={`graph-node graph-node-location${dimClass}${selectedClass}`}
-                points={`${pos.x},${pos.y - 8} ${pos.x + 8},${pos.y + 5.6} ${pos.x - 8},${pos.y + 5.6}`}
+                className={`graph-node graph-node-location${stateClass}${dimClass}${selectedClass}${rootClass}`}
+                points={`${pos.x},${pos.y - halfWidth} ${pos.x + halfWidth},${pos.y + halfHeight} ${pos.x - halfWidth},${pos.y + halfHeight}`}
                 tabIndex={0}
                 role="button"
                 aria-label={node.label}
-                onClick={() => onNodeClick(node)}
+                {...dragProps}
               />
-              <text className={`node-label${dimClass}`} x={pos.x} y={pos.y - 13} textAnchor="middle" fontSize={12 / transform.k}>
+              <text className={`node-label${dimClass}`} x={pos.x} y={pos.y - (isRoot ? 17 : 13)} textAnchor="middle" fontSize={12 / transform.k} fontWeight={isRoot ? 700 : 400}>
                 {node.label}
               </text>
             </g>

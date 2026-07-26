@@ -261,12 +261,14 @@
 .network-main { grid-area: main; position: relative; overflow: hidden; background: var(--canvas); }
 .graph-canvas { width: 100%; height: 100%; display: block; }
 .graph-canvas-skeleton { position: absolute; inset: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; opacity: 0.5; }
-.graph-node { cursor: pointer; transition: opacity 0.2s ease; }
-.graph-node.path-endpoint { stroke: var(--predicted); stroke-width: 3px; animation: path-endpoint-pulse 1.1s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.graph-node { cursor: grab; touch-action: none; transition: opacity 0.2s ease; }
+.graph-node:active { cursor: grabbing; }
+.graph-node.path-endpoint { stroke: var(--predicted); stroke-width: 3px; fill: var(--predicted); animation: path-endpoint-pulse 1.1s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 .graph-node.path-highlight { stroke: var(--predicted); stroke-width: 2px; }
 .graph-node.selected { stroke: var(--real); stroke-width: 2px; }
+.graph-node-root { stroke: var(--cat-3); stroke-width: 3px; }
 .graph-node.dimmed { opacity: 0.18; }
-.graph-node-case, .graph-node-location { fill: var(--muted-2); opacity: 0.7; cursor: default; }
+.graph-node-case, .graph-node-location { fill: var(--muted-2); opacity: 0.7; }
 .graph-node-case.dimmed, .graph-node-location.dimmed { opacity: 0.12; }
 .graph-edge { stroke: var(--muted-2); stroke-width: 1; opacity: 0.55; transition: opacity 0.2s ease, stroke-width 0.2s ease; }
 .graph-edge.mo-shared { stroke-dasharray: 3 3; }

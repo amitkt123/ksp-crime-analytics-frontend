@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { Rail } from './Rail';
 
 describe('Rail', () => {
-  it('renders all 5 screen links with the current one marked active', () => {
+  it('renders all 4 screen links with the current one marked active', () => {
     render(
       <MemoryRouter initialEntries={['/case-explorer']}>
         <Rail />
@@ -15,7 +15,8 @@ describe('Rail', () => {
     expect(screen.getByText('Case Explorer')).toBeInTheDocument();
     expect(screen.getByText('Network / Link Analysis')).toBeInTheDocument();
     expect(screen.getByText('Sociological & Predictive')).toBeInTheDocument();
-    expect(screen.getByText('Admin / Audit')).toBeInTheDocument();
+    expect(screen.queryByText('Chat')).not.toBeInTheDocument();
+    expect(screen.queryByText('Admin / Audit')).not.toBeInTheDocument();
 
     const caseExplorerLink = screen.getByRole('link', { name: 'Case Explorer' });
     expect(caseExplorerLink).toHaveAttribute('aria-current', 'page');

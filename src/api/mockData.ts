@@ -79,13 +79,19 @@ const MOCK_ME_SUPERVISOR = {
   username: 'demo.supervisor', firstName: 'Demo', rank: 'Station Supervisor', unit: 'Whitefield PS',
   unitId: 176, districtId: 5, roles: ['STATION_SUPERVISOR'],
 };
+const MOCK_ME_SUPERADMIN = {
+  username: 'demo.superadmin', firstName: 'Demo', rank: 'Super Admin', unit: 'Whitefield PS',
+  unitId: 176, districtId: 5, roles: ['SUPER_ADMIN'],
+};
 const DEMO_LOGINS: Record<string, { token: string; roles: string[] }> = {
   'demo.investigator': { token: 'mock-token-investigator', roles: ['INVESTIGATOR'] },
   'demo.supervisor': { token: 'mock-token-supervisor', roles: ['STATION_SUPERVISOR'] },
+  'demo.superadmin': { token: 'mock-token-superadmin', roles: ['SUPER_ADMIN'] },
 };
 const MOCK_ME_BY_TOKEN: Record<string, typeof MOCK_ME> = {
   'mock-token-investigator': MOCK_ME_INVESTIGATOR,
   'mock-token-supervisor': MOCK_ME_SUPERVISOR,
+  'mock-token-superadmin': MOCK_ME_SUPERADMIN,
 };
 function mockLogin(username: string): { token: string; roles: string[] } {
   return DEMO_LOGINS[username] ?? { token: 'mock-token', roles: ['SCRB_ANALYST'] };

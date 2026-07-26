@@ -16,8 +16,8 @@ describe('defaultRouteForRoles', () => {
     expect(defaultRouteForRoles(['SUPER_ADMIN'])).toBe('/command-center');
   });
 
-  it('routes Admin to Admin/Audit', () => {
-    expect(defaultRouteForRoles(['ADMIN'])).toBe('/admin');
+  it('routes Admin to Command Center', () => {
+    expect(defaultRouteForRoles(['ADMIN'])).toBe('/command-center');
   });
 
   it('routes Super Admin to Command Center', () => {

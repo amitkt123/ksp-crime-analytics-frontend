@@ -49,6 +49,20 @@ type SelectedNode =
   | { source: 'case'; data: GraphNodeResponse }
   | { source: 'location'; data: GraphNodeResponse };
 
+// Layers the path-focused subgraph's nodes/edges on top of the currently
+// displayed background subgraph instead of replacing it, so a found path
+// (plus the Case/Location nodes that justify each hop) can be highlighted
+// against the rest of the network dimmed behind it, rather than the
+// background disappearing.
+function mergeById<T extends { id: string }>(base: T[], extra: T[]): T[] {
+  if (extra.length === 0) return base;
+  const byId = new Map(base.map((item) => [item.id, item]));
+  extra.forEach((item) => {
+    if (!byId.has(item.id)) byId.set(item.id, item);
+  });
+  return Array.from(byId.values());
+}
+
 export function NetworkScreen() {
   const { token } = useAuth();
 
@@ -64,6 +78,14 @@ export function NetworkScreen() {
   const offendersQuery = useRepeatOffenders(token);
   const communitiesQuery = useCommunities(token);
   const pathQuery = useNetworkPath(token, pathEndpoints[0] ?? null, pathEndpoints[1] ?? null, 6);
+  // Independent of `subgraphQuery`/`focus` on purpose: fetching this doesn't
+  // touch what's already rendered. It supplies the Person chain plus the
+  // Case/Location nodes and edges that justify each hop, so the found path
+  // can be layered on top of (and highlighted against) the existing graph.
+  const pathSubgraphQuery = useSubgraph(
+    token,
+    pathEndpoints.length === 2 ? { focus: 'path', from: pathEndpoints[0], to: pathEndpoints[1], maxHops: 6 } : null,
+  );
 
   const communityByLabel = useMemo(() => {
     const map = new Map<string, number>();
@@ -71,11 +93,32 @@ export function NetworkScreen() {
     return map;
   }, [communitiesQuery.data]);
 
+  // The single entity the current view is centered on -- distinct from
+  // selectedNodeForHighlight, which tracks whatever node was last clicked
+  // inside the graph. Path/community focus have no single root.
+  const rootNodeId = useMemo(() => {
+    if (!focus) return null;
+    if (focus.mode === 'person') return String(focus.personId);
+    if (focus.mode === 'case') return String(focus.caseId);
+    if (focus.mode === 'location') return String(focus.locationId);
+    return null;
+  }, [focus]);
+
   const isLoading = subgraphQuery.isLoading || offendersQuery.isLoading || communitiesQuery.isLoading;
   const isError = subgraphQuery.isError || offendersQuery.isError || communitiesQuery.isError;
 
-  const nodes = subgraphQuery.data?.nodes ?? [];
-  const edges = subgraphQuery.data?.edges ?? [];
+  const pathContextNodes = pathSubgraphQuery.data?.nodes ?? [];
+  const pathContextEdges = pathSubgraphQuery.data?.edges ?? [];
+  const nodes = useMemo(
+    () => mergeById(subgraphQuery.data?.nodes ?? [], pathContextNodes),
+    [subgraphQuery.data, pathContextNodes],
+  );
+  const edges = useMemo(
+    () => mergeById(subgraphQuery.data?.edges ?? [], pathContextEdges),
+    [subgraphQuery.data, pathContextEdges],
+  );
+  const pathContextIds = useMemo(() => pathContextNodes.map((n) => n.id), [pathContextNodes]);
+  const pathEdgeIds = useMemo(() => pathContextEdges.map((e) => e.id), [pathContextEdges]);
   const offenders = offendersQuery.data ?? [];
   const communities = communitiesQuery.data ?? [];
 
@@ -99,9 +142,10 @@ export function NetworkScreen() {
         setPathEndpoints([personId]);
       } else if (pathEndpoints.length === 1) {
         if (pathEndpoints[0] === personId) return;
-        const next = [pathEndpoints[0], personId];
-        setPathEndpoints(next);
-        setFocus({ mode: 'path', from: next[0], to: next[1] });
+        // Keep the currently rendered subgraph in place -- swapping focus to
+        // 'path' here would refetch a path-only subgraph and make the rest
+        // of the network disappear instead of just dimming behind the path.
+        setPathEndpoints([pathEndpoints[0], personId]);
       } else {
         setPathEndpoints([personId]);
       }
@@ -187,8 +231,11 @@ export function NetworkScreen() {
                   communityByLabel={communityByLabel}
                   pathEndpointIds={pathEndpoints.map(String)}
                   pathMemberIds={(pathQuery.data?.personIds ?? []).map(String)}
+                  pathContextIds={pathContextIds}
+                  pathEdgeIds={pathEdgeIds}
                   onNodeClick={handleNodeClick}
                   selectedNodeId={selectedNodeForHighlight}
+                  rootNodeId={rootNodeId}
                   onCanvasClick={deselectAll}
                   resetViewKey={resetViewKey}
                 />

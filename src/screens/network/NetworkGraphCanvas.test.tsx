@@ -164,13 +164,32 @@ describe('NetworkGraphCanvas', () => {
         edges={edges}
         communityByLabel={new Map()}
         pathEndpointIds={['5001', 'location-176']}
-        pathMemberIds={['5001', 'case-176000', 'location-176']}
+        pathMemberIds={['5001', 'location-176']}
+        pathContextIds={['case-176000']}
+        pathEdgeIds={['e1', 'e2']}
         onNodeClick={vi.fn()}
       />,
     );
     const pathEdges = container.querySelectorAll('.graph-edge.path-edge');
     expect(pathEdges).toHaveLength(2);
     expect(container.querySelectorAll('.graph-edge.dimmed')).toHaveLength(0);
+  });
+
+  it('marks a Case node justifying a path hop with the path-highlight class via pathContextIds', () => {
+    render(
+      <NetworkGraphCanvas
+        nodes={nodes}
+        edges={edges}
+        communityByLabel={new Map()}
+        pathEndpointIds={['5001', 'location-176']}
+        pathMemberIds={['5001', 'location-176']}
+        pathContextIds={['case-176000']}
+        pathEdgeIds={['e1', 'e2']}
+        onNodeClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText('276/2026')).toHaveClass('path-highlight');
+    expect(screen.getByLabelText('276/2026')).not.toHaveClass('dimmed');
   });
 
   it('dims nodes and edges outside the resolved path once both endpoints are set', () => {

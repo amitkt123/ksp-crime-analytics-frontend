@@ -44,25 +44,6 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
-  {
-    path: '/chat',
-    label: 'Chat',
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9A1.5 1.5 0 0 1 18.5 16H9l-4 3.5V16H5.5A1.5 1.5 0 0 1 4 14.5v-9Z" />
-      </svg>
-    ),
-  },
-  {
-    path: '/admin',
-    label: 'Admin / Audit',
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 3.5 19 6v5.2c0 4.2-2.9 7.3-7 8.3-4.1-1-7-4.1-7-8.3V6l7-2.5Z" />
-        <path d="M9 12l2 2 4-4.2" />
-      </svg>
-    ),
-  },
 ];
 
 export function Rail() {

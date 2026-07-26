@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import type { CaseDetailResponse } from './caseApi';
 import type { CaseAnomalyResponse, DistrictCorrelationResponse, PredictiveRiskForecastResponse } from './sociologicalApi';
 
@@ -58,16 +58,6 @@ export function explainCaseAnomaly(anomaly: CaseAnomalyResponse): Promise<Explai
   return postExplain({ requestType: 'EXPLAIN_CASE_ANOMALY', ...anomaly });
 }
 
-export async function sendChatMessage(message: string): Promise<{ reply: string; model: string }> {
-  const response = await fetch(`${AGENT_SERVICE_BASE_URL}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
-  });
-  if (!response.ok) throw new Error(`Chat request failed with status ${response.status}`);
-  return response.json() as Promise<{ reply: string; model: string }>;
-}
-
 export function useExplainCase(caseDetail: CaseDetailResponse | undefined, enabled: boolean) {
   return useQuery({
     queryKey: ['explain-case', caseDetail?.caseId],
@@ -75,8 +65,4 @@ export function useExplainCase(caseDetail: CaseDetailResponse | undefined, enabl
     enabled: enabled && caseDetail != null,
     staleTime: 5 * 60_000,
   });
-}
-
-export function useSendChatMessage() {
-  return useMutation({ mutationFn: sendChatMessage });
 }

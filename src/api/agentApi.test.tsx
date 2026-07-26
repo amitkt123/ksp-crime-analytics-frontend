@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
-import { explainCase, explainCorrelation, sendChatMessage, useSendChatMessage } from './agentApi';
+import { explainCase, explainCorrelation } from './agentApi';
 import type { CaseDetailResponse } from './caseApi';
 import type { DistrictCorrelationResponse } from './sociologicalApi';
 
@@ -69,36 +66,5 @@ describe('explainCorrelation', () => {
       expect.stringContaining('/api/explain'),
       expect.objectContaining({ body: JSON.stringify({ requestType: 'EXPLAIN_CORRELATION', ...district }) }),
     );
-  });
-});
-
-describe('sendChatMessage', () => {
-  it('POSTs to /api/chat and returns the reply/model', async () => {
-    vi.spyOn(global, 'fetch').mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ reply: 'Hello', model: 'catalyst-model' }),
-    } as unknown as Response);
-
-    const result = await sendChatMessage('hi');
-    expect(result).toEqual({ reply: 'Hello', model: 'catalyst-model' });
-  });
-});
-
-describe('useSendChatMessage', () => {
-  it('exposes a mutate function that resolves with the reply', async () => {
-    vi.spyOn(global, 'fetch').mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ reply: 'Hello', model: 'catalyst-model' }),
-    } as unknown as Response);
-    const queryClient = new QueryClient();
-    function wrapper({ children }: { children: ReactNode }) {
-      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
-    }
-
-    const { result } = renderHook(() => useSendChatMessage(), { wrapper });
-    result.current.mutate('hi');
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toEqual({ reply: 'Hello', model: 'catalyst-model' });
   });
 });

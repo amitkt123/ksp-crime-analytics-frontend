@@ -8,6 +8,37 @@ function poolSize(caseCount) {
   return Math.max(1, Math.floor(caseCount / 8));
 }
 
+// Feeding all ~200k generated cases into buildOffenderPool produces a
+// pool this large (caseCount/8) that the /network screen's ego/path
+// subgraphs read as a hairball. Narrowing to a handful of stations first --
+// instead of shrinking the divisor -- keeps enough same-station case
+// density for buildPathAdjacency's co-accused chaining and buildCommunities'
+// crime-category grouping to still produce a legible, multi-hop demo graph.
+const NETWORK_DEMO_STATION_COUNT = 6;
+const NETWORK_DEMO_CASES_PER_STATION = 24;
+
+export function pickNetworkDemoCases(allCases, rng) {
+  const byStation = new Map();
+  allCases.forEach((c) => {
+    const list = byStation.get(c.unitId);
+    if (list) list.push(c);
+    else byStation.set(c.unitId, [c]);
+  });
+
+  const stationPool = Array.from(byStation.keys());
+  const pickedStationIds = [];
+  for (let i = 0; i < NETWORK_DEMO_STATION_COUNT && stationPool.length > 0; i++) {
+    const index = Math.floor(rng() * stationPool.length);
+    pickedStationIds.push(stationPool.splice(index, 1)[0]);
+  }
+
+  const sample = [];
+  pickedStationIds.forEach((unitId) => {
+    sample.push(...byStation.get(unitId).slice(0, NETWORK_DEMO_CASES_PER_STATION));
+  });
+  return sample;
+}
+
 const FIRST_NAMES = ['Suresh', 'Vijay', 'Rakesh', 'Prakash', 'Imran', 'Ganesh', 'Anand', 'Farhan', 'Girish', 'Harish', 'Iqbal', 'Jagadish', 'Kiran', 'Lokesh', 'Manoj', 'Naveen'];
 const LAST_NAMES = ['Naik', 'Kumar', 'Yadav', 'Shetty', 'Khan', 'Bhat', 'Deshpande', 'Sheikh', 'Kulkarni', 'Poojary', 'Ahmed', 'Rao', 'Reddy', 'Gowda', 'Hegde', 'Setty'];
 
