@@ -1,4 +1,6 @@
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
+import { ROUTE_ALLOWED_ROLES, hasRouteAccess } from '../auth/roleRouting';
 
 const NAV_ITEMS = [
   {
@@ -44,12 +46,27 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  {
+    path: '/crime-analytics',
+    label: 'Crime Analytics',
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 20V10M11 20V4M18 20v-7" />
+      </svg>
+    ),
+  },
 ];
 
 export function Rail() {
+  const { roles } = useAuth();
+  const visibleItems = NAV_ITEMS.filter((item) => hasRouteAccess(roles, ROUTE_ALLOWED_ROLES[item.path]));
+
   return (
     <nav className="rail" aria-label="Primary">
-      {NAV_ITEMS.map((item) => (
+      <div className="rail-mark">
+        <img src="/KSP-LOGO.png" alt="Karnataka State Police" />
+      </div>
+      {visibleItems.map((item) => (
         <NavLink key={item.path} to={item.path} className="rail-item" aria-label={item.label}>
           {item.icon}
           <span className="rail-tip">{item.label}</span>

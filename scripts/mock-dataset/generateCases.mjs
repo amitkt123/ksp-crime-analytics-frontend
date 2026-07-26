@@ -17,6 +17,11 @@ export async function readTsJsonConst(filePath, constName) {
 const CASE_STATUSES = ['registered', 'under_investigation', 'closed'];
 const CASE_GRAVITIES = ['serious', 'heinous', 'minor'];
 
+// core-platform's case_category seed reserves this 1-digit code for FIR
+// (see R__seed_reference_data.sql); this generator only models FIR-type
+// records, so every crimeNumber below uses it.
+const CASE_CATEGORY_CODE_FIR = 1;
+
 const VICTIM_NAMES = [
   'Ramesh Kumar', 'Sunita Devi', 'Arjun Rao', 'Lakshmi Bai', 'Manjunath Gowda', 'Fathima Begum',
   'Chandrashekar Naidu', 'Vidya Bhat', 'Srinivas Murthy', 'Anita Kulkarni', 'Basavaraj Hiremath',
@@ -102,8 +107,12 @@ function generateLocation(rng, station) {
 
 // One full CaseDetailResponse-shaped record per index -- matches
 // src/api/caseApi.ts's CaseDetailResponse exactly.
-export function generateStationCases(station, districtName, caseCount, rng) {
+export function generateStationCases(station, districtId, districtName, caseCount, rng) {
   const cases = [];
+  // Crime Number's running serial (last 5 digits) is scoped per police
+  // station + case category + year; since every case here is category FIR
+  // at this one station, a single per-year counter is enough.
+  const crimeNoSerialsByYear = new Map();
   for (let index = 0; index < caseCount; index++) {
     const crimeType = pick(rng, GLOBAL_CRIME_SUB_HEADS);
     const status = pick(rng, CASE_STATUSES);
@@ -111,20 +120,24 @@ export function generateStationCases(station, districtName, caseCount, rng) {
     const dayOffset = Math.floor(rng() * 400);
     const firDate = offsetDate('2026-06-01', -dayOffset);
     const caseId = station.unitId * 100_000 + index;
+    const firYear = Number(firDate.slice(0, 4));
+    const crimeNoSerial = (crimeNoSerialsByYear.get(firYear) ?? 0) + 1;
+    crimeNoSerialsByYear.set(firYear, crimeNoSerial);
 
     const parties = [mockParty(rng, 'victim', VICTIM_NAMES), mockParty(rng, 'accused', ACCUSED_NAMES)];
     if (rng() < 0.3) parties.unshift(mockParty(rng, 'complainant', COMPLAINANT_NAMES));
 
     cases.push({
       caseId,
-      caseNumber: `${100 + index}/2026`,
+      // CaseNo per the ER diagram spec: YYYY + 5-digit running serial (last 9 digits of crimeNumber below).
+      caseNumber: `${firYear}${String(crimeNoSerial).padStart(5, '0')}`,
       unitId: station.unitId,
       unitName: station.unitName,
       crimeSubHeadId: crimeType.crimeSubHeadId,
       crimeSubHeadName: crimeType.crimeSubHeadName,
       status,
       firDate,
-      crimeNumber: `FIR-2026-KA-${String(station.unitId).padStart(3, '0')}${String(index).padStart(3, '0')}`,
+      crimeNumber: `${CASE_CATEGORY_CODE_FIR}${String(districtId).padStart(4, '0')}${String(station.unitId).padStart(4, '0')}${firYear}${String(crimeNoSerial).padStart(5, '0')}`,
       station: station.unitName,
       district: districtName,
       gravity,

@@ -9,6 +9,8 @@ import { CaseExplorerScreen } from '../screens/case-explorer/CaseExplorerScreen'
 import { CaseDetailScreen } from '../screens/case-explorer/CaseDetailScreen';
 import { NetworkScreen } from '../screens/network/NetworkScreen';
 import { SociologicalScreen } from '../screens/sociological/SociologicalScreen';
+import { CrimeAnalyticsScreen } from '../screens/insights/CrimeAnalyticsScreen';
+import { ROUTE_ALLOWED_ROLES } from '../auth/roleRouting';
 
 const queryClient = new QueryClient();
 
@@ -36,7 +38,7 @@ function AuthenticatedShell() {
         <Route
           path="/command-center"
           element={
-            <ProtectedRoute allowedRoles={['DISTRICT_SUPERVISOR', 'SCRB_ANALYST', 'POLICYMAKER', 'ADMIN']}>
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/command-center']}>
               <CommandCenterScreen />
             </ProtectedRoute>
           }
@@ -44,7 +46,7 @@ function AuthenticatedShell() {
         <Route
           path="/case-explorer"
           element={
-            <ProtectedRoute allowedRoles={['INVESTIGATOR', 'STATION_SUPERVISOR']}>
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/case-explorer']}>
               <CaseExplorerScreen />
             </ProtectedRoute>
           }
@@ -52,7 +54,7 @@ function AuthenticatedShell() {
         <Route
           path="/case-explorer/:caseId"
           element={
-            <ProtectedRoute allowedRoles={['INVESTIGATOR', 'STATION_SUPERVISOR']}>
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/case-explorer']}>
               <CaseDetailScreen />
             </ProtectedRoute>
           }
@@ -60,7 +62,7 @@ function AuthenticatedShell() {
         <Route
           path="/network"
           element={
-            <ProtectedRoute allowedRoles={['SCRB_ANALYST']}>
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/network']}>
               <NetworkScreen />
             </ProtectedRoute>
           }
@@ -68,8 +70,16 @@ function AuthenticatedShell() {
         <Route
           path="/sociological"
           element={
-            <ProtectedRoute allowedRoles={['DISTRICT_SUPERVISOR', 'SCRB_ANALYST', 'POLICYMAKER']}>
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/sociological']}>
               <SociologicalScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/crime-analytics"
+          element={
+            <ProtectedRoute allowedRoles={ROUTE_ALLOWED_ROLES['/crime-analytics']}>
+              <CrimeAnalyticsScreen />
             </ProtectedRoute>
           }
         />

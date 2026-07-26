@@ -15,3 +15,15 @@ export function defaultRouteForRoles(roles: string[]): string {
   }
   return '/command-center';
 }
+
+export const ROUTE_ALLOWED_ROLES: Record<string, string[]> = {
+  '/command-center': ['DISTRICT_SUPERVISOR', 'SCRB_ANALYST', 'POLICYMAKER', 'ADMIN'],
+  '/case-explorer': ['INVESTIGATOR', 'STATION_SUPERVISOR'],
+  '/network': ['SCRB_ANALYST', 'INVESTIGATOR', 'STATION_SUPERVISOR'],
+  '/sociological': ['DISTRICT_SUPERVISOR', 'SCRB_ANALYST', 'POLICYMAKER'],
+  '/crime-analytics': ['SCRB_ANALYST', 'POLICYMAKER', 'ADMIN'],
+};
+
+export function hasRouteAccess(roles: string[], allowedRoles: string[]): boolean {
+  return roles.some((role) => role.toUpperCase() === 'SUPER_ADMIN') || roles.some((role) => allowedRoles.includes(role));
+}

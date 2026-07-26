@@ -3,25 +3,11 @@ import { useAuth } from '../../auth/AuthContext';
 import { Header } from '../../app/Header';
 import { useMe } from '../../api/meApi';
 import { useCases, type CaseFilters, type CaseStatus } from '../../api/caseApi';
-import { useStationBoundaries } from '../../api/geoApi';
 import { CaseList } from './CaseList';
-import { CaseHeatmapView } from './CaseHeatmapView';
+import { CaseExplorerMap } from './CaseExplorerMap';
 import { CRIME_TYPE_OPTIONS } from '../../constants/crimeTypes';
-import { OverviewTab } from '../insights/OverviewTab';
-import { CrimeTrendsTab } from '../insights/CrimeTrendsTab';
-import { DemographicsTab } from '../insights/DemographicsTab';
-import { InvestigationNetworkTab } from '../insights/InvestigationNetworkTab';
-import { JudicialUnitsTab } from '../insights/JudicialUnitsTab';
 
-type CaseExplorerView = 'list' | 'map' | 'overview' | 'crime-trends' | 'demographics' | 'investigation-network' | 'judicial-units';
-
-const INSIGHTS_PILLS: { view: CaseExplorerView; label: string }[] = [
-  { view: 'overview', label: 'Overview' },
-  { view: 'crime-trends', label: 'Crime Trends' },
-  { view: 'demographics', label: 'Demographics' },
-  { view: 'investigation-network', label: 'Investigation Network' },
-  { view: 'judicial-units', label: 'Judicial & Units' },
-];
+type CaseExplorerView = 'list' | 'map';
 
 export function CaseExplorerScreen() {
   const { token } = useAuth();
@@ -40,8 +26,6 @@ export function CaseExplorerScreen() {
     q: q || undefined,
   };
   const casesQuery = useCases(token, unitId, filters);
-  const stationBoundariesQuery = useStationBoundaries(token, districtId);
-  const stationBoundary = stationBoundariesQuery.data?.features.find((f) => f.properties.unitId === unitId) ?? null;
 
   const isLoading = meQuery.isLoading || casesQuery.isLoading;
   const isError = meQuery.isError || casesQuery.isError;
@@ -113,7 +97,7 @@ export function CaseExplorerScreen() {
           </div>
         )}
       </Header>
-      <main className="main-single explorer-pane">
+      <main className="main-single explorer-pane overflow-y-auto">
         <div className="view-tabs" role="tablist" aria-label="Case view">
           <button
             type="button"
@@ -133,26 +117,11 @@ export function CaseExplorerScreen() {
           >
             Map
           </button>
-          {INSIGHTS_PILLS.map((pill) => (
-            <button
-              key={pill.view}
-              type="button"
-              role="tab"
-              aria-selected={view === pill.view}
-              className={`view-tab${view === pill.view ? ' active' : ''}`}
-              onClick={() => setView(pill.view)}
-            >
-              {pill.label}
-            </button>
-          ))}
         </div>
         {view === 'list' && <CaseList cases={casesQuery.data ?? []} />}
-        {view === 'map' && <CaseHeatmapView cases={casesQuery.data ?? []} stationBoundary={stationBoundary} />}
-        {view === 'overview' && <OverviewTab />}
-        {view === 'crime-trends' && <CrimeTrendsTab />}
-        {view === 'demographics' && <DemographicsTab />}
-        {view === 'investigation-network' && <InvestigationNetworkTab />}
-        {view === 'judicial-units' && <JudicialUnitsTab />}
+        {view === 'map' && (
+          <CaseExplorerMap token={token} filters={filters} defaultDistrictId={districtId} defaultUnitId={unitId} />
+        )}
       </main>
     </>
   );

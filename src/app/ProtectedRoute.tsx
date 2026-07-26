@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { defaultRouteForRoles } from '../auth/roleRouting';
+import { defaultRouteForRoles, hasRouteAccess } from '../auth/roleRouting';
 
 interface ProtectedRouteProps {
   allowedRoles: string[];
@@ -14,8 +14,7 @@ export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) 
   if (!token) {
     return <Navigate to="/login" replace />;
   }
-  const isAllowed = roles.some((role) => role.toUpperCase() === 'SUPER_ADMIN') || roles.some((role) => allowedRoles.includes(role));
-  if (!isAllowed) {
+  if (!hasRouteAccess(roles, allowedRoles)) {
     return <Navigate to={defaultRouteForRoles(roles)} replace />;
   }
   return <>{children}</>;

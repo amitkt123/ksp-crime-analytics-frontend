@@ -1,0 +1,28 @@
+version: 1.0
+
+# Runs only when master is updated - a direct push and a merged PR both land
+# as a push event on refs/heads/master, so one condition covers both cases.
+pipeline-when:
+  equal:
+    - << event.ref >>
+    - refs/heads/master
+
+images:
+  node:
+    image: node:20-alpine
+
+jobs:
+  build-and-deploy:
+    variables:
+      CATALYST_TOKEN: << env.CATALYST_TOKEN >>
+    steps:
+      - npm ci
+      - npm run build
+      - npm install -g zcatalyst-cli@beta
+      - catalyst deploy appsail --name AppSail --verbose
+
+stages:
+  - name: deploy
+    image: node
+    jobs:
+      - build-and-deploy

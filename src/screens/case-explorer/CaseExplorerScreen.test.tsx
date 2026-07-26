@@ -22,6 +22,14 @@ const { FakeMap } = vi.hoisted(() => {
     getSource() {
       return { setData: () => {} };
     }
+    getLayer() {
+      return undefined;
+    }
+    removeLayer() {}
+    removeSource() {}
+    setPaintProperty() {}
+    setFeatureState() {}
+    removeFeatureState() {}
     getCanvas() {
       return { style: {} };
     }
@@ -81,6 +89,7 @@ const me: meApiModule.MeResponse = {
 };
 
 const emptyStationBoundaries: geoApiModule.StationBoundaryFeatureCollection = { type: 'FeatureCollection', features: [] };
+const emptyDistrictBoundaries: geoApiModule.DistrictBoundaryFeatureCollection = { type: 'FeatureCollection', features: [] };
 
 function mockAuth() {
   vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
@@ -91,7 +100,10 @@ function mockAuth() {
     logout: vi.fn(),
   });
   vi.spyOn(meApiModule, 'useMe').mockReturnValue(mockSuccess(me));
+  vi.spyOn(geoApiModule, 'useDistrictBoundaries').mockReturnValue(mockSuccess(emptyDistrictBoundaries));
+  vi.spyOn(geoApiModule, 'useDistrictSummaries').mockReturnValue(mockSuccess([]));
   vi.spyOn(geoApiModule, 'useStationBoundaries').mockReturnValue(mockSuccess(emptyStationBoundaries));
+  vi.spyOn(geoApiModule, 'useStationSummaries').mockReturnValue(mockSuccess([]));
 }
 
 function renderScreen() {
@@ -168,18 +180,21 @@ describe('CaseExplorerScreen', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Map' }));
 
     expect(screen.getByRole('tab', { name: 'Map' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('img', { name: 'Heatmap of case locations' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Map of case locations across Karnataka\'s districts and police stations' }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('276/2026')).not.toBeInTheDocument();
   });
 
-  it('fetches station boundaries for the logged-in unit\'s district', async () => {
+  it('fetches station boundaries for the logged-in unit\'s district once the map tab is open', async () => {
     mockAuth();
-    const useStationBoundariesSpy = vi.spyOn(geoApiModule, 'useStationBoundaries');
+    const useStationBoundariesSpy = vi.spyOn(geoApiModule, 'useStationBoundaries').mockReturnValue(mockSuccess(emptyStationBoundaries));
     vi.spyOn(caseApiModule, 'useCases').mockReturnValue(mockSuccess(cases));
 
     renderScreen();
+    await screen.findByText('276/2026');
+    await userEvent.click(screen.getByRole('tab', { name: 'Map' }));
 
-    expect(await screen.findByText('276/2026')).toBeInTheDocument();
     expect(useStationBoundariesSpy).toHaveBeenCalledWith('jwt', 5);
   });
 });

@@ -47,7 +47,7 @@ async function main() {
 
     for (const { station, caseCount } of perStation) {
       unitIdToDistrictId.set(station.unitId, district.districtId);
-      const stationCases = generateStationCases(station, district.districtName, caseCount, rng);
+      const stationCases = generateStationCases(station, district.districtId, district.districtName, caseCount, rng);
       await writeJson(`cases/station-${station.unitId}.json`, stationCases);
       allCases.push(...stationCases);
     }
