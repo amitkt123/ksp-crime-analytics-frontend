@@ -57,6 +57,8 @@ const districtDetail: geoApiModule.DistrictDetailResponse = {
     resolvedPctDeltaPts: 0.5, topCrimeSubHead: 'Chain Snatching', topCrimeSubHeadCount: 20,
   },
   categoryMix: [{ crimeHeadId: 2, crimeGroupName: 'Crimes Against Property', count: 88 }],
+  caseVolumeWeekly: [{ isoYear: 2026, isoWeek: 1, count: 15 }],
+  arrestsWeekly: [{ isoYear: 2026, isoWeek: 1, count: 4 }],
 };
 const timeOfDay: geoApiModule.DistrictTimeOfDayResponse = {
   buckets: [
@@ -412,5 +414,42 @@ describe('CommandCenterScreen', () => {
 
     const dialog = await screen.findByRole('dialog', { name: 'State case count' });
     expect(within(dialog).getByText('58,214')).toBeInTheDocument();
+  });
+
+  it('shows district-scoped data in the modal for the sidebar tiles, and state data for the top tiles, while a district is selected', async () => {
+    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+      token: 'jwt', roles: ['SCRB_ANALYST'], username: 'demo.analyst', login: vi.fn(), logout: vi.fn(),
+    });
+    vi.spyOn(meApiModule, 'useMe').mockReturnValue(
+      mockSuccess<meApiModule.MeResponse>(undefined as unknown as meApiModule.MeResponse),
+    );
+    vi.spyOn(commandCenterApiModule, 'useCommandCenterSummary').mockReturnValue(mockSuccess(summary));
+    vi.spyOn(geoApiModule, 'useDistrictSummaries').mockReturnValue(mockSuccess(districts));
+    vi.spyOn(geoApiModule, 'useDistrictBoundaries').mockReturnValue(mockSuccess(boundaries));
+    vi.spyOn(geoApiModule, 'useStationSummaries').mockReturnValue(mockSuccess(stations));
+    vi.spyOn(geoApiModule, 'useDistrictDetail').mockReturnValue(mockSuccess(districtDetail));
+    vi.spyOn(geoApiModule, 'useStationBoundaries').mockReturnValue(mockSuccess(stationBoundaries));
+    vi.spyOn(geoApiModule, 'useStationIncidents').mockReturnValue(mockSuccess<geoApiModule.StationIncidentPointResponse[]>([]));
+    vi.spyOn(alertsApiModule, 'useEmergingAlerts').mockReturnValue(mockSuccess(alerts));
+    vi.spyOn(geoApiModule, 'useDistrictTimeOfDay').mockReturnValue(mockSuccess(timeOfDay));
+    vi.spyOn(caseApiModule, 'useCases').mockReturnValue(mockSuccess<caseApiModule.CaseSummaryResponse[]>([]));
+    vi.spyOn(caseApiModule, 'useCaseDetail').mockReturnValue(
+      mockSuccess<caseApiModule.CaseDetailResponse>(undefined as unknown as caseApiModule.CaseDetailResponse),
+    );
+
+    renderScreen();
+
+    await userEvent.click(await screen.findByText('Select Mysuru'));
+    await waitFor(() => expect(screen.getByText('District case count')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('District case count'));
+    const districtDialog = await screen.findByRole('dialog', { name: 'District case count' });
+    expect(within(districtDialog).getByText('480')).toBeInTheDocument();
+    expect(within(districtDialog).getByText('District case volume vs. arrests, weekly')).toBeInTheDocument();
+    await userEvent.click(within(districtDialog).getByRole('button', { name: /close/i }));
+
+    await userEvent.click(screen.getByText('State case count'));
+    const stateDialog = await screen.findByRole('dialog', { name: 'State case count' });
+    expect(within(stateDialog).getByText('58,214')).toBeInTheDocument();
   });
 });

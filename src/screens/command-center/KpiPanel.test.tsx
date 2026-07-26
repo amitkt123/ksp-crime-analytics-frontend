@@ -53,9 +53,9 @@ describe('KpiPanel', () => {
     render(<KpiPanel kpi={sampleKpi} onSelectMetric={onSelectMetric} />);
 
     await userEvent.click(screen.getByText('State case count').closest('button')!);
-    expect(onSelectMetric).toHaveBeenCalledWith('case-count');
+    expect(onSelectMetric).toHaveBeenCalledWith('case-count', 'district');
 
     await userEvent.click(screen.getByText('Cases resolved').closest('button')!);
-    expect(onSelectMetric).toHaveBeenCalledWith('resolved-pct');
+    expect(onSelectMetric).toHaveBeenCalledWith('resolved-pct', 'district');
   });
 });

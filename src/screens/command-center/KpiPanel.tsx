@@ -3,21 +3,31 @@ import type { KpiResponse } from '../../api/commandCenterApi';
 
 export type CommandCenterMetricKey = 'case-count' | 'resolved-pct' | 'top-crime-subhead';
 
+export type MetricScope = 'state' | 'district';
+
 interface KpiPanelProps {
   kpi: KpiResponse;
   scopeLabel?: string;
-  onSelectMetric?: (metric: CommandCenterMetricKey) => void;
+  onSelectMetric?: (metric: CommandCenterMetricKey, scope: MetricScope) => void;
 }
 
 export function KpiPanel({ kpi, scopeLabel = 'State case count', onSelectMetric }: KpiPanelProps) {
   return (
     <section className="grid grid-cols-2 gap-3">
-      <Tile metric="case-count" onSelectMetric={onSelectMetric}>
+      <Tile
+        metric="case-count"
+        description="Total number of active cases in the selected district."
+        onSelectMetric={onSelectMetric}
+      >
         <span className="text-xs font-semibold tracking-wider text-muted uppercase">{scopeLabel}</span>
         <div className="mono mt-1.5 text-2xl font-bold text-ink">{kpi.stateCaseCount.toLocaleString()}</div>
         <Delta value={kpi.stateCaseCountDeltaPct} suffix="% vs. prior 30 days" />
       </Tile>
-      <Tile metric="resolved-pct" onSelectMetric={onSelectMetric}>
+      <Tile
+        metric="resolved-pct"
+        description="Percentage of cases that have been marked as resolved in the selected district."
+        onSelectMetric={onSelectMetric}
+      >
         <span className="text-xs font-semibold tracking-wider text-muted uppercase">Cases resolved</span>
         <div className="mono mt-1.5 text-2xl font-bold text-ink">
           {kpi.resolvedPct.toFixed(1)}
@@ -31,22 +41,29 @@ export function KpiPanel({ kpi, scopeLabel = 'State case count', onSelectMetric 
 
 function Tile({
   metric,
+  description,
   onSelectMetric,
   children,
 }: {
   metric: CommandCenterMetricKey;
-  onSelectMetric?: (metric: CommandCenterMetricKey) => void;
+  description: string;
+  onSelectMetric?: (metric: CommandCenterMetricKey, scope: MetricScope) => void;
   children: ReactNode;
 }) {
   const className = 'rounded-xl border border-border bg-surface p-3.5';
   if (!onSelectMetric) {
-    return <div className={className}>{children}</div>;
+    return (
+      <div className={className} title={description}>
+        {children}
+      </div>
+    );
   }
   return (
     <button
       type="button"
       className={`${className} w-full cursor-pointer text-left transition-all hover:border-accent hover:shadow-md`}
-      onClick={() => onSelectMetric(metric)}
+      onClick={() => onSelectMetric(metric, 'district')}
+      title={description}
     >
       {children}
     </button>

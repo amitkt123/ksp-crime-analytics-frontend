@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from './client';
-import type { KpiResponse, CategorySliceResponse } from './commandCenterApi';
+import type { KpiResponse, CategorySliceResponse, SparklinePointResponse } from './commandCenterApi';
 
 export interface DistrictSummaryResponse {
   districtId: number;
@@ -17,6 +17,8 @@ export interface StationSummaryResponse {
 export interface DistrictDetailResponse {
   kpi: KpiResponse;
   categoryMix: CategorySliceResponse[];
+  caseVolumeWeekly: SparklinePointResponse[];
+  arrestsWeekly: SparklinePointResponse[];
 }
 
 export interface DistrictBoundaryFeatureCollection {

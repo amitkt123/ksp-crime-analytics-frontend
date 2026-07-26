@@ -1,9 +1,11 @@
 // Real offender networks are far smaller than case counts -- this pool size
-// (roughly case count / 6) keeps repeat-offender reuse meaningful without
+// (roughly case count / 8) keeps repeat-offender reuse meaningful without
 // ballooning to one person per case, while always staying below the case
 // count itself. Applies independently to accused and victim identity pools.
+// (A larger divisor means more distinct identities, so ego-network subgraphs
+// come out a bit sparser than a tighter pool would produce.)
 function poolSize(caseCount) {
-  return Math.max(1, Math.floor(caseCount / 6));
+  return Math.max(1, Math.floor(caseCount / 8));
 }
 
 const FIRST_NAMES = ['Suresh', 'Vijay', 'Rakesh', 'Prakash', 'Imran', 'Ganesh', 'Anand', 'Farhan', 'Girish', 'Harish', 'Iqbal', 'Jagadish', 'Kiran', 'Lokesh', 'Manoj', 'Naveen'];

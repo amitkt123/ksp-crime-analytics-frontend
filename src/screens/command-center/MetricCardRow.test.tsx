@@ -47,10 +47,10 @@ describe('MetricCardRow', () => {
     render(<MetricCardRow kpi={kpi} arrestsWeekly={rising} stateCaseVolumeWeekly={falling} onSelectMetric={onSelectMetric} />);
 
     await userEvent.click(screen.getByText('State case count'));
-    expect(onSelectMetric).toHaveBeenCalledWith('case-count');
+    expect(onSelectMetric).toHaveBeenCalledWith('case-count', 'state');
 
     await userEvent.click(screen.getByText('Cases resolved'));
-    expect(onSelectMetric).toHaveBeenCalledWith('resolved-pct');
+    expect(onSelectMetric).toHaveBeenCalledWith('resolved-pct', 'state');
   });
 
   it('does not render the arrests/case-volume cards as buttons (no metric-detail route for them)', () => {

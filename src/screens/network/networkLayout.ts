@@ -99,3 +99,30 @@ export function computeForceLayout(nodes: GraphNodeResponse[], edges: GraphEdgeR
   layoutNodes.forEach((n) => positions.set(n.id, { x: n.x, y: n.y }));
   return positions;
 }
+
+const PATH_MARGIN_X = 70;
+const PATH_Y = CANVAS_H / 2;
+
+// Overrides the force layout for an active path: the first endpoint pins to
+// the left edge, the second to the right, and the resolved chain in between
+// (pathMemberIds, already ordered from-to by the path API) spaces out evenly
+// on the line between them so the shortest path reads left-to-right at a
+// glance. Nodes outside the chain keep their force-layout position.
+export function applyPathLayout(
+  positions: Map<string, { x: number; y: number }>,
+  pathEndpointIds: string[],
+  pathMemberIds: string[],
+): Map<string, { x: number; y: number }> {
+  if (pathEndpointIds.length !== 2) return positions;
+
+  const chain = pathMemberIds.length >= 2 ? pathMemberIds : pathEndpointIds;
+  const ordered = chain[0] === pathEndpointIds[0] ? chain : [...chain].reverse();
+
+  const next = new Map(positions);
+  const usableWidth = CANVAS_W - PATH_MARGIN_X * 2;
+  ordered.forEach((id, i) => {
+    const x = ordered.length === 1 ? CANVAS_W / 2 : PATH_MARGIN_X + (usableWidth * i) / (ordered.length - 1);
+    next.set(id, { x, y: PATH_Y });
+  });
+  return next;
+}

@@ -18,29 +18,28 @@ import { CommunityLegend } from './CommunityLegend';
 import { RepeatOffenderRail } from './RepeatOffenderRail';
 import { CaseDetailPanel } from './CaseDetailPanel';
 import { LocationDetailPanel } from './LocationDetailPanel';
+import { NetworkSearch } from './NetworkSearch';
 
 type NetworkFocus =
-  | { mode: 'top-offenders' }
   | { mode: 'person'; personId: number }
-  | { mode: 'community'; communityId: number }
   | { mode: 'path'; from: number; to: number }
   | { mode: 'case'; caseId: number }
-  | { mode: 'location'; locationId: number };
+  | { mode: 'location'; locationId: number }
+  | { mode: 'community'; communityId: number };
 
-function subgraphParamsForFocus(focus: NetworkFocus): SubgraphParams {
+function subgraphParamsForFocus(focus: NetworkFocus | null): SubgraphParams | null {
+  if (!focus) return null;
   switch (focus.mode) {
-    case 'top-offenders':
-      return { focus: 'top-offenders', limit: 10 };
     case 'person':
       return { focus: 'person', personId: focus.personId, hops: 2 };
-    case 'community':
-      return { focus: 'community', communityId: focus.communityId };
     case 'path':
       return { focus: 'path', from: focus.from, to: focus.to, maxHops: 6 };
     case 'case':
       return { focus: 'case', caseId: focus.caseId };
     case 'location':
       return { focus: 'location', locationId: focus.locationId };
+    case 'community':
+      return { focus: 'community', communityId: focus.communityId };
   }
 }
 
@@ -53,10 +52,13 @@ type SelectedNode =
 export function NetworkScreen() {
   const { token } = useAuth();
 
-  const [focus, setFocus] = useState<NetworkFocus>({ mode: 'top-offenders' });
+  const [focus, setFocus] = useState<NetworkFocus | null>(null);
   const [pathMode, setPathMode] = useState(false);
   const [pathEndpoints, setPathEndpoints] = useState<number[]>([]);
-  const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(null);
+  const [selectedNodeForPanel, setSelectedNodeForPanel] = useState<SelectedNode | null>(null);
+  const [selectedNodeForHighlight, setSelectedNodeForHighlight] = useState<string | null>(null);
+  const [resetViewKey, setResetViewKey] = useState(0);
+  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
 
   const subgraphQuery = useSubgraph(token, subgraphParamsForFocus(focus));
   const offendersQuery = useRepeatOffenders(token);
@@ -72,81 +74,54 @@ export function NetworkScreen() {
   const isLoading = subgraphQuery.isLoading || offendersQuery.isLoading || communitiesQuery.isLoading;
   const isError = subgraphQuery.isError || offendersQuery.isError || communitiesQuery.isError;
 
-  if (isLoading) {
-    return (
-      <>
-        <Header title="Network / Link Analysis" />
-        <main className="network-main">
-          <div className="graph-canvas-skeleton" aria-label="Loading network graph" />
-        </main>
-      </>
-    );
-  }
-
-  if (isError) {
-    return (
-      <>
-        <Header title="Network / Link Analysis" />
-        <main className="network-main">
-          <p role="alert">Couldn't load the network — check your connection and try again.</p>
-          <button
-            onClick={() => {
-              subgraphQuery.refetch();
-              offendersQuery.refetch();
-              communitiesQuery.refetch();
-            }}
-          >
-            Retry
-          </button>
-        </main>
-      </>
-    );
-  }
-
   const nodes = subgraphQuery.data?.nodes ?? [];
   const edges = subgraphQuery.data?.edges ?? [];
   const offenders = offendersQuery.data ?? [];
   const communities = communitiesQuery.data ?? [];
 
-  function togglePathMode() {
-    setPathMode((prev) => !prev);
-    setPathEndpoints([]);
+  function handlePersonSubmit(personId: number) {
+    setFocus({ mode: 'person', personId });
+    setSearchPanelOpen(false);
   }
 
-  function handlePersonClick(personId: number) {
-    if (pathMode) {
-      setPathEndpoints((prev) => {
-        if (prev.includes(personId)) return prev;
-        const next = prev.length === 2 ? [personId] : [...prev, personId];
-        if (next.length === 2) setFocus({ mode: 'path', from: next[0], to: next[1] });
-        return next;
-      });
-      return;
-    }
-    const offender = offenders.find((o) => o.personId === personId);
-    if (offender) {
-      setSelectedNode({ source: 'offender', data: offender });
-    } else {
-      const node = nodes.find((n) => n.type === 'PERSON' && personIdOfNode(n) === personId);
-      if (node) setSelectedNode({ source: 'person', data: node });
-    }
-    setFocus({ mode: 'person', personId });
+  function handlePathSubmit(from: number, to: number) {
+    setFocus({ mode: 'path', from, to });
+    setPathEndpoints([from, to]);
+    setPathMode(true);
+    setSearchPanelOpen(false);
   }
 
   function handleNodeClick(node: GraphNodeResponse) {
     if (pathMode) {
-      if (node.type === 'PERSON') handlePersonClick(personIdOfNode(node));
+      if (node.type !== 'PERSON') return;
+      const personId = personIdOfNode(node);
+      if (pathEndpoints.length === 0) {
+        setPathEndpoints([personId]);
+      } else if (pathEndpoints.length === 1) {
+        if (pathEndpoints[0] === personId) return;
+        const next = [pathEndpoints[0], personId];
+        setPathEndpoints(next);
+        setFocus({ mode: 'path', from: next[0], to: next[1] });
+      } else {
+        setPathEndpoints([personId]);
+      }
       return;
     }
+
+    setSelectedNodeForHighlight(node.id);
     if (node.type === 'PERSON') {
-      handlePersonClick(personIdOfNode(node));
-      return;
+      const personId = personIdOfNode(node);
+      const offender = offenders.find((o) => o.personId === personId);
+      if (offender) {
+        setSelectedNodeForPanel({ source: 'offender', data: offender });
+      } else {
+        setSelectedNodeForPanel({ source: 'person', data: node });
+      }
+    } else if (node.type === 'CASE') {
+      setSelectedNodeForPanel({ source: 'case', data: node });
+    } else {
+      setSelectedNodeForPanel({ source: 'location', data: node });
     }
-    if (node.type === 'CASE') {
-      setSelectedNode({ source: 'case', data: node });
-      return;
-    }
-    setSelectedNode({ source: 'location', data: node });
   }
 
   function handleCommunitySelect(communityId: number) {
@@ -154,29 +129,35 @@ export function NetworkScreen() {
   }
 
   function resetFocus() {
-    setFocus({ mode: 'top-offenders' });
+    setFocus(null);
     setPathMode(false);
     setPathEndpoints([]);
+    setResetViewKey((k) => k + 1);
+  }
+
+  function deselectAll() {
+    setSelectedNodeForPanel(null);
+    setSelectedNodeForHighlight(null);
   }
 
   const generatedAt = subgraphQuery.data?.generatedAt ?? new Date().toISOString();
   const supportingCaseLabels = nodes.filter((n) => n.type === 'CASE').slice(0, 3).map((n) => n.label);
 
   const evidenceData: EvidenceData | null =
-    selectedNode && selectedNode.source === 'offender'
+    selectedNodeForPanel && selectedNodeForPanel.source === 'offender'
       ? {
-          claim: `${selectedNode.data.displayName} is linked to ${selectedNode.data.caseCount} case(s), gravity-weighted score ${selectedNode.data.gravityWeight}.`,
-          confidence: selectedNode.data.confidenceScore,
+          claim: `${selectedNodeForPanel.data.displayName} is linked to ${selectedNodeForPanel.data.caseCount} case(s), gravity-weighted score ${selectedNodeForPanel.data.gravityWeight}.`,
+          confidence: selectedNodeForPanel.data.confidenceScore,
           confidenceLabel: 'Identity-resolution confidence',
           method: 'graph-service repeat-offender ranking',
           baseline: 'Statewide',
           generatedAt,
           records: supportingCaseLabels,
         }
-      : selectedNode && selectedNode.source === 'person'
+      : selectedNodeForPanel && selectedNodeForPanel.source === 'person'
         ? {
-            claim: `${selectedNode.data.label} appears in the current network view.`,
-            confidence: selectedNode.data.confidence ?? 0,
+            claim: `${selectedNodeForPanel.data.label} appears in the current network view.`,
+            confidence: selectedNodeForPanel.data.confidence ?? 0,
             confidenceLabel: 'Identity-resolution confidence',
             method: 'graph-service subgraph query',
             baseline: 'Statewide',
@@ -185,56 +166,78 @@ export function NetworkScreen() {
           }
         : null;
 
-  if (nodes.length === 0) {
-    return (
-      <>
-        <Header title="Network / Link Analysis" />
-        <main className="network-main">
-          <p>No linked records for this view.</p>
-        </main>
-      </>
-    );
-  }
-
   return (
     <>
       <Header title="Network / Link Analysis" />
       <main className="network-main">
-        <NetworkGraphCanvas
-          nodes={nodes}
-          edges={edges}
-          communityByLabel={communityByLabel}
-          pathEndpointIds={pathEndpoints.map(String)}
-          pathMemberIds={(pathQuery.data?.personIds ?? []).map(String)}
-          onNodeClick={handleNodeClick}
-        />
-        <PathFindingBar
-          pathMode={pathMode}
-          onToggle={togglePathMode}
-          pathEndpoints={pathEndpoints}
-          pathResult={pathQuery.data}
-          isPathLoading={pathQuery.isLoading}
-          isPathError={pathQuery.isError}
-        />
-        {focus.mode !== 'top-offenders' && (
-          <button className="reset-focus-btn" onClick={resetFocus}>
-            Top offenders
-          </button>
+        {!focus ? (
+          <div className="network-landing">
+            <NetworkSearch onPersonSubmit={handlePersonSubmit} onPathSubmit={handlePathSubmit} />
+            <RepeatOffenderRail offenders={offenders} onSelect={handlePersonSubmit} />
+          </div>
+        ) : (
+          <>
+            {isLoading && <div className="graph-canvas-skeleton" aria-label="Loading network graph" />}
+            {isError && <p role="alert">Couldn't load the network — check your connection and try again.</p>}
+            {nodes.length > 0 && (
+              <>
+                <NetworkGraphCanvas
+                  nodes={nodes}
+                  edges={edges}
+                  communityByLabel={communityByLabel}
+                  pathEndpointIds={pathEndpoints.map(String)}
+                  pathMemberIds={(pathQuery.data?.personIds ?? []).map(String)}
+                  onNodeClick={handleNodeClick}
+                  selectedNodeId={selectedNodeForHighlight}
+                  onCanvasClick={deselectAll}
+                  resetViewKey={resetViewKey}
+                />
+                <div className="network-toolbar">
+                  <button
+                    className={`network-search-toggle-btn${searchPanelOpen ? ' active' : ''}`}
+                    aria-expanded={searchPanelOpen}
+                    onClick={() => setSearchPanelOpen((open) => !open)}
+                  >
+                    Search
+                  </button>
+                  <PathFindingBar
+                    pathMode={pathMode}
+                    onToggle={() => {
+                      setPathMode((p) => !p);
+                      setPathEndpoints([]);
+                    }}
+                    pathEndpoints={pathEndpoints}
+                    pathResult={pathQuery.data}
+                    isPathLoading={pathQuery.isLoading}
+                    isPathError={pathQuery.isError}
+                  />
+                  <button className="reset-focus-btn" onClick={resetFocus}>
+                    Clear view
+                  </button>
+                </div>
+                {searchPanelOpen && (
+                  <div className="network-search-popover">
+                    <NetworkSearch onPersonSubmit={handlePersonSubmit} onPathSubmit={handlePathSubmit} />
+                  </div>
+                )}
+                <CommunityLegend communities={communities} onSelect={handleCommunitySelect} />
+              </>
+            )}
+            {nodes.length === 0 && !isLoading && <p>No linked records for this view.</p>}
+          </>
         )}
-        <CommunityLegend communities={communities} onSelect={handleCommunitySelect} />
-        <RepeatOffenderRail offenders={offenders} onSelect={handlePersonClick} />
       </main>
-      <EvidencePanel data={evidenceData} onClose={() => setSelectedNode(null)} />
+      <EvidencePanel data={evidenceData} onClose={deselectAll} />
       <CaseDetailPanel
-        node={selectedNode?.source === 'case' ? selectedNode.data : null}
-        onClose={() => setSelectedNode(null)}
+        node={selectedNodeForPanel?.source === 'case' ? selectedNodeForPanel.data : null}
+        onClose={deselectAll}
         onFocus={(caseId) => setFocus({ mode: 'case', caseId })}
       />
       <LocationDetailPanel
-        node={selectedNode?.source === 'location' ? selectedNode.data : null}
+        node={selectedNodeForPanel?.source === 'location' ? selectedNodeForPanel.data : null}
         nodes={nodes}
         edges={edges}
-        onClose={() => setSelectedNode(null)}
+        onClose={deselectAll}
         onFocus={(locationId) => setFocus({ mode: 'location', locationId })}
       />
     </>

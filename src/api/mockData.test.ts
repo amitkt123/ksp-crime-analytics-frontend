@@ -118,30 +118,106 @@ describe('getMockResponse case detail', () => {
   });
 });
 
-describe('getMockResponse network search', () => {
+// Shared across both describe blocks below -- mockData.ts's loadJson/tuples
+// adjacency caches are module-scoped for the file's lifetime, so every test
+// that touches '/data/mock/network/tuples.json' must agree on its content
+// (see the station-176/177 comment above for the same caveat).
+const sampleTuples = [
+  { caseId: 1, caseNumber: '100/2026', unitId: 1, unitName: 'Test PS', crimeSubHeadId: 101, accusedId: 500001, accusedName: 'Suresh Naik', victimId: 700001, victimName: 'Ramesh Rao' },
+  { caseId: 2, caseNumber: '200/2026', unitId: 2, unitName: 'Other PS', crimeSubHeadId: 101, accusedId: 500002, accusedName: 'Suresh Kumar', victimId: 700001, victimName: 'Ramesh Rao' },
+];
+
+describe('getMockResponse network people', () => {
   beforeEach(() => {
     mockFetchJson({
       '/data/mock/search-index.json': [
         { id: 'case-1', type: 'CASE', label: '100/2026' },
         { id: '500001', type: 'PERSON', label: 'Suresh Naik' },
+        { id: '500002', type: 'PERSON', label: 'Suresh Kumar' },
       ],
+      '/data/mock/network/tuples.json': sampleTuples,
     });
   });
 
-  it('matches entries by case-insensitive label substring', async () => {
-    const result = (await getMockResponse('/api/network/search?q=suresh&limit=10', {})) as Array<{ id: string; type: string }>;
-    expect(result).toEqual([expect.objectContaining({ id: '500001', type: 'PERSON' })]);
+  it('matches PERSON entries by case-insensitive name substring', async () => {
+    const result = await getMockResponse('/api/network/people?q=suresh&limit=10', {});
+    expect(result).toEqual([
+      { personId: 500001, displayName: 'Suresh Naik' },
+      { personId: 500002, displayName: 'Suresh Kumar' },
+    ]);
   });
 
   it('returns an empty array for a query shorter than 2 characters', async () => {
-    const result = await getMockResponse('/api/network/search?q=s&limit=10', {});
+    const result = await getMockResponse('/api/network/people?q=s&limit=10', {});
     expect(result).toEqual([]);
+  });
+
+  it('narrows by FIR/case number when the name alone is ambiguous', async () => {
+    const result = await getMockResponse('/api/network/people?q=suresh&caseNo=200%2F2026&limit=10', {});
+    expect(result).toEqual([{ personId: 500002, displayName: 'Suresh Kumar' }]);
   });
 });
 
 describe('getMockResponse network path', () => {
-  it('returns null (path-finding over the generated graph is out of scope for this pivot)', async () => {
-    const result = await getMockResponse('/api/network/path?from=1&to=2&maxHops=6', {});
+  beforeEach(() => {
+    mockFetchJson({ '/data/mock/network/tuples.json': sampleTuples });
+  });
+
+  it('finds the shortest path between two people who share a victim', async () => {
+    const result = await getMockResponse('/api/network/path?from=500001&to=500002&maxHops=6', {});
+    expect(result).toEqual({
+      personIds: [500001, 700001, 500002],
+      displayNames: ['Suresh Naik', 'Ramesh Rao', 'Suresh Kumar'],
+      hopCount: 2,
+    });
+  });
+
+  it('returns null when no path exists within maxHops', async () => {
+    const result = await getMockResponse('/api/network/path?from=500001&to=999999&maxHops=6', {});
     expect(result).toBeNull();
+  });
+});
+
+describe('getMockResponse network subgraph — path focus', () => {
+  beforeEach(() => {
+    mockFetchJson({ '/data/mock/network/tuples.json': sampleTuples });
+  });
+
+  it('returns the path persons plus the justifying case and location, not an unrelated top-offenders network', async () => {
+    const result = (await getMockResponse(
+      '/api/network/subgraph?focus=path&from=500001&to=500002&maxHops=6',
+      {},
+    )) as { nodes: Array<{ id: string; type: string; label: string }>; edges: Array<{ sourceId: string; targetId: string; type: string }> };
+
+    const ids = result.nodes.map((n) => n.id).sort();
+    expect(ids).toEqual(['700001', 'case-1', 'case-2', 'location-1', 'location-2', '500001', '500002'].sort());
+    expect(result.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ sourceId: '500001', targetId: 'case-1', type: 'ACCUSED_IN' }),
+        expect.objectContaining({ sourceId: '700001', targetId: 'case-1', type: 'VICTIM_IN' }),
+        expect.objectContaining({ sourceId: '500002', targetId: 'case-2', type: 'ACCUSED_IN' }),
+        expect.objectContaining({ sourceId: '700001', targetId: 'case-2', type: 'VICTIM_IN' }),
+      ]),
+    );
+  });
+
+  it('returns just the one person, no adjacency lookup needed, when from === to', async () => {
+    const result = (await getMockResponse(
+      '/api/network/subgraph?focus=path&from=500001&to=500001&maxHops=6',
+      {},
+    )) as { nodes: Array<{ id: string }>; edges: unknown[] };
+
+    expect(result.nodes.map((n) => n.id)).toEqual(['500001']);
+    expect(result.edges).toEqual([]);
+  });
+
+  it('returns an empty subgraph when no path exists within maxHops', async () => {
+    const result = (await getMockResponse(
+      '/api/network/subgraph?focus=path&from=500001&to=999999&maxHops=6',
+      {},
+    )) as { nodes: unknown[]; edges: unknown[] };
+
+    expect(result.nodes).toEqual([]);
+    expect(result.edges).toEqual([]);
   });
 });

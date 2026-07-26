@@ -1,38 +1,52 @@
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { SidePanelChrome } from '../../design-system/SidePanelChrome';
-import type { CommandCenterSummaryResponse } from '../../api/commandCenterApi';
+import type { KpiResponse, CategorySliceResponse, SparklinePointResponse } from '../../api/commandCenterApi';
 import { CategoryMixChart } from './CategoryMixChart';
-import type { CommandCenterMetricKey } from './KpiPanel';
+import type { CommandCenterMetricKey, MetricScope } from './KpiPanel';
 
-const METRIC_LABEL: Record<CommandCenterMetricKey, string> = {
-  'case-count': 'State case count',
-  'resolved-pct': 'Cases resolved',
-  'top-crime-subhead': 'Top crime sub-head',
-};
+const SCOPE_WORD: Record<MetricScope, string> = { state: 'State', district: 'District' };
 
 interface MetricDetailModalProps {
   metricKey: CommandCenterMetricKey | null;
-  summary: CommandCenterSummaryResponse;
+  scope: MetricScope;
+  kpi: KpiResponse;
+  categoryMix: CategorySliceResponse[];
+  caseVolumeWeekly: SparklinePointResponse[];
+  arrestsWeekly: SparklinePointResponse[];
   onClose: () => void;
 }
 
-export function MetricDetailModal({ metricKey, summary, onClose }: MetricDetailModalProps) {
+export function MetricDetailModal({
+  metricKey,
+  scope,
+  kpi,
+  categoryMix,
+  caseVolumeWeekly,
+  arrestsWeekly,
+  onClose,
+}: MetricDetailModalProps) {
   const open = metricKey != null;
-  const label = (metricKey && METRIC_LABEL[metricKey]) || 'Metric detail';
-  const trend = summary.stateCaseVolumeWeekly.map((point, index) => ({
+  const scopeWord = SCOPE_WORD[scope];
+  const metricLabel: Record<CommandCenterMetricKey, string> = {
+    'case-count': `${scopeWord} case count`,
+    'resolved-pct': 'Cases resolved',
+    'top-crime-subhead': 'Top crime sub-head',
+  };
+  const label = (metricKey && metricLabel[metricKey]) || 'Metric detail';
+  const trend = caseVolumeWeekly.map((point, index) => ({
     week: `W${point.isoWeek}`,
     caseVolume: point.count,
-    arrests: summary.arrestsWeekly[index]?.count ?? 0,
+    arrests: arrestsWeekly[index]?.count ?? 0,
   }));
 
   return (
     <SidePanelChrome open={open} onClose={onClose} title={label} className="modal cc-mockup-type">
       {open && (
         <div className="flex flex-col gap-4">
-          <MetricHeadline metricKey={metricKey} summary={summary} />
+          <MetricHeadline metricKey={metricKey} kpi={kpi} scopeWord={scopeWord} />
 
           <div className="rounded-xl border border-border bg-canvas p-4">
-            <h3 className="mb-3 text-[13px] font-bold text-ink">State case volume vs. arrests, weekly</h3>
+            <h3 className="mb-3 text-[13px] font-bold text-ink">{scopeWord} case volume vs. arrests, weekly</h3>
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={trend} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
@@ -51,7 +65,7 @@ export function MetricDetailModal({ metricKey, summary, onClose }: MetricDetailM
               Case category mix <span className="count mono text-[11px] font-medium text-muted">30-day window</span>
             </h3>
             <div className="rounded-xl border border-border bg-canvas p-4">
-              <CategoryMixChart categoryMix={summary.categoryMix} />
+              <CategoryMixChart categoryMix={categoryMix} />
             </div>
           </section>
         </div>
@@ -62,13 +76,13 @@ export function MetricDetailModal({ metricKey, summary, onClose }: MetricDetailM
 
 function MetricHeadline({
   metricKey,
-  summary,
+  kpi,
+  scopeWord,
 }: {
   metricKey: CommandCenterMetricKey | null;
-  summary: CommandCenterSummaryResponse;
+  kpi: KpiResponse;
+  scopeWord: string;
 }) {
-  const { kpi } = summary;
-
   if (metricKey === 'resolved-pct') {
     return (
       <div className="rounded-xl border border-border bg-canvas p-4">
@@ -94,7 +108,7 @@ function MetricHeadline({
 
   return (
     <div className="rounded-xl border border-border bg-canvas p-4">
-      <span className="text-xs font-semibold tracking-wider text-muted uppercase">State case count</span>
+      <span className="text-xs font-semibold tracking-wider text-muted uppercase">{scopeWord} case count</span>
       <div className="mono mt-1.5 text-2xl font-bold text-ink">{kpi.stateCaseCount.toLocaleString()}</div>
       <Delta value={kpi.stateCaseCountDeltaPct} suffix="% vs. prior 30 days" />
     </div>

@@ -7,9 +7,11 @@ import type {
   StationBoundaryFeatureCollection,
   StationSummaryResponse,
   StationIncidentPointResponse,
+  TimeOfDayBucket,
 } from '../../api/geoApi';
 import { alertSeverity, type AlertSeverity, type EmergingAlertResponse } from '../../api/alertsApi';
 import type { KpiResponse } from '../../api/commandCenterApi';
+import { TimeOfDaySelector, type TimeOfDaySelection } from './TimeOfDaySelector';
 import { geometryBounds, featureCollectionBounds, featureCentroid } from './geoBounds';
 
 interface DistrictMapProps {
@@ -20,25 +22,20 @@ interface DistrictMapProps {
   stationSummaries?: StationSummaryResponse[];
   selectedStationId?: number | null;
   stationIncidents?: StationIncidentPointResponse[];
-  // District-scoped KPIs for the floating "District details" card -- null while
-  // useDistrictDetail is still loading or nothing is selected.
   districtKpi?: KpiResponse | null;
   onStationSelect: (unitId: number) => void;
   onStationBack: () => void;
   alerts?: EmergingAlertResponse[];
-  // When set, re-shades the district choropleth by these counts instead of each
-  // district's total caseCount -- used to layer a time-of-day slice onto the map
-  // (spatiotemporal hotspots) without touching station-level data, which stays
-  // scoped to total case count.
   caseCountOverride?: Map<number, number> | null;
   onDistrictSelect: (districtId: number) => void;
   onBack: () => void;
+  timeOfDayBuckets: TimeOfDayBucket[];
+  timeOfDay: TimeOfDaySelection;
+  onTimeOfDayChange: (value: TimeOfDaySelection) => void;
 }
 
 const SEVERITY_RANK: Record<AlertSeverity, number> = { moderate: 0, high: 1, critical: 2 };
 
-// Keeps the single most severe alert per district/station -- a red-zone marker
-// shouldn't downgrade just because a second, milder alert also landed there.
 function maxSeverityByKey(alerts: EmergingAlertResponse[], keyOf: (alert: EmergingAlertResponse) => number) {
   const map = new Map<number, AlertSeverity>();
   for (const alert of alerts) {
@@ -60,10 +57,6 @@ function createAlertMarkerElement(severity: AlertSeverity): HTMLDivElement {
   return el;
 }
 
-// Rebuilds every red-zone pulsing marker from scratch. Alert counts are small (a
-// handful of active alerts at once) so a full clear+recreate is simpler than
-// diffing, and mirrors applyDistrictSelection's pattern of being callable both at
-// map load and from a follow-up effect.
 function syncAlertMarkers(
   map: InstanceType<typeof maplibregl.Map>,
   boundaries: DistrictBoundaryFeatureCollection,
@@ -104,9 +97,6 @@ function districtCaseCountMap(
   return new Map(districtSummaries.map((d) => [d.districtId, d.caseCount]));
 }
 
-// Re-shades the choropleth in place via setData/setPaintProperty rather than
-// remounting the map -- toggling a time-of-day bucket must not tear down the
-// station layer or reset pan/zoom when a district is already drilled into.
 function applyDistrictCaseCounts(
   map: InstanceType<typeof maplibregl.Map>,
   boundaries: DistrictBoundaryFeatureCollection,
@@ -135,10 +125,6 @@ function applyDistrictCaseCounts(
 
 const DEFAULT_OUTLINE_COLOR = ['case', ['boolean', ['feature-state', 'hover'], false], '#2a78d6', '#D8DEEA'];
 
-// Dims (rather than filters out) every district but the selected one -- the state
-// shape stays visible and its other districts stay clickable, so zooming into one
-// district never loses the surrounding geographic context or the ability to jump
-// straight to a neighboring district.
 function applyDistrictSelection(
   map: InstanceType<typeof maplibregl.Map>,
   boundaries: DistrictBoundaryFeatureCollection,
@@ -167,10 +153,6 @@ function applyDistrictSelection(
   }
 }
 
-// Dims every sibling station (matching applyDistrictSelection's dimming, one level
-// down), zooms to the selected station's boundary, and swaps its choropleth fill for a
-// density heatmap of its real incident points. No zoom-dependent circle-layer
-// transition and no per-point hover -- a single fixed-paint heatmap layer is enough.
 function applyStationSelection(
   map: InstanceType<typeof maplibregl.Map>,
   stationBoundaries: StationBoundaryFeatureCollection | null,
@@ -233,11 +215,6 @@ function applyStationSelection(
   });
 }
 
-// No basemap tiles, no external tile server/token -- just the real district boundary
-// GeoJSON (already case-count-enriched here, district-id-enriched server-side by
-// DistrictBoundaryService) rendered as a MapLibre vector fill layer. Matches the design
-// spec's "why MapLibre over Mapbox" reasoning: the demo must not depend on an external
-// service staying up during judging.
 export function DistrictMap({
   boundaries,
   districtSummaries,
@@ -253,6 +230,9 @@ export function DistrictMap({
   onBack,
   onStationSelect,
   onStationBack,
+  timeOfDayBuckets,
+  timeOfDay,
+  onTimeOfDayChange,
 }: DistrictMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<InstanceType<typeof maplibregl.Map> | null>(null);
@@ -270,10 +250,6 @@ export function DistrictMap({
   const stationAlertSeverity = useMemo(() => maxSeverityByKey(alerts, (a) => a.unitId), [alerts]);
   const districtAlertSeverityRef = useRef(districtAlertSeverity);
   const stationAlertSeverityRef = useRef(stationAlertSeverity);
-  // Kept in refs, not effect deps -- onDistrictSelect's identity changes on every
-  // CommandCenterScreen render (it closes over react-router's setSearchParams, whose
-  // identity changes with the URL), which would otherwise tear down and recreate the
-  // whole map every time a district is selected, defeating the fitBounds animation below.
   onDistrictSelectRef.current = onDistrictSelect;
   onStationSelectRef.current = onStationSelect;
   selectedDistrictIdRef.current = selectedDistrictId;
@@ -315,9 +291,6 @@ export function DistrictMap({
         source: 'districts',
         paint: {
           'fill-color': ['interpolate', ['linear'], ['get', 'caseCount'], 0, '#b7d3f6', maxCount, '#104281'],
-          // MapLibre's style validator rejects CSS var() -- must be a literal color.
-          // '#D8DEEA' matches --line, '#2a78d6' matches --real, both light-theme
-          // literals from tokens.css.
           'fill-outline-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#2a78d6', '#D8DEEA'],
         },
       });
@@ -381,8 +354,6 @@ export function DistrictMap({
     if (!loadedRef.current || !mapRef.current) return;
     const map = mapRef.current;
     if (selectedDistrictId != null) {
-      // The breadcrumb overlay now shows the selected district's name/case count --
-      // a leftover hover popup from the click that made the selection would duplicate it.
       popupRef.current?.remove();
       if (hoveredIdRef.current != null) {
         map.removeFeatureState({ source: 'districts', id: hoveredIdRef.current });
@@ -393,11 +364,6 @@ export function DistrictMap({
     applyDistrictSelection(map, boundaries, selectedDistrictId);
   }, [selectedDistrictId, boundaries]);
 
-  // A separate effect (not folded into the one above) because it reacts to different
-  // inputs -- station data can load/change independently of the selection itself.
-  // Re-runs whenever `boundaries` changes too, since that's what remounts the map
-  // (see the main useEffect's dependency array) and the stations layer would otherwise
-  // be lost on the new map instance.
   useEffect(() => {
     if (!loadedRef.current || !mapRef.current) return;
     const map = mapRef.current;
@@ -474,17 +440,105 @@ export function DistrictMap({
     });
   }, [stationBoundaries, stationSummaries, boundaries]);
 
-  // Mirrors the district-level selection effect one level down: dims sibling
-  // stations, zooms to the selected one, and (re)builds its heatmap layer. Declared
-  // after the station-layer effect above so it always runs against a freshly (re)built
-  // station-fill layer within the same commit when stationBoundaries changes.
+  useEffect(() => {
+    if (!loadedRef.current || !mapRef.current) return;
+    const map = mapRef.current;
+    if (map.getLayer('station-labels')) map.removeLayer('station-labels');
+    if (!stationBoundaries || !stationSummaries.length) return;
+
+    const features = stationSummaries.map((station) => {
+      const boundary = stationBoundaries.features.find((f) => f.properties.unitId === station.unitId);
+      if (!boundary) return null;
+      const centroid = featureCentroid(boundary.geometry);
+      return {
+        type: 'Feature',
+        properties: {
+          unitName: station.unitName,
+        },
+        geometry: {
+          type: 'Point',
+          coordinates: centroid,
+        },
+      };
+    }).filter(Boolean);
+
+    const source = map.getSource('station-labels') as maplibregl.GeoJSONSource;
+    if (source) {
+      source.setData({ type: 'FeatureCollection', features });
+    } else {
+      map.addSource('station-labels', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features },
+      });
+    }
+
+    map.addLayer({
+      id: 'station-labels',
+      type: 'symbol',
+      source: 'station-labels',
+      layout: {
+        'text-field': ['get', 'unitName'],
+        'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+        'text-size': 12,
+      },
+      paint: {
+        'text-color': '#000000',
+        'text-halo-color': '#FFFFFF',
+        'text-halo-width': 1,
+      },
+    });
+  }, [stationBoundaries, stationSummaries]);
+
+  useEffect(() => {
+    if (!loadedRef.current || !mapRef.current) return;
+    const map = mapRef.current;
+    if (map.getLayer('district-labels')) map.removeLayer('district-labels');
+    if (map.getSource('district-labels')) map.removeSource('district-labels');
+
+    if (selectedDistrictId !== null) return;
+    if (!boundaries) return;
+
+    const features = boundaries.features.map((feature) => {
+      const centroid = featureCentroid(feature.geometry);
+      return {
+        type: 'Feature',
+        properties: {
+          districtName: feature.properties.district,
+        },
+        geometry: {
+          type: 'Point',
+          coordinates: centroid,
+        },
+      };
+    });
+
+    map.addSource('district-labels', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features },
+    });
+
+    map.addLayer({
+      id: 'district-labels',
+      type: 'symbol',
+      source: 'district-labels',
+      layout: {
+        'text-field': ['get', 'districtName'],
+        'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+        'text-size': 12,
+      },
+      paint: {
+        'text-color': '#000000',
+        'text-halo-color': '#FFFFFF',
+        'text-halo-width': 1,
+      },
+    });
+  }, [boundaries, selectedDistrictId]);
+
   useEffect(() => {
     if (!loadedRef.current || !mapRef.current) return;
     applyStationSelection(mapRef.current, stationBoundaries, selectedStationId, stationIncidents);
   }, [stationBoundaries, selectedStationId, stationIncidents]);
 
-  // Keeps red-zone pulsing markers in sync with newly arrived alerts or a change in
-  // which district's stations are on screen, without tearing down the map itself.
   useEffect(() => {
     if (!loadedRef.current || !mapRef.current) return;
     syncAlertMarkers(
@@ -497,9 +551,6 @@ export function DistrictMap({
     );
   }, [boundaries, districtAlertSeverity, stationBoundaries, stationAlertSeverity]);
 
-  // Re-shades the choropleth when the time-of-day selection changes (or the
-  // underlying totals do), without remounting the map or disturbing the station
-  // layer/pan/zoom -- see applyDistrictCaseCounts.
   useEffect(() => {
     if (!loadedRef.current || !mapRef.current) return;
     applyDistrictCaseCounts(mapRef.current, boundaries, districtCaseCountMap(districtSummaries, caseCountOverride));
@@ -510,21 +561,12 @@ export function DistrictMap({
   const selectedStation =
     selectedStationId != null ? stationSummaries.find((s) => s.unitId === selectedStationId) : undefined;
 
-  // Same min/max the choropleth's fill-color interpolation already uses (see
-  // applyDistrictCaseCounts above) -- the legend chip is a read-out of that scale,
-  // not a new data source.
   const legendMaxCaseCount = Math.max(
     1,
     ...Array.from(districtCaseCountMap(districtSummaries, caseCountOverride).values()),
   );
 
   return (
-    // flex-none overrides components.css's .map-card { flex: 1 } (flex-basis: 0%),
-    // which would otherwise win over h-[480px] on the main axis; h-[480px] gives
-    // .map-canvas's height:100% a definite ancestor height to resolve against, which
-    // the old fixed 100vh two-pane grid provided for free but the new auto-height
-    // scrolling page (this component's flex/grid parent chain is no longer
-    // viewport-height-bound) does not, so map-card must now specify one directly.
     <div className="map-card h-[480px] flex-none">
       <div
         ref={containerRef}
@@ -532,6 +574,9 @@ export function DistrictMap({
         role="img"
         aria-label="Map of Karnataka's districts shaded by case count"
       />
+      <div className="absolute top-3 left-3 z-10">
+        <TimeOfDaySelector buckets={timeOfDayBuckets} value={timeOfDay} onChange={onTimeOfDayChange} />
+      </div>
       {selectedDistrict && (
         <div className="map-breadcrumb rounded-lg border border-border bg-surface px-3 py-2 shadow-md">
           <div className="breadcrumb flex items-center gap-1.5 text-xs text-muted">

@@ -79,6 +79,8 @@ const sampleDetail: DistrictDetailResponse = {
     topCrimeSubHeadCount: 165,
   },
   categoryMix: [{ crimeHeadId: 1, crimeGroupName: 'Crimes Against Body', count: 473 }],
+  caseVolumeWeekly: [{ isoYear: 2026, isoWeek: 1, count: 58 }],
+  arrestsWeekly: [{ isoYear: 2026, isoWeek: 1, count: 12 }],
 };
 
 describe('getDistrictDetail', () => {

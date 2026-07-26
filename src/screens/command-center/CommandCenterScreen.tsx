@@ -16,14 +16,12 @@ import {
 } from '../../api/geoApi';
 import { useEmergingAlerts } from '../../api/alertsApi';
 import { DistrictMap } from './DistrictMap';
-import { StationDrilldownList } from './StationDrilldownList';
-import { KpiPanel, type CommandCenterMetricKey } from './KpiPanel';
+import { KpiPanel, type CommandCenterMetricKey, type MetricScope } from './KpiPanel';
 import { MetricCardRow } from './MetricCardRow';
 import { MetricDetailModal } from './MetricDetailModal';
-import { SparklineStrip } from './SparklineStrip';
 import { CategoryMixChart } from './CategoryMixChart';
 import { AlertFeed } from './AlertFeed';
-import { TimeOfDaySelector, type TimeOfDaySelection } from './TimeOfDaySelector';
+import { type TimeOfDaySelection } from './TimeOfDaySelector';
 import { CaseList } from '../case-explorer/CaseList';
 import { CasePreviewPanel } from './CasePreviewPanel';
 
@@ -38,6 +36,7 @@ export function CommandCenterScreen() {
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDaySelection>('all');
   const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null);
   const [selectedMetric, setSelectedMetric] = useState<CommandCenterMetricKey | null>(null);
+  const [selectedMetricScope, setSelectedMetricScope] = useState<MetricScope>('state');
 
   const summaryQuery = useCommandCenterSummary(token);
   const districtSummariesQuery = useDistrictSummaries(token);
@@ -49,8 +48,9 @@ export function CommandCenterScreen() {
   const stationIncidentsQuery = useStationIncidents(token, stationDrilldownId);
   const stationCasesQuery = useCases(token, stationDrilldownId, {});
 
-  function selectMetric(metric: CommandCenterMetricKey) {
+  function selectMetric(metric: CommandCenterMetricKey, scope: MetricScope) {
     setSelectedMetric(metric);
+    setSelectedMetricScope(scope);
   }
   // Spatiotemporal hotspot layering is a progressive enhancement on top of the
   // district drill-down -- it deliberately isn't part of isLoading/isError below,
@@ -139,7 +139,14 @@ export function CommandCenterScreen() {
   const districtSummaries = districtSummariesQuery.data!;
   const boundaries = boundariesQuery.data!;
   const alerts = alertsQuery.data!;
-  const selectedDistrictName = districtSummaries.find((d) => d.districtId === selectedDistrictId)?.districtName ?? '';
+  // const selectedDistrictName = districtSummaries.find((d) => d.districtId === selectedDistrictId)?.districtName ?? '';
+
+  const districtDetail = districtDetailQuery.data ?? null;
+  const modalScope: MetricScope = selectedMetricScope === 'district' && districtDrilldownId != null && districtDetail ? 'district' : 'state';
+  const modalKpi = modalScope === 'district' ? districtDetail!.kpi : summary.kpi;
+  const modalCategoryMix = modalScope === 'district' ? districtDetail!.categoryMix : summary.categoryMix;
+  const modalCaseVolumeWeekly = modalScope === 'district' ? districtDetail!.caseVolumeWeekly : summary.stateCaseVolumeWeekly;
+  const modalArrestsWeekly = modalScope === 'district' ? districtDetail!.arrestsWeekly : summary.arrestsWeekly;
 
   const timeOfDayBuckets = timeOfDayQuery.data?.buckets ?? [];
   const activeBucket = timeOfDay === 'all' ? null : timeOfDayBuckets.find((b) => b.bucket === timeOfDay);
@@ -169,17 +176,12 @@ export function CommandCenterScreen() {
           kpi={summary.kpi}
           arrestsWeekly={summary.arrestsWeekly}
           stateCaseVolumeWeekly={summary.stateCaseVolumeWeekly}
+          crimesAgainstPropertyWeekly={summary.crimesAgainstPropertyWeekly}
           onSelectMetric={selectMetric}
         />
 
         <section className="mt-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
           <div className="flex flex-col gap-3.5 lg:col-span-2" aria-label="Karnataka hotspot map">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-lg font-bold tracking-tight text-ink">
-                Karnataka — case density {activeBucket ? `· ${activeBucket.label}` : 'by district'}
-              </h2>
-              <TimeOfDaySelector buckets={timeOfDayBuckets} value={timeOfDay} onChange={setTimeOfDay} />
-            </div>
             <DistrictMap
               boundaries={boundaries}
               districtSummaries={districtSummaries}
@@ -195,8 +197,11 @@ export function CommandCenterScreen() {
               onBack={clearDistrict}
               onStationSelect={selectStation}
               onStationBack={clearStation}
+              timeOfDayBuckets={timeOfDayBuckets}
+              timeOfDay={timeOfDay}
+              onTimeOfDayChange={setTimeOfDay}
+              activeBucketLabel={activeBucket ? activeBucket.label : null}
             />
-            <SparklineStrip crimesAgainstPropertyWeekly={summary.crimesAgainstPropertyWeekly} />
           </div>
 
           <aside className="flex flex-col gap-4 lg:col-span-1" aria-label="State KPIs and emerging alerts">
@@ -211,7 +216,10 @@ export function CommandCenterScreen() {
                   <>
                     <KpiPanel kpi={districtDetailQuery.data.kpi} scopeLabel="District case count" onSelectMetric={selectMetric} />
                     <TopCrimeSubHeadCard kpi={districtDetailQuery.data.kpi} />
-                    <section className="flex flex-col gap-2.5">
+                    <section
+                      className="flex flex-col gap-2.5"
+                      title="Breakdown of cases by category over the last 30 days."
+                    >
                       <h3 className="flex items-center justify-between text-[13px] font-bold text-ink">
                         Case category mix <span className="count mono text-[11px] font-medium text-muted">30-day window</span>
                       </h3>
@@ -221,7 +229,7 @@ export function CommandCenterScreen() {
                 ) : (
                   <p>Loading district details…</p>
                 )}
-                {stationSummariesQuery.data ? (
+                {/* {stationSummariesQuery.data ? (
                   <StationDrilldownList
                     districtName={selectedDistrictName}
                     stations={stationSummariesQuery.data}
@@ -231,7 +239,7 @@ export function CommandCenterScreen() {
                   />
                 ) : (
                   <p>Loading stations…</p>
-                )}
+                )} */}
                 {stationDrilldownId != null && stationIncidentsQuery.isError && (
                   <p role="alert">
                     Couldn't load incident points.{' '}
@@ -262,7 +270,10 @@ export function CommandCenterScreen() {
             ) : (
               <>
                 <TopCrimeSubHeadCard kpi={summary.kpi} />
-                <section className="flex flex-col gap-2.5">
+                <section
+                  className="flex flex-col gap-2.5"
+                  title="Breakdown of cases by category over the last 30 days."
+                >
                   <h3 className="flex items-center justify-between text-[13px] font-bold text-ink">
                     Case category mix <span className="count mono text-[11px] font-medium text-muted">30-day window</span>
                   </h3>
@@ -275,7 +286,15 @@ export function CommandCenterScreen() {
         </section>
       </main>
       <CasePreviewPanel caseId={selectedCaseId} onClose={() => setSelectedCaseId(null)} />
-      <MetricDetailModal metricKey={selectedMetric} summary={summary} onClose={() => setSelectedMetric(null)} />
+      <MetricDetailModal
+        metricKey={selectedMetric}
+        scope={modalScope}
+        kpi={modalKpi}
+        categoryMix={modalCategoryMix}
+        caseVolumeWeekly={modalCaseVolumeWeekly}
+        arrestsWeekly={modalArrestsWeekly}
+        onClose={() => setSelectedMetric(null)}
+      />
     </>
   );
 }
@@ -284,7 +303,10 @@ export function CommandCenterScreen() {
 // SUB-HEAD" card) -- not interactive, matching the mockup, which has no click handler here.
 function TopCrimeSubHeadCard({ kpi }: { kpi: KpiResponse }) {
   return (
-    <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
+    <div
+      className="rounded-xl border border-border bg-surface p-4 shadow-sm"
+      title="The sub-head of crime with the most cases in the last 30 days."
+    >
       <div className="mb-2 flex items-center justify-between">
         <span className="text-xs font-semibold tracking-wider text-muted uppercase">Top crime sub-head</span>
         <Info className="h-4 w-4 text-muted" aria-hidden="true" />

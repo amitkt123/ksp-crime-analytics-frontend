@@ -133,6 +133,8 @@ async function mockDistrictDetail(districtId: number) {
       topCrimeSubHeadCount: Math.round(kpiSummary.kpi.topCrimeSubHeadCount * ratio),
     },
     categoryMix: kpiSummary.categoryMix.map((slice) => ({ ...slice, count: Math.round(slice.count * ratio) })),
+    caseVolumeWeekly: kpiSummary.stateCaseVolumeWeekly.map((point) => ({ ...point, count: Math.round(point.count * ratio) })),
+    arrestsWeekly: kpiSummary.arrestsWeekly.map((point) => ({ ...point, count: Math.round(point.count * ratio) })),
   };
 }
 
@@ -179,7 +181,7 @@ async function mockCaseExplanation(caseId: number) {
   };
 }
 
-const MAX_SUBGRAPH_NODES = 75;
+const MAX_SUBGRAPH_NODES = 50;
 type MockGraphNode = {
   id: string; type: 'PERSON' | 'CASE' | 'LOCATION'; label: string; confidence: number | null;
   crimeNo: string | null; caseNo: string | null; crimeRegisteredDate: string | null;
@@ -231,6 +233,15 @@ function egoNetwork(seedPersonIds: number[], tuples: NetworkCaseTuple[]) {
     seen.add(node.id);
     nodes.push(node);
   }
+  // Each of these tracks only the most-recently-seen match so the extra edge
+  // types stay a sparse chain (one link per new fact) rather than a dense
+  // clique -- enough to make Arrested by / Co-accused with / Shares MO with
+  // genuinely occur in the view without flooding it with edges.
+  const arrestedAdded = new Set<number>();
+  const coAccusedPairsAdded = new Set<string>();
+  const sharesMoPairsAdded = new Set<string>();
+  const unitLastAccused = new Map<number, number>();
+  const subHeadLastCase = new Map<number, number>();
   tuples.forEach((t) => {
     if (!seedPersonIds.includes(t.accusedId) && !seedPersonIds.includes(t.victimId)) return;
     addNode(personNode(t.accusedId, t.accusedName));
@@ -240,11 +251,200 @@ function egoNetwork(seedPersonIds: number[], tuples: NetworkCaseTuple[]) {
     edges.push({ id: `acc-${t.accusedId}-${t.caseId}`, sourceId: String(t.accusedId), targetId: `case-${t.caseId}`, type: 'ACCUSED_IN', confidence: null, sharedCaseLabel: null });
     edges.push({ id: `vic-${t.victimId}-${t.caseId}`, sourceId: String(t.victimId), targetId: `case-${t.caseId}`, type: 'VICTIM_IN', confidence: null, sharedCaseLabel: null });
     edges.push({ id: `occ-${t.caseId}-${t.unitId}`, sourceId: `case-${t.caseId}`, targetId: `location-${t.unitId}`, type: 'OCCURRED_AT', confidence: null, sharedCaseLabel: null });
+
+    if (!arrestedAdded.has(t.accusedId)) {
+      arrestedAdded.add(t.accusedId);
+      edges.push({ id: `arr-${t.accusedId}`, sourceId: String(t.accusedId), targetId: `location-${t.unitId}`, type: 'ARRESTED_BY', confidence: null, sharedCaseLabel: null });
+    }
+
+    const priorAccused = unitLastAccused.get(t.unitId);
+    if (priorAccused != null && priorAccused !== t.accusedId) {
+      const pairKey = `${Math.min(priorAccused, t.accusedId)}-${Math.max(priorAccused, t.accusedId)}`;
+      if (!coAccusedPairsAdded.has(pairKey)) {
+        coAccusedPairsAdded.add(pairKey);
+        edges.push({ id: `co-${pairKey}`, sourceId: String(priorAccused), targetId: String(t.accusedId), type: 'CO_ACCUSED_WITH', confidence: null, sharedCaseLabel: t.unitName });
+      }
+    }
+    unitLastAccused.set(t.unitId, t.accusedId);
+
+    const priorCase = subHeadLastCase.get(t.crimeSubHeadId);
+    if (priorCase != null && priorCase !== t.caseId) {
+      const pairKey = `${Math.min(priorCase, t.caseId)}-${Math.max(priorCase, t.caseId)}`;
+      if (!sharesMoPairsAdded.has(pairKey)) {
+        sharesMoPairsAdded.add(pairKey);
+        edges.push({ id: `mo-${pairKey}`, sourceId: `case-${Math.min(priorCase, t.caseId)}`, targetId: `case-${Math.max(priorCase, t.caseId)}`, type: 'SHARES_MO_WITH', confidence: null, sharedCaseLabel: null });
+      }
+    }
+    subHeadLastCase.set(t.crimeSubHeadId, t.caseId);
   });
   return capSubgraph(nodes, edges);
 }
 
-async function buildSubgraph(focus: string, limit: number, personId: number | undefined, communityId: number | undefined) {
+// Justifies why two people are adjacent in the path graph, so the path-focus
+// subgraph can render the actual case/location evidence behind each hop
+// instead of a bare person-to-person line.
+type PathJustification =
+  | { kind: 'direct'; tuple: NetworkCaseTuple }
+  | { kind: 'co-accused'; tupleA: NetworkCaseTuple; tupleB: NetworkCaseTuple };
+
+interface PathAdjacency {
+  adjacency: Map<number, Set<number>>;
+  names: Map<number, string>;
+  justifications: Map<string, PathJustification>;
+}
+let pathAdjacencyPromise: Promise<PathAdjacency> | null = null;
+
+function pathPairKey(a: number, b: number): string {
+  return `${Math.min(a, b)}-${Math.max(a, b)}`;
+}
+
+// Two edge sources: the direct accused<->victim fact from each case, plus a
+// same-station chain linking each case's accused to the previously-seen
+// accused at that station (a cheap "known associate" proxy) -- O(n) to build
+// instead of an O(n^2) clique, but still keeps everyone at a station in one
+// connected component for path-finding purposes.
+function buildPathAdjacency(tuples: NetworkCaseTuple[]): PathAdjacency {
+  const adjacency = new Map<number, Set<number>>();
+  const names = new Map<number, string>();
+  const justifications = new Map<string, PathJustification>();
+  function link(a: number, b: number) {
+    if (!adjacency.has(a)) adjacency.set(a, new Set());
+    if (!adjacency.has(b)) adjacency.set(b, new Set());
+    adjacency.get(a)!.add(b);
+    adjacency.get(b)!.add(a);
+  }
+  const unitLastAccused = new Map<number, NetworkCaseTuple>();
+  tuples.forEach((t) => {
+    names.set(t.accusedId, t.accusedName);
+    names.set(t.victimId, t.victimName);
+    link(t.accusedId, t.victimId);
+    const directKey = pathPairKey(t.accusedId, t.victimId);
+    if (!justifications.has(directKey)) justifications.set(directKey, { kind: 'direct', tuple: t });
+
+    const prevTuple = unitLastAccused.get(t.unitId);
+    if (prevTuple != null && prevTuple.accusedId !== t.accusedId) {
+      link(prevTuple.accusedId, t.accusedId);
+      const coAccusedKey = pathPairKey(prevTuple.accusedId, t.accusedId);
+      if (!justifications.has(coAccusedKey)) {
+        justifications.set(coAccusedKey, { kind: 'co-accused', tupleA: prevTuple, tupleB: t });
+      }
+    }
+    unitLastAccused.set(t.unitId, t);
+  });
+  return { adjacency, names, justifications };
+}
+
+function loadPathAdjacency(): Promise<PathAdjacency> {
+  if (!pathAdjacencyPromise) {
+    pathAdjacencyPromise = loadTuples().then(buildPathAdjacency);
+  }
+  return pathAdjacencyPromise;
+}
+
+function shortestPath(adjacency: Map<number, Set<number>>, from: number, to: number, maxHops: number): number[] | null {
+  if (from === to) return [from];
+  const visited = new Set([from]);
+  let frontier: number[][] = [[from]];
+  for (let hop = 1; hop <= maxHops; hop++) {
+    const nextFrontier: number[][] = [];
+    for (const path of frontier) {
+      const last = path[path.length - 1];
+      for (const neighbor of adjacency.get(last) ?? []) {
+        if (neighbor === to) return [...path, neighbor];
+        if (!visited.has(neighbor)) {
+          visited.add(neighbor);
+          nextFrontier.push([...path, neighbor]);
+        }
+      }
+    }
+    frontier = nextFrontier;
+    if (frontier.length === 0) break;
+  }
+  return null;
+}
+
+async function mockNetworkPath(from: number, to: number, maxHops: number) {
+  const { adjacency, names } = await loadPathAdjacency();
+  const personIds = shortestPath(adjacency, from, to, maxHops);
+  if (!personIds) return null;
+  return {
+    personIds,
+    displayNames: personIds.map((id) => names.get(id) ?? String(id)),
+    hopCount: personIds.length - 1,
+  };
+}
+
+// Renders exactly the shortest-path chain: the person nodes on the path plus,
+// for each hop, the case/location evidence that justifies it -- not the
+// unrelated top-offenders ego network the caller fell back to before this
+// focus was handled.
+function buildPathSubgraph(personIds: number[], justifications: Map<string, PathJustification>) {
+  const nodes: MockGraphNode[] = [];
+  const edges: MockGraphEdge[] = [];
+  const seen = new Set<string>();
+  function addNode(node: MockGraphNode) {
+    if (seen.has(node.id)) return;
+    seen.add(node.id);
+    nodes.push(node);
+  }
+
+  if (personIds.length === 1) {
+    const id = personIds[0];
+    const justification = [...justifications.values()].find(
+      (j) => (j.kind === 'direct' ? j.tuple.accusedId : j.tupleA.accusedId) === id,
+    );
+    const name = justification
+      ? justification.kind === 'direct'
+        ? justification.tuple.accusedName
+        : justification.tupleA.accusedName
+      : String(id);
+    addNode(personNode(id, name));
+    return capSubgraph(nodes, edges);
+  }
+
+  for (let i = 0; i < personIds.length - 1; i++) {
+    const justification = justifications.get(pathPairKey(personIds[i], personIds[i + 1]));
+    if (!justification) continue;
+
+    if (justification.kind === 'direct') {
+      const t = justification.tuple;
+      addNode(personNode(t.accusedId, t.accusedName));
+      addNode(personNode(t.victimId, t.victimName));
+      addNode(caseNode(t));
+      addNode(locationNode(t));
+      edges.push({ id: `acc-${t.accusedId}-${t.caseId}`, sourceId: String(t.accusedId), targetId: `case-${t.caseId}`, type: 'ACCUSED_IN', confidence: null, sharedCaseLabel: null });
+      edges.push({ id: `vic-${t.victimId}-${t.caseId}`, sourceId: String(t.victimId), targetId: `case-${t.caseId}`, type: 'VICTIM_IN', confidence: null, sharedCaseLabel: null });
+      edges.push({ id: `occ-${t.caseId}-${t.unitId}`, sourceId: `case-${t.caseId}`, targetId: `location-${t.unitId}`, type: 'OCCURRED_AT', confidence: null, sharedCaseLabel: null });
+    } else {
+      const { tupleA, tupleB } = justification;
+      addNode(personNode(tupleA.accusedId, tupleA.accusedName));
+      addNode(personNode(tupleB.accusedId, tupleB.accusedName));
+      addNode(caseNode(tupleA));
+      addNode(caseNode(tupleB));
+      addNode(locationNode(tupleA));
+      edges.push({ id: `acc-${tupleA.accusedId}-${tupleA.caseId}`, sourceId: String(tupleA.accusedId), targetId: `case-${tupleA.caseId}`, type: 'ACCUSED_IN', confidence: null, sharedCaseLabel: null });
+      edges.push({ id: `acc-${tupleB.accusedId}-${tupleB.caseId}`, sourceId: String(tupleB.accusedId), targetId: `case-${tupleB.caseId}`, type: 'ACCUSED_IN', confidence: null, sharedCaseLabel: null });
+      edges.push({ id: `occ-${tupleA.caseId}-${tupleA.unitId}`, sourceId: `case-${tupleA.caseId}`, targetId: `location-${tupleA.unitId}`, type: 'OCCURRED_AT', confidence: null, sharedCaseLabel: null });
+      edges.push({ id: `occ-${tupleB.caseId}-${tupleB.unitId}`, sourceId: `case-${tupleB.caseId}`, targetId: `location-${tupleB.unitId}`, type: 'OCCURRED_AT', confidence: null, sharedCaseLabel: null });
+      edges.push({
+        id: `co-${pathPairKey(tupleA.accusedId, tupleB.accusedId)}`,
+        sourceId: String(tupleA.accusedId), targetId: String(tupleB.accusedId),
+        type: 'CO_ACCUSED_WITH', confidence: null, sharedCaseLabel: tupleA.unitName,
+      });
+    }
+  }
+  return capSubgraph(nodes, edges);
+}
+
+async function buildSubgraph(
+  focus: string,
+  limit: number,
+  personId: number | undefined,
+  communityId: number | undefined,
+  from: number | undefined,
+  to: number | undefined,
+  maxHops: number,
+) {
   const tuples = await loadTuples();
 
   if (focus === 'person' && personId != null) {
@@ -257,6 +457,12 @@ async function buildSubgraph(focus: string, limit: number, personId: number | un
       .filter((t) => community?.memberDisplayNames.includes(t.accusedName))
       .map((t) => t.accusedId);
     return egoNetwork(memberIds, tuples);
+  }
+  if (focus === 'path' && from != null && to != null) {
+    const { adjacency, justifications } = await loadPathAdjacency();
+    const personIds = shortestPath(adjacency, from, to, maxHops);
+    if (!personIds) return { nodes: [], edges: [], generatedAt: '2026-07-24T00:00:00Z' };
+    return buildPathSubgraph(personIds, justifications);
   }
   const offenders = await loadRepeatOffenders();
   return egoNetwork(offenders.slice(0, limit).map((o) => o.personId), tuples);
@@ -335,20 +541,26 @@ export async function getMockResponse(
   const caseExplainMatch = path.match(/^\/api\/cases\/(\d+)\/explain$/);
   if (caseExplainMatch) return mockCaseExplanation(Number(caseExplainMatch[1]));
 
-  if (path.startsWith('/api/network/search?')) {
+  if (path.startsWith('/api/network/people?')) {
     const query = new URLSearchParams(path.split('?')[1]);
     const q = (query.get('q') ?? '').toLowerCase();
+    const caseNo = (query.get('caseNo') ?? '').trim().toLowerCase();
     const limit = Number(query.get('limit') ?? 10);
     if (q.length < 2) return [];
     const index = await loadSearchIndex();
-    return index
-      .filter((e) => e.label.toLowerCase().includes(q))
-      .slice(0, limit)
-      .map((e) => ({
-        id: e.id, type: e.type, label: e.label, confidence: e.type === 'PERSON' ? confidenceScoreFor(1) : null,
-        crimeNo: null, caseNo: null, crimeRegisteredDate: null, gravityWeight: null, moKeywordTags: null,
-        locationKey: null, latitude: null, longitude: null,
-      }));
+    let matches = index.filter((e) => e.type === 'PERSON' && e.label.toLowerCase().includes(q));
+    if (caseNo) {
+      const tuples = await loadTuples();
+      const idsWithCase = new Set<string>();
+      tuples.forEach((t) => {
+        if (t.caseNumber.toLowerCase().includes(caseNo)) {
+          idsWithCase.add(String(t.accusedId));
+          idsWithCase.add(String(t.victimId));
+        }
+      });
+      matches = matches.filter((e) => idsWithCase.has(e.id));
+    }
+    return matches.slice(0, limit).map((e) => ({ personId: Number(e.id), displayName: e.label }));
   }
 
   if (path.startsWith('/api/network/subgraph?')) {
@@ -358,6 +570,9 @@ export async function getMockResponse(
       Number(query.get('limit') ?? 10),
       query.get('personId') ? Number(query.get('personId')) : undefined,
       query.get('communityId') ? Number(query.get('communityId')) : undefined,
+      query.get('from') ? Number(query.get('from')) : undefined,
+      query.get('to') ? Number(query.get('to')) : undefined,
+      Number(query.get('maxHops') ?? 6),
     );
   }
 
@@ -377,7 +592,11 @@ export async function getMockResponse(
   }
 
   if (path.startsWith('/api/network/path?')) {
-    return null; // path-finding over the full generated graph is out of scope for this pivot's mock layer
+    const query = new URLSearchParams(path.split('?')[1]);
+    const from = Number(query.get('from'));
+    const to = Number(query.get('to'));
+    const maxHops = Number(query.get('maxHops') ?? 6);
+    return mockNetworkPath(from, to, maxHops);
   }
 
   return undefined;

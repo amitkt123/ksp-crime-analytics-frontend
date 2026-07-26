@@ -981,4 +981,56 @@ describe('DistrictMap', () => {
 
     expect(onStationBack).toHaveBeenCalled();
   });
+
+  it('adds a district-labels source and symbol layer when no district is selected', () => {
+    render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={null}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
+      />,
+    );
+
+    const map = FakeMap.instances[0];
+    const source = map.getSource('district-labels') as { data: { features: any[] } };
+    expect(source).toBeDefined();
+    expect(source.data.features).toHaveLength(2);
+    expect(source.data.features[0].properties.districtName).toBe('Bengaluru Urban');
+    expect(map.getLayer('district-labels')).toEqual(expect.objectContaining({ type: 'symbol' }));
+  });
+
+  it('removes the district-labels layer when a district is selected', () => {
+    const { rerender } = render(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={null}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
+      />,
+    );
+
+    const map = FakeMap.instances[0];
+    expect(map.getLayer('district-labels')).toBeDefined();
+
+    rerender(
+      <DistrictMap
+        boundaries={boundariesWithGeometry}
+        districtSummaries={districtSummaries}
+        selectedDistrictId={3}
+        onDistrictSelect={vi.fn()}
+        onBack={vi.fn()}
+        onStationSelect={vi.fn()}
+        onStationBack={vi.fn()}
+      />,
+    );
+
+    expect(map.getLayer('district-labels')).toBeUndefined();
+  });
 });

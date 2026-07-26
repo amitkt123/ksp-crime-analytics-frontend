@@ -139,4 +139,85 @@ describe('NetworkGraphCanvas', () => {
     );
     expect(screen.getByLabelText('Vijay Kumar')).toHaveClass('path-highlight');
   });
+
+  it('labels every edge with its relationship type, not just ones touching a selected node', () => {
+    const { container } = render(
+      <NetworkGraphCanvas
+        nodes={nodes}
+        edges={edges}
+        communityByLabel={new Map()}
+        pathEndpointIds={[]}
+        pathMemberIds={[]}
+        onNodeClick={vi.fn()}
+        selectedNodeId={null}
+      />,
+    );
+    const labels = Array.from(container.querySelectorAll('.edge-label')).map((el) => el.textContent);
+    expect(labels).toHaveLength(edges.length);
+    expect(labels).toEqual(expect.arrayContaining(['Accused in', 'Occurred at']));
+  });
+
+  it('marks the edge along the resolved shortest path with the path-edge class and dims the rest', () => {
+    const { container } = render(
+      <NetworkGraphCanvas
+        nodes={nodes}
+        edges={edges}
+        communityByLabel={new Map()}
+        pathEndpointIds={['5001', 'location-176']}
+        pathMemberIds={['5001', 'case-176000', 'location-176']}
+        onNodeClick={vi.fn()}
+      />,
+    );
+    const pathEdges = container.querySelectorAll('.graph-edge.path-edge');
+    expect(pathEdges).toHaveLength(2);
+    expect(container.querySelectorAll('.graph-edge.dimmed')).toHaveLength(0);
+  });
+
+  it('dims nodes and edges outside the resolved path once both endpoints are set', () => {
+    render(
+      <NetworkGraphCanvas
+        nodes={nodes}
+        edges={edges}
+        communityByLabel={new Map()}
+        pathEndpointIds={['5001', '5002']}
+        pathMemberIds={['5001', '5002']}
+        onNodeClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText('Whitefield PS')).toHaveClass('dimmed');
+    expect(screen.getByLabelText('276/2026')).toHaveClass('dimmed');
+    expect(screen.getByLabelText('Suresh Naik')).not.toHaveClass('dimmed');
+    expect(screen.getByLabelText('Vijay Kumar')).not.toHaveClass('dimmed');
+  });
+
+  it('does not dim anything while path mode has fewer than two endpoints selected', () => {
+    render(
+      <NetworkGraphCanvas
+        nodes={nodes}
+        edges={edges}
+        communityByLabel={new Map()}
+        pathEndpointIds={['5001']}
+        pathMemberIds={[]}
+        onNodeClick={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText('Vijay Kumar')).not.toHaveClass('dimmed');
+  });
+
+  it('places the first path endpoint left of the second on a shared horizontal line', () => {
+    const { container } = render(
+      <NetworkGraphCanvas
+        nodes={nodes}
+        edges={edges}
+        communityByLabel={new Map()}
+        pathEndpointIds={['5001', '5002']}
+        pathMemberIds={['5001', '5002']}
+        onNodeClick={vi.fn()}
+      />,
+    );
+    const first = container.querySelector('circle[aria-label="Suresh Naik"]')!;
+    const second = container.querySelector('circle[aria-label="Vijay Kumar"]')!;
+    expect(Number(first.getAttribute('cx'))).toBeLessThan(Number(second.getAttribute('cx')));
+    expect(first.getAttribute('cy')).toBe(second.getAttribute('cy'));
+  });
 });

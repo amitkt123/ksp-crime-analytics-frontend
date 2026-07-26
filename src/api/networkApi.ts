@@ -68,6 +68,11 @@ export interface NetworkPathResponse {
   hopCount: number;
 }
 
+export interface PersonReference {
+  personId: number;
+  displayName: string;
+}
+
 // A subgraph node's id is the string form of the same Neo4j internal id that
 // personId/from/to/communityId carry as numbers elsewhere in this contract
 // (RepeatOffenderResponse.personId, /path's from/to, /subgraph's personId
@@ -170,22 +175,26 @@ export function useNetworkPath(token: string | null, from: number | null, to: nu
 
 export interface NetworkSearchParams {
   q: string;
+  // Names alone aren't unique -- an optional FIR/case number narrows results
+  // to people who actually appear in that case.
+  caseNo?: string;
   limit?: number;
 }
 
-export function getNetworkSearch(token: string | null, params: NetworkSearchParams): Promise<GraphNodeResponse[]> {
+export function getPeople(token: string | null, params: NetworkSearchParams): Promise<PersonReference[]> {
   const query = new URLSearchParams({ q: params.q });
+  if (params.caseNo) query.set('caseNo', params.caseNo);
   if (params.limit != null) query.set('limit', String(params.limit));
-  return apiFetch<GraphNodeResponse[]>(`/api/network/search?${query.toString()}`, {}, token);
+  return apiFetch<PersonReference[]>(`/api/network/people?${query.toString()}`, {}, token);
 }
 
-const SEARCH_MIN_QUERY_LENGTH = 2;
+const PEOPLE_MIN_QUERY_LENGTH = 2;
 
-export function useNetworkSearch(token: string | null, q: string, limit = 10) {
+export function usePeople(token: string | null, q: string, caseNo = '', limit = 10) {
   return useQuery({
-    queryKey: ['network-search', q, limit],
-    queryFn: () => getNetworkSearch(token, { q, limit }),
+    queryKey: ['people', q, caseNo, limit],
+    queryFn: () => getPeople(token, { q, caseNo: caseNo || undefined, limit }),
     staleTime: 60_000,
-    enabled: token != null && q.length >= SEARCH_MIN_QUERY_LENGTH,
+    enabled: token != null && q.length >= PEOPLE_MIN_QUERY_LENGTH,
   });
 }

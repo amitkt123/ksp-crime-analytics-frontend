@@ -14,7 +14,7 @@ interface TimeOfDaySelectorProps {
 export function TimeOfDaySelector({ buckets, value, onChange }: TimeOfDaySelectorProps) {
   return (
     <div
-      className="tod-selector flex w-fit flex-wrap items-center gap-1 rounded-lg border border-border bg-canvas p-1"
+      className="tod-selector flex w-fit items-center gap-1 rounded-lg border border-border bg-canvas p-1"
       role="group"
       aria-label="Time of day"
     >

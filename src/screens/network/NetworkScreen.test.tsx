@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { UseQueryResult } from '@tanstack/react-query';
 import * as AuthContextModule from '../../auth/AuthContext';
 import * as meApiModule from '../../api/meApi';
@@ -61,14 +62,18 @@ function mockNetworkQueries(overrides: Partial<{ subgraph: UseQueryResult<networ
   vi.spyOn(networkApiModule, 'useRepeatOffenders').mockReturnValue(mockSuccess(offenders));
   vi.spyOn(networkApiModule, 'useCommunities').mockReturnValue(mockSuccess([{ communityId: 2, size: 1, memberDisplayNames: ['Suresh Naik'] }]));
   vi.spyOn(networkApiModule, 'useNetworkPath').mockReturnValue(mockSuccess(null));
+  vi.spyOn(networkApiModule, 'usePeople').mockReturnValue(mockSuccess([]));
   vi.spyOn(caseApiModule, 'useCaseDetail').mockReturnValue(mockSuccess(undefined as unknown as caseApiModule.CaseDetailResponse));
 }
 
 function renderScreen() {
+  const queryClient = new QueryClient();
   return render(
-    <MemoryRouter>
-      <NetworkScreen />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <NetworkScreen />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -150,6 +155,7 @@ describe('NetworkScreen', () => {
     });
 
     renderScreen();
+    await userEvent.click(await screen.findByText('Suresh Naik'));
     await userEvent.click(screen.getByRole('button', { name: 'Toggle path-finding mode' }));
     await userEvent.click(await screen.findByLabelText('Suresh Naik'));
     await userEvent.click(screen.getByLabelText('Vijay Kumar'));
@@ -190,6 +196,7 @@ describe('NetworkScreen', () => {
     });
 
     renderScreen();
+    await userEvent.click(await screen.findByText('Suresh Naik'));
     await userEvent.click(screen.getByRole('button', { name: 'Toggle path-finding mode' }));
     await userEvent.click(await screen.findByLabelText('144/2026'));
     await userEvent.click(screen.getByLabelText('MG Road Metro Station'));

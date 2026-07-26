@@ -22,7 +22,10 @@ export function AlertFeed({ alerts }: AlertFeedProps) {
 
   return (
     <>
-      <section className="rounded-xl border border-border border-t-4 border-t-ink bg-surface p-4 shadow-sm">
+      <section
+        className="rounded-xl border border-border border-t-4 border-t-ink bg-surface p-4 shadow-sm"
+        title="Real-time alerts for significant spikes in crime."
+      >
         <h3 className="flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-ink uppercase">
             <Bell className="h-3.5 w-3.5 text-muted" aria-hidden="true" />

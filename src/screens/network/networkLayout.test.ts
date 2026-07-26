@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeForceLayout } from './networkLayout';
+import { computeForceLayout, applyPathLayout } from './networkLayout';
 import type { GraphNodeResponse, GraphEdgeResponse } from '../../api/networkApi';
 
 const NULL_DETAIL_FIELDS = {
@@ -43,5 +43,37 @@ describe('computeForceLayout', () => {
   it('ignores an edge referencing a node not in the node list', () => {
     const edgesWithDangling: GraphEdgeResponse[] = [...edges, { id: 'e3', sourceId: '1', targetId: 'ghost', type: 'ACCUSED_IN', confidence: null, sharedCaseLabel: null }];
     expect(() => computeForceLayout(nodes, edgesWithDangling)).not.toThrow();
+  });
+});
+
+describe('applyPathLayout', () => {
+  const basePositions = new Map([
+    ['1', { x: 300, y: 100 }],
+    ['2', { x: 310, y: 105 }],
+    ['3', { x: 50, y: 50 }],
+    ['unrelated', { x: 200, y: 400 }],
+  ]);
+
+  it('leaves positions untouched when fewer than two endpoints are selected', () => {
+    expect(applyPathLayout(basePositions, [], [])).toBe(basePositions);
+    expect(applyPathLayout(basePositions, ['1'], [])).toBe(basePositions);
+  });
+
+  it('pins the first endpoint to the left edge and the second to the right edge', () => {
+    const result = applyPathLayout(basePositions, ['1', '2'], ['1', '3', '2']);
+    expect(result.get('1')!.x).toBeLessThan(result.get('3')!.x);
+    expect(result.get('3')!.x).toBeLessThan(result.get('2')!.x);
+    expect(result.get('1')!.y).toBe(result.get('2')!.y);
+    expect(result.get('3')!.y).toBe(result.get('1')!.y);
+  });
+
+  it('reverses the chain to match endpoint order when the path API returned it back-to-front', () => {
+    const result = applyPathLayout(basePositions, ['2', '1'], ['1', '2']);
+    expect(result.get('2')!.x).toBeLessThan(result.get('1')!.x);
+  });
+
+  it('leaves nodes outside the path chain at their force-layout position', () => {
+    const result = applyPathLayout(basePositions, ['1', '2'], ['1', '2']);
+    expect(result.get('unrelated')).toEqual(basePositions.get('unrelated'));
   });
 });
