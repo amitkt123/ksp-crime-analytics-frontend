@@ -4,34 +4,26 @@ import {
 } from 'recharts';
 import { useAuth } from '../../auth/AuthContext';
 import { useCommandCenterSummary } from '../../api/commandCenterApi';
-import { useHotspots, useDistrictBoundaries } from '../../api/geoApi';
-import { canShowLiveHotspots } from '../../api/insightsApi';
 import {
   CRIME_HEADS_DEMO,
   getCrimeHeadMonthlyTrend,
   getCohortHeatmap,
   getDistrictCrimeHeadMatrix,
   getAllDistrictNamesDemo,
-  getIncidentHotspotsDemo,
 } from '../../api/demoAnalyticsData';
 import { CategoryMixChart } from '../command-center/CategoryMixChart';
 import { InsightCard } from './InsightCard';
 import { HeatmapGrid, type HeatmapCell } from './HeatmapGrid';
-import { KarnatakaHotspotMap } from './KarnatakaHotspotMap';
 
 export function CrimeTrendsTab() {
-  const { token, roles } = useAuth();
+  const { token } = useAuth();
   const summaryQuery = useCommandCenterSummary(token);
-  const liveHotspots = canShowLiveHotspots(roles);
-  const hotspotsQuery = useHotspots(token, liveHotspots);
-  const boundariesQuery = useDistrictBoundaries(token);
   const [matrixDistrictFilter, setMatrixDistrictFilter] = useState('');
 
   const monthlyTrend = getCrimeHeadMonthlyTrend();
   const cohort = getCohortHeatmap();
   const matrix = getDistrictCrimeHeadMatrix(matrixDistrictFilter || undefined);
   const allDistrictNames = getAllDistrictNamesDemo();
-  const demoHotspots = getIncidentHotspotsDemo();
 
   const cohortCells: HeatmapCell[] = cohort.map((c) => ({
     row: c.cohortLabel, col: c.lagLabel, intensity: c.pct, display: `${Math.round(c.pct * 100)}%`,
@@ -117,37 +109,6 @@ export function CrimeTrendsTab() {
             </select>
           </div>
           <HeatmapGrid rows={matrixRows} cols={matrixCols} cells={matrixCells} />
-        </InsightCard>
-      </div>
-
-      <div className="insight-grid" style={{ marginTop: 16 }}>
-        <InsightCard
-          title="Incident Location Hotspots"
-          live={liveHotspots}
-          note={
-            liveHotspots
-              ? 'District-level DBSCAN clusters, bubble size = case count.'
-              : "Cluster hotspots aren't available for unit-scoped roles — showing representative data."
-          }
-        >
-          {boundariesQuery.isLoading ? (
-            <p>Loading…</p>
-          ) : boundariesQuery.isError ? (
-            <p role="alert">Couldn't load district boundaries.</p>
-          ) : liveHotspots ? (
-            hotspotsQuery.isLoading ? (
-              <p>Loading…</p>
-            ) : hotspotsQuery.isError ? (
-              <p role="alert">Couldn't load hotspot clusters.</p>
-            ) : (
-              <KarnatakaHotspotMap
-                boundaries={boundariesQuery.data!}
-                points={(hotspotsQuery.data ?? []).map((h) => ({ lat: h.centroidLat, lon: h.centroidLon, crimeHead: 'Cluster', count: h.caseCount }))}
-              />
-            )
-          ) : (
-            <KarnatakaHotspotMap boundaries={boundariesQuery.data!} points={demoHotspots} />
-          )}
         </InsightCard>
       </div>
     </>

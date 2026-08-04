@@ -198,6 +198,48 @@
   text-align: center;
 }
 
+.login-demo {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px dashed rgba(20, 33, 58, 0.16);
+}
+
+.login-demo-title {
+  margin: 0 0 10px;
+  color: rgba(20, 33, 58, 0.5);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.login-demo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.login-demo-btn {
+  padding: 9px 6px;
+  border: 1px solid rgba(20, 33, 58, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.5);
+  color: #14213a;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.login-demo-btn:hover:not(:disabled) {
+  border-color: var(--real);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.login-demo-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.login-demo-btn:disabled { opacity: 0.6; cursor: default; }
+
 @media (prefers-reduced-motion: no-preference) {
   .login-panel { animation: login-panel-in 0.3s ease; }
 }

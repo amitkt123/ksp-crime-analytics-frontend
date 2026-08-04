@@ -46,4 +46,17 @@ describe('LoginScreen', () => {
     await waitFor(() => expect(screen.getByText(/incorrect username or password/i)).toBeInTheDocument());
     expect(screen.queryByText('Command Center Screen')).not.toBeInTheDocument();
   });
+
+  it('logs in via a demo persona button without requiring manual credentials', async () => {
+    const login = vi.fn().mockResolvedValue({ token: 'jwt', roles: ['SUPER_ADMIN'] });
+    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+      token: null, roles: [], username: null, login, logout: vi.fn(),
+    });
+
+    renderLoginScreen();
+    await userEvent.click(screen.getByRole('button', { name: /super admin/i }));
+
+    expect(login).toHaveBeenCalledWith('demo.superadmin', 'demo');
+    await waitFor(() => expect(screen.getByText('Command Center Screen')).toBeInTheDocument());
+  });
 });

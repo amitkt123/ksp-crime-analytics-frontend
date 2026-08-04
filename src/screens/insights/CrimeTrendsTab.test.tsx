@@ -2,20 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import * as AuthContextModule from '../../auth/AuthContext';
 import * as commandCenterApiModule from '../../api/commandCenterApi';
-import * as geoApiModule from '../../api/geoApi';
 import { CrimeTrendsTab } from './CrimeTrendsTab';
-
-vi.mock('maplibre-gl', () => {
-  function MockMap(this: Record<string, unknown>) {
-    this.on = vi.fn((event: string, cb: () => void) => { if (event === 'load') cb(); });
-    this.addSource = vi.fn();
-    this.addLayer = vi.fn();
-    this.getSource = vi.fn();
-    this.fitBounds = vi.fn();
-    this.remove = vi.fn();
-  }
-  return { default: { Map: vi.fn(MockMap) } };
-});
 
 function queryResult<T>(data: T, overrides: Partial<{ isLoading: boolean; isError: boolean }> = {}) {
   return { data, isLoading: false, isError: false, refetch: vi.fn(), ...overrides } as never;
@@ -30,8 +17,6 @@ const summary = {
   ],
 };
 
-const boundaries = { type: 'FeatureCollection' as const, features: [] };
-
 function mockAuth(roles: string[]) {
   vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
     token: 'jwt', roles, username: 'demo', login: vi.fn(), logout: vi.fn(),
@@ -42,8 +27,6 @@ describe('CrimeTrendsTab', () => {
   it('renders the live Crime Head Distribution chart with no Demo badge', () => {
     mockAuth(['SCRB_ANALYST']);
     vi.spyOn(commandCenterApiModule, 'useCommandCenterSummary').mockReturnValue(queryResult(summary));
-    vi.spyOn(geoApiModule, 'useHotspots').mockReturnValue(queryResult([]));
-    vi.spyOn(geoApiModule, 'useDistrictBoundaries').mockReturnValue(queryResult(boundaries));
 
     render(<CrimeTrendsTab />);
 
@@ -52,35 +35,9 @@ describe('CrimeTrendsTab', () => {
     expect(within(card).getAllByText('Crimes Against Property').length).toBeGreaterThan(0);
   });
 
-  it('shows the Demo badge on Incident Location Hotspots for an INVESTIGATOR', () => {
-    mockAuth(['INVESTIGATOR']);
-    vi.spyOn(commandCenterApiModule, 'useCommandCenterSummary').mockReturnValue(queryResult(summary));
-    vi.spyOn(geoApiModule, 'useHotspots').mockReturnValue(queryResult(undefined));
-    vi.spyOn(geoApiModule, 'useDistrictBoundaries').mockReturnValue(queryResult(boundaries));
-
-    render(<CrimeTrendsTab />);
-
-    const card = screen.getByText('Incident Location Hotspots').closest('.insight-card')!;
-    expect(card.querySelector('.chip.predicted')).not.toBeNull();
-  });
-
-  it('shows no Demo badge on Incident Location Hotspots for a DISTRICT_SUPERVISOR', () => {
-    mockAuth(['DISTRICT_SUPERVISOR']);
-    vi.spyOn(commandCenterApiModule, 'useCommandCenterSummary').mockReturnValue(queryResult(summary));
-    vi.spyOn(geoApiModule, 'useHotspots').mockReturnValue(queryResult([]));
-    vi.spyOn(geoApiModule, 'useDistrictBoundaries').mockReturnValue(queryResult(boundaries));
-
-    render(<CrimeTrendsTab />);
-
-    const card = screen.getByText('Incident Location Hotspots').closest('.insight-card')!;
-    expect(card.querySelector('.chip.predicted')).toBeNull();
-  });
-
   it('renders the Cohort Analysis and District x Crime Head heatmaps as demo data', () => {
     mockAuth(['SCRB_ANALYST']);
     vi.spyOn(commandCenterApiModule, 'useCommandCenterSummary').mockReturnValue(queryResult(summary));
-    vi.spyOn(geoApiModule, 'useHotspots').mockReturnValue(queryResult([]));
-    vi.spyOn(geoApiModule, 'useDistrictBoundaries').mockReturnValue(queryResult(boundaries));
 
     render(<CrimeTrendsTab />);
 

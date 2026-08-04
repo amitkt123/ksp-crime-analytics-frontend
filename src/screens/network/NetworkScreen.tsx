@@ -19,6 +19,7 @@ import { RepeatOffenderRail } from './RepeatOffenderRail';
 import { CaseDetailPanel } from './CaseDetailPanel';
 import { LocationDetailPanel } from './LocationDetailPanel';
 import { NetworkSearch } from './NetworkSearch';
+import { NetworkGuideIntro, NetworkGuidePopover } from './NetworkGuide';
 
 type NetworkFocus =
   | { mode: 'person'; personId: number }
@@ -73,6 +74,7 @@ export function NetworkScreen() {
   const [selectedNodeForHighlight, setSelectedNodeForHighlight] = useState<string | null>(null);
   const [resetViewKey, setResetViewKey] = useState(0);
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
+  const [guidePanelOpen, setGuidePanelOpen] = useState(false);
 
   const subgraphQuery = useSubgraph(token, subgraphParamsForFocus(focus));
   const offendersQuery = useRepeatOffenders(token);
@@ -216,6 +218,7 @@ export function NetworkScreen() {
       <main className="network-main">
         {!focus ? (
           <div className="network-landing">
+            <NetworkGuideIntro />
             <NetworkSearch onPersonSubmit={handlePersonSubmit} onPathSubmit={handlePathSubmit} />
             <RepeatOffenderRail offenders={offenders} onSelect={handlePersonSubmit} />
           </div>
@@ -243,9 +246,22 @@ export function NetworkScreen() {
                   <button
                     className={`network-search-toggle-btn${searchPanelOpen ? ' active' : ''}`}
                     aria-expanded={searchPanelOpen}
-                    onClick={() => setSearchPanelOpen((open) => !open)}
+                    onClick={() => {
+                      setSearchPanelOpen((open) => !open);
+                      setGuidePanelOpen(false);
+                    }}
                   >
                     Search
+                  </button>
+                  <button
+                    className={`network-search-toggle-btn${guidePanelOpen ? ' active' : ''}`}
+                    aria-expanded={guidePanelOpen}
+                    onClick={() => {
+                      setGuidePanelOpen((open) => !open);
+                      setSearchPanelOpen(false);
+                    }}
+                  >
+                    Guide
                   </button>
                   <PathFindingBar
                     pathMode={pathMode}
@@ -265,6 +281,11 @@ export function NetworkScreen() {
                 {searchPanelOpen && (
                   <div className="network-search-popover">
                     <NetworkSearch onPersonSubmit={handlePersonSubmit} onPathSubmit={handlePathSubmit} />
+                  </div>
+                )}
+                {guidePanelOpen && (
+                  <div className="network-search-popover">
+                    <NetworkGuidePopover />
                   </div>
                 )}
                 <CommunityLegend communities={communities} onSelect={handleCommunitySelect} />

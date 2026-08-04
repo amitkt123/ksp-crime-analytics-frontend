@@ -309,6 +309,15 @@
 /* ---- Find Network / Find Link search panel (person + path lookup) ---- */
 .network-landing { display: flex; flex-direction: column; align-items: center; padding: 48px 24px; height: 100%; overflow-y: auto; }
 
+.network-guide-intro { width: 100%; max-width: 560px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 20px; }
+.network-guide-intro h3 { margin: 0 0 10px; font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); }
+.network-guide-intro ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+.network-guide-intro strong { color: var(--text); }
+
+.network-guide-popover { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 16px 18px; width: 320px; }
+.network-guide-popover h4 { margin: 0 0 10px; font-family: 'Space Grotesk', sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.network-guide-popover ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--text); }
+
 .network-search-popover { position: absolute; top: 68px; left: 18px; z-index: 6; width: 320px; }
 
 .network-search-container { width: 100%; max-width: 560px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 24px; }
